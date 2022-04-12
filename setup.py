@@ -26,7 +26,7 @@ reqs = [
 print(reqs)
 
 setup_args = {
-    'name': 'hdmf_zarr',
+    'name': 'hdmf_zarr_plugin',
     'version': versioneer.get_version(),
     'cmdclass': versioneer.get_cmdclass(),
     'description': 'A package defining a Zarr I/O backend for HDMF',

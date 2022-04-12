@@ -39,7 +39,7 @@ autodoc_member_order = 'bysource'
 
 # -- Project information -----------------------------------------------------
 
-project = 'hdmf-zarr'
+project = 'hdmf_zarr_plugin'
 copyright = '2022, Oliver Ruebel'
 author = 'Oliver Ruebel'
 
