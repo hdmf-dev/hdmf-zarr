@@ -1,2 +1,4 @@
-# hdmf-zarr
+hdmf-zarr
+=========
+
 Zarr I/O backend for HDMF
