@@ -22,8 +22,8 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 import unittest
 
-from hdmf_zarr_plugin.backend import (ZarrIO,
-                                      ROOT_NAME)
+from hdmf_zarr.backend import (ZarrIO,
+                               ROOT_NAME)
 
 from hdmf.backends.hdf5 import HDF5IO
 from hdmf.common import get_manager as get_hdmfcommon_manager

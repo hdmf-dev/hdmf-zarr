@@ -6,8 +6,8 @@ import shutil
 
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
-from hdmf_zarr_plugin.backend import ZarrIO
-from hdmf_zarr_plugin.utils import ZarrDataIO
+from hdmf_zarr.backend import ZarrIO
+from hdmf_zarr.utils import ZarrDataIO
 
 # Try to import numcodecs and disable compression tests if it is not available
 try:
