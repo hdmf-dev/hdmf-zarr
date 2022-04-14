@@ -10,7 +10,7 @@ Welcome to hdmf-zarr's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   hdmf_zarr_plugin
+   hdmf_zarr
 
 
 
