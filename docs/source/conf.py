@@ -54,7 +54,31 @@ release = '0.1.0'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
+    'sphinx_gallery.gen_gallery',
 ]
+
+# sphinx gallery setup
+sphinx_gallery_conf = {
+    # path to your examples scripts
+    'examples_dirs': ['../gallery'],
+    # path where to save gallery generated examples
+    'gallery_dirs': ['tutorials'],
+    'backreferences_dir': 'gen_modules/backreferences',
+    'min_reported_time': 5,
+    'remove_config_comments': True
+}
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3.10', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'matplotlib': ('https://matplotlib.org', None),
+    'h5py': ('https://docs.h5py.org/en/latest/', None),
+    'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
+    'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
+    'pynwb': ('https://hdmf.readthedocs.io/en/stable/', None),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
