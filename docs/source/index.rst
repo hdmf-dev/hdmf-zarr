@@ -10,6 +10,7 @@ Welcome to hdmf-zarr's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    tutorials/index
    hdmf_zarr
 
@@ -41,6 +42,14 @@ Limitations
 - For specific TODO items relate to the Zarr backend see ``src/backend.py``
 - Exporting of HDF5 files with external links is not yet fully implemented/tested
 
+TODO
+^^^^
+-
+- Resolve reference stored in datasets to the containers
+- Add support for RegionReferences
+- HDF5IO uses export_source argument on export. Need to check with if we need it here as well.
+- Handling of  external links on export is not yet fully implemented and is missing a few corner cases
+- Here we update the PyNWB test harness to add ZarrIO to the rountrip tests, which in turn runs all HDF5 roundtrip tests also for Zarr. This requires changing the test harness in PyNWB, instead it would be useful to be able to "inject" new I/O backends in the test harness so that we can specify those tests here, rather than implementing this in PyNWB and making PyNWB dependent on hdmf-zarr (see https://github.com/NeurodataWithoutBorders/pynwb/pull/1018/files#diff-ebaf216d6ea84b72ee9ac17ab17b6e5d5ed8a5f3bbd09ee11d9ee6969c2fc294 )
 
 
 Indices and tables
