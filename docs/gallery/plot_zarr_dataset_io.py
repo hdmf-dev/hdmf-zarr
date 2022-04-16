@@ -2,23 +2,16 @@
 Zarr Dataset I/O
 ================
 
-The :py:class:`~hdmf_zarr.backend.ZarrDataIO` class is used to wrap datasets
-to be able to customize I/O settings on a per-dataset basis.
+To customize data write settings on a per-dataset basis, HDMF supports
+wrapping of data arrays using :py:class:`~hdmf.data_utils.DataIO`. To
+support defining settings specific to Zarr ``hdmf-zarr`` provides
+the corresponding :py:class:`~hdmf_zarr.utils.ZarrDataIO` class.
 
 Create an example DynamicTable Container
 ----------------------------------------
 
-As a simple example, we here create a single :py:class:`~hdmf.common.table.VectorData` container
-to store an arbitrary example array.
-
-.. note::
-
-   When writing a :py:class:`~hdmf.common.table.DynamicTable` (or any Container that is
-   normally not intended to be the root of a file) we need to use :py:attr:`hdmf_zarr.backend.ROOT_NAME`
-   as the name for the Container to ensure that link paths are created correctly by
-   :py:class:`~hdmf_zarr.backend.ZarrIO`. This is due to the fact that the top-level Container
-   used during I/O is written as the root of the file. As such, the name of the root Container
-   of a file does not appear in the path to locate it.
+As a simple example, we first create a ``DynamicTable` container
+to store some arbitrary data columns.
 """
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_zarr_dataset_io.png'
 # Ignore warnings about the development of the ZarrIO backend
@@ -32,8 +25,9 @@ import numpy as np
 
 # Setup a DynamicTable for managing data about users
 data = np.arange(50).reshape(10, 5)
+from hdmf_zarr import ZarrDataIO
 column = VectorData(
-    name='test_data',
+    name='test_data_default_settings',
     description='Some 2D test data',
     data=data)
 test_table = DynamicTable(
@@ -47,7 +41,8 @@ test_table = DynamicTable(
 # Defining Data I/O settings
 # --------------------------
 #
-#
+# To define custom settings for write (e.g., for chunking and compression) we simply
+# wrap our data array using  :py:class:`~hdmf_zarr.utils.ZarrDataIO`.
 
 from hdmf_zarr import ZarrDataIO
 from numcodecs import Blosc
@@ -63,21 +58,35 @@ data_with_data_io = ZarrDataIO(
 # Adding the data to our table
 
 test_table.add_column(
-    name='test_data2',
+    name='test_data_zstd_compression',
     description='Some 2D test data',
     data=data_with_data_io)
+
+###############################################################################
+# Next we add a column where we explicitly disable compression
+data_without_compression = ZarrDataIO(
+    data=data*5,
+    compressor=False)
+test_table.add_column(
+    name='test_data_nocompression',
+    description='Some 2D test data',
+    data=data_without_compression)
 
 ###############################################################################
 # .. note::
 #
 #    To control linking to other datasets see the ``link_data`` parameter of :py:class:`~hdmf_zarr.utils.ZarrDataIO`
 #
+# .. note::
+#
+#    In the case of :py:class:`~hdmf.container.Data` (or here :py:class:`~hdmf.common.table.VectorData`) we
+#    can also set the ``DataIO`` object to use via the :py:meth:`~hdmf.container.Data.set_dataio` function.
 
 
 ###############################################################################
 # Writing and Reading
 # -------------------
-# Reading and writing data with filters works as usual. See :ref:`zarrio_tutorial` tutorial for details.
+# Reading and writing data with filters works as usual. See the :ref:`zarrio_tutorial` tutorial for details.
 #
 
 from hdmf.common import get_manager
@@ -95,10 +104,11 @@ intable = zarr_io.read()
 intable.to_dataframe()
 
 ###############################################################################
-# Check dataset settings used. Our first column uses the Zarr defaults and
-# the second column uses our customized settings
+# Check dataset settings used.
+#
 for c in intable.columns:
     print("Name=%s, Chunks=% s, Compressor=%s" %
           (c.name,
            str(c.data.chunks),
            str(c.data.compressor)))
+
