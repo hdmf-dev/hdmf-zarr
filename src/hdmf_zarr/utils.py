@@ -169,8 +169,9 @@ class ZarrDataIO(DataIO):
              'doc': 'Value to be returned when reading uninitialized parts of the dataset',
              'default': None},
             {'name': 'compressor',
-             'type': numcodecs.abc.Codec,
-             'doc': 'Zarr compressor filter to be used',
+             'type': (numcodecs.abc.Codec, bool),
+             'doc': 'Zarr compressor filter to be used. Set to True to use Zarr default.'
+                    'Set to False to disable compression)',
              'default': None},
             {'name': 'filters',
              'type': (list, tuple),
@@ -195,7 +196,16 @@ class ZarrDataIO(DataIO):
         if fill_value is not None:
             self.__iosettings['fill_value'] = fill_value
         if compressor is not None:
-            self.__iosettings['compressor'] = compressor
+            if isinstance(compressor, bool):
+                # Disable compression by setting compressor to None
+                if not compressor:
+                    self.__iosettings['compressor'] = None
+                # To use default settings simply do not specify any compressor settings
+                else:
+                    pass
+            # use the user-specified compressor
+            else:
+                self.__iosettings['compressor'] = compressor
         if filters is not None:
             self.__iosettings['filters'] = filters
 

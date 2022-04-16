@@ -370,6 +370,17 @@ class TestZarrWriteUnit(TestCase):
         self.io = ZarrIO(self.path, mode='w', synchronizer=True)
         self.assertTrue(isinstance(self.io.synchronizer, zarr.ProcessSynchronizer))
 
+    def test_zarrdataio_enable_default_compressor(self):
+        """Default compression simply means not specifying any compressor and using Zarr defaults"""
+        dataio = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=True)
+        self.assertEqual(len(dataio.io_settings), 0)
+
+    def test_zarrdataio_disable_compressor(self):
+        """Test that ZarrDataIO.__array__ is working when wrapping an ndarray"""
+        test_speed = np.array([10., 20.])
+        data = ZarrDataIO((test_speed), compressor=False)
+        self.assertIsNone(data.io_settings['compressor'])
+
     def test_zarrdataio_array_conversion_numpy(self):
         """Test that ZarrDataIO.__array__ is working when wrapping an ndarray"""
         test_speed = np.array([10., 20.])
@@ -570,12 +581,6 @@ class TestZarrWriteUnit(TestCase):
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertTrue(dset.compressor == compressor)
         self.assertListEqual(dset.filters, filters)
-
-    def test_write_dataset_list_enable_default_compress(self):
-        """Default compression is not supported, but we test the error message"""
-        with self.assertRaises(TypeError):
-            _ = ZarrDataIO(np.arange(30).reshape(5, 2, 3),
-                           compressor=True)
 
     ##########################################
     #  write_dataset tests: Iterable
