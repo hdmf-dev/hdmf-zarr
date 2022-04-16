@@ -88,8 +88,11 @@ intable.to_dataframe()
 
 
 ###############################################################################
+# Converting to/from HDF5 using ``export``
+# ----------------------------------------
+#
 # Exporting the Zarr file to HDF5
-# -------------------------------
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #
 # To convert our Zarr file to HDF5 we can now simply read the file with our
 # :py:class:`~hdmf_zarr.backend.ZarrIO` backend and the export the file
@@ -109,7 +112,7 @@ with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r') as zarr_read_io:
 #     not supported.
 #
 # Check that the HDF5 file is correct
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#
 with HDF5IO(path="example.h5", manager=get_manager(), mode='r') as hdf5_read_io:
     intable_from_hdf5 = hdf5_read_io.read()
     intable_hdf5_df = intable_from_hdf5.to_dataframe()
@@ -117,7 +120,7 @@ intable_hdf5_df  # display the table in the gallery output
 
 ###############################################################################
 # Exporting the HDF5 file to Zarr
-# -------------------------------
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #
 # In the same way as above, we can now also convert our HDF5 file back to Zarr
 # simply by reading the HDF5 file using HDMF's :py:class:`~hdmf.backends.hdf5.HDF5IO` backend
@@ -129,7 +132,7 @@ with HDF5IO(path="example.h5", manager=get_manager(), mode='r') as hdf5_read_io:
 
 ###############################################################################
 # Check that the Zarr file is correct
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#
 with ZarrIO(path="example_exp.zarr", manager=get_manager(), mode='r') as zarr_read_io:
     intable_from_zarr = zarr_read_io.read()
     intable_zarr_df = intable_from_zarr.to_dataframe()
