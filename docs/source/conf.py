@@ -13,6 +13,8 @@
 import os
 import sys
 import sphinx_rtd_theme
+from hdmf_zarr._version import get_versions
+
 
 # -- Support building doc without install --------------------------------------
 
@@ -43,9 +45,10 @@ project = 'hdmf_zarr'
 copyright = '2022, Oliver Ruebel'
 author = 'Oliver Ruebel'
 
-# The full version, including alpha/beta/rc tags
-release = '0.1.0'
-
+# The short X.Y version.
+version = '{}'.format(get_versions()['version'])
+# The full version, including alpha/beta/rc tags.
+release = '{}'.format(get_versions()['version'])
 
 # -- General configuration ---------------------------------------------------
 
