@@ -1,4 +1,6 @@
 """
+.. _zarrio_tutorial:
+
 ZarrIO Overview
 ===============
 
@@ -6,8 +8,8 @@ The :py:class:`~hdmf_zarr.backend.ZarrIO` backend behaves in general much like t
 standard :py:class:`~hdmf.backends.hdf5.HDF5IO` available with HDMF and is an
 adaptation of that backend to use Zarr instead of HDF5
 
-Create an example 'User' DynamicTable Container
------------------------------------------------
+Create an example DynamicTable Container
+----------------------------------------
 
 As a simple example, we here create a basic :py:class:`~hdmf.common.table.DynamicTable` for
 describing basic user data.
