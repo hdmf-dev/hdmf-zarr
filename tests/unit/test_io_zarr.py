@@ -1346,4 +1346,3 @@ class TestExportZarrToZarr(TestCase):
                 msg = "Cannot export to file %s in mode 'a'. Please use mode 'w'." % self.paths[1]
                 with self.assertRaisesWith(UnsupportedOperation, msg):
                     export_io.export(src_io=read_io)
-
