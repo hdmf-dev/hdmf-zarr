@@ -20,16 +20,18 @@ Documentation
 
 ``hdmf-zarr`` using Sphinx for documentation. To build the docs, makes sure that all required packages are installed:
 
-```
-pip install -r requirements-doc.txt
-```
+.. code-block:: bash
+
+    pip install -r requirements-doc.txt
+
 
 To build the documentation simply:
 
-```
-cd docs
-make html
-```
+.. code-block:: bash
+
+    cd docs
+    make html
+
 
 Usage
 -----
