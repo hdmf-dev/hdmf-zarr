@@ -14,6 +14,13 @@ Welcome to hdmf-zarr's documentation!
    tutorials/index
    hdmf_zarr
 
+**Citation:** If you use HDMF or hdmf_zarr in your research, please use the following citation:
+
+* A. J. Tritt, O. Ruebel, B. Dichter, R. Ly, D. Kang, E. F. Chang, L. M. Frank, K. Bouchard,
+  *"HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards,"*
+  2019 IEEE International Conference on Big Data (Big Data),
+  Los Angeles, CA, USA, 2019, pp. 165-179, doi: 10.1109/BigData47090.2019.9005648.
+
 
 Zarr backend
 ------------
