@@ -31,13 +31,11 @@ try:
                  'default': None},
                 {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
                  'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
-                 'default': None},
-                {'name': 'chunking', 'type': bool, 'doc': "Enable/Disable chunking of datasets by default",
-                 'default': True})
+                 'default': None})
         def __init__(self, **kwargs):
-            path, mode, manager, extensions, load_namespaces, synchronizer, chunking = \
+            path, mode, manager, extensions, load_namespaces, synchronizer = \
                 popargs('path', 'mode', 'manager', 'extensions',
-                        'load_namespaces', 'synchronizer', 'chunking', kwargs)
+                        'load_namespaces', 'synchronizer', kwargs)
             if load_namespaces:
                 if manager is not None:
                     warn("loading namespaces from file - ignoring 'manager'")
@@ -60,8 +58,7 @@ try:
             super(NWBZarrIO, self).__init__(path,
                                             manager=manager,
                                             mode=mode,
-                                            synchronizer=synchronizer,
-                                            chunking=chunking)
+                                            synchronizer=synchronizer)
 
         @docval({'name': 'src_io', 'type': HDMFIO, 'doc': 'the HDMFIO object for reading the data to export'},
                 {'name': 'nwbfile', 'type': 'NWBFile',
