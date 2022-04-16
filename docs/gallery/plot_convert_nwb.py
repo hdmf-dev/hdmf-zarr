@@ -48,7 +48,7 @@ from pynwb import NWBHDF5IO
 from hdmf_zarr.nwb import NWBZarrIO
 
 with NWBHDF5IO(filename , 'r', load_namespaces=False) as read_io:
-    with NWBZarrIO(zarr_filename, mode='w', chunking=True) as export_io:
+    with NWBZarrIO(zarr_filename, mode='w') as export_io:
         export_io.export(src_io=read_io, write_args=dict(link_data=False))
 
 ###############################################################################

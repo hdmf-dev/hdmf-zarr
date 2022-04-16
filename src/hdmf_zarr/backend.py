@@ -67,18 +67,22 @@ class ZarrIO(HDMFIO):
             {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
              'default': None},
-            {'name': 'chunking', 'type': bool, 'doc': "Enable chunking of datasets by default", 'default': True},
             {'name': 'object_codec_class', 'type': None,
-             'doc': "Set the numcodec object codec class to be used to encode objects", 'default': None})
+             'doc': 'Set the numcodec object codec class to be used to encode objects.' 
+                    'Use numcodecs.pickles.Pickle by default.',
+             'default': None})
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, chunking, object_codec_class = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'chunking', 'object_codec_class', kwargs)
+        path, manager, mode, synchronizer, object_codec_class = popargs(
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
-            sync_path = tempfile.mkdtemp()
-            self.__synchronizer = zarr.ProcessSynchronizer(sync_path)
+            if synchronizer:
+                sync_path = tempfile.mkdtemp()
+                self.__synchronizer = zarr.ProcessSynchronizer(sync_path)
+            else:
+                self.__synchronizer = None
         else:
             self.__synchronizer = synchronizer
         self.__mode = mode
@@ -87,7 +91,6 @@ class ZarrIO(HDMFIO):
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
-        self.__chunking = chunking
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         super().__init__(manager, source=path)
@@ -95,10 +98,6 @@ class ZarrIO(HDMFIO):
                     'development. The ZarrIO backend may change any time ' +
                     'and backward compatibility is not guaranteed.' + '\033[0m')
         warnings.warn(warn_msg)
-
-    @property
-    def chunking(self):
-        return self.__chunking
 
     @property
     def synchronizer(self):
@@ -621,10 +620,6 @@ class ZarrIO(HDMFIO):
             data = data.data
         else:
             options['io_settings'] = {}
-        # Enable/Disable chunking for all datasets if not set. Ignore in case of a DataChunkIterator
-        # as those datasets will always be chunked and need to set their own chunking
-        if 'chunks' not in options['io_settings'] and not isinstance(data, AbstractDataChunkIterator):
-            options['io_settings']['chunks'] = self.chunking
 
         attributes = builder.attributes
         options['dtype'] = builder.dtype
