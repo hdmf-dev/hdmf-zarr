@@ -20,7 +20,6 @@ import os
 import shutil
 import numpy as np
 from abc import ABCMeta, abstractmethod
-import unittest
 
 from hdmf_zarr.backend import (ZarrIO,
                                ROOT_NAME)
@@ -34,7 +33,6 @@ from tests.unit.utils import (Foo,
                               FooBucket,
                               FooFile,
                               get_foo_buildmanager)
-
 
 
 class TestCaseConvertMixin(metaclass=ABCMeta):
