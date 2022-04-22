@@ -1,5 +1,5 @@
 .. image:: docs/source/figures/logo_hdmf_zarr.png
-     :width: 250
+     :width: 400
 
 hdmf-zarr
 =========
