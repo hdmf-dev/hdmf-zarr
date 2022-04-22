@@ -10,7 +10,7 @@ the corresponding :py:class:`~hdmf_zarr.utils.ZarrDataIO` class.
 Create an example DynamicTable Container
 ----------------------------------------
 
-As a simple example, we first create a ``DynamicTable` container
+As a simple example, we first create a ``DynamicTable`` container
 to store some arbitrary data columns.
 """
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_zarr_dataset_io.png'
