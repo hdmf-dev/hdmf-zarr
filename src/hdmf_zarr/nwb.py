@@ -1,3 +1,4 @@
+"""Module with Zarr backend for NWB for integration with PyNWB"""
 from warnings import warn
 from .backend import ZarrIO
 import zarr
