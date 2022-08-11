@@ -1,13 +1,16 @@
 Installation
 ============
 
-For Users:
-----------
+For Users
+---------
 
 Coming soon ....
 
-For Developers: From GitHub
----------------------------
+For Developers
+--------------
+
+Install hdmf-zarr from GitHub
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following illustrates how to install both ``hdmf`` and ``hdfm_zarr`` from GitHub
 in a Conda environment. Normally we don't need to install ``hdmf`` directly, but until
