@@ -67,7 +67,7 @@ class ZarrIO(HDMFIO):
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
              'default': None},
             {'name': 'object_codec_class', 'type': None,
-             'doc': 'Set the numcodec object codec class to be used to encode objects.' 
+             'doc': 'Set the numcodec object codec class to be used to encode objects.'
                     'Use numcodecs.pickles.Pickle by default.',
              'default': None})
     def __init__(self, **kwargs):

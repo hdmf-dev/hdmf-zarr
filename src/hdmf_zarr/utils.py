@@ -9,8 +9,7 @@ import logging
 
 from hdmf.data_utils import DataIO
 from hdmf.utils import (docval,
-                        getargs,
-                        docval_attr_name)
+                        getargs)
 
 from hdmf.spec import (SpecWriter,
                        SpecReader)
