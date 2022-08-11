@@ -90,7 +90,7 @@ with NWBZarrIO(zarr_filename, mode='r') as read_io:
 # ---------------------------
 #
 # Now our file has been converted from HDF5 to Zarr and back again to HDF5.
-# Here we check that we can stil read that file
+# Here we check that we can still read that file
 
 with NWBHDF5IO(hdf_filename , 'r') as hr:
     hf = hr.read()
