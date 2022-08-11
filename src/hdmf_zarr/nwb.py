@@ -3,9 +3,11 @@ from warnings import warn
 from .backend import ZarrIO
 import zarr
 
-from hdmf.utils import docval, popargs, call_docval_func
+from hdmf.utils import (docval,
+                        popargs)
 from hdmf.backends.io import HDMFIO
-from hdmf.build import BuildManager, TypeMap
+from hdmf.build import (BuildManager,
+                        TypeMap)
 
 try:
     from pynwb import get_manager, get_type_map
@@ -70,7 +72,7 @@ try:
         def export(self, **kwargs):
             nwbfile = popargs('nwbfile', kwargs)
             kwargs['container'] = nwbfile
-            call_docval_func(super().export, kwargs)
+            super().export(**kwargs)
 
 except ImportError:
     warn("PyNWB is not installed. Support for NWBZarrIO is disabled.")

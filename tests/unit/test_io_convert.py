@@ -166,7 +166,8 @@ class MixinTestDynamicTableContainer():
     def setUpContainer(self):
         # TODO: The tables are names "root" because otherwise the Zarr backend does not determine the path correctly
         if self.TABLE_TYPE == 0:
-            table = DynamicTable(ROOT_NAME, 'an example table')
+            table = DynamicTable(name=ROOT_NAME,
+                                 description='an example table')
             table.add_column('foo', 'an int column')
             table.add_column('bar', 'a float column')
             table.add_column('qux', 'a boolean column')
@@ -175,7 +176,8 @@ class MixinTestDynamicTableContainer():
             table.add_row(foo=37, bar=38.0, qux=False, quux='b')
             return table
         elif self.TABLE_TYPE == 1:
-            table = DynamicTable(ROOT_NAME, 'an example table')
+            table = DynamicTable(name=ROOT_NAME,
+                                 description='an example table')
             table.add_column('foo', 'an int column')
             table.add_column('bar', 'a float column')
             table.add_column('baz', 'a string column')
@@ -200,7 +202,10 @@ class MixinTestCSRMatrix():
         data = np.array([1, 2, 3, 4, 5, 6])
         indices = np.array([0, 2, 2, 0, 1, 2])
         indptr = np.array([0, 2, 3, 6])
-        return CSRMatrix(data, indices, indptr, (3, 3))
+        return CSRMatrix(data=data,
+                         indices=indices,
+                         indptr=indptr,
+                         shape=(3, 3))
 
 
 #########################################

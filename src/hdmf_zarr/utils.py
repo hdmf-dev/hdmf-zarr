@@ -3,15 +3,15 @@ from zarr.hierarchy import Group
 import zarr
 import numcodecs
 import numpy as np
-from collections import (Iterable,
-                         deque)
+from collections import deque
+from collections.abc import Iterable
+
 import json
 import logging
 
 from hdmf.data_utils import DataIO
 from hdmf.utils import (docval,
-                        getargs,
-                        call_docval_func)
+                        getargs)
 
 from hdmf.spec import (SpecWriter,
                        SpecReader)
@@ -134,7 +134,7 @@ class ZarrSpecReader(SpecReader):
     def __init__(self, **kwargs):
         self.__group, source = getargs('group', 'source', kwargs)
         super_kwargs = {'source': source}
-        call_docval_func(super(ZarrSpecReader, self).__init__, super_kwargs)
+        super(ZarrSpecReader, self).__init__(**super_kwargs)
 
     def __read(self, path):
         s = self.__group[path][0]
@@ -188,7 +188,12 @@ class ZarrDataIO(DataIO):
         # TODO Need to add error checks and warnings to ZarrDataIO to check for parameter collisions and add tests
         data, chunks, fill_value, compressor, filters, self.__link_data = getargs(
             'data', 'chunks', 'fillvalue', 'compressor', 'filters', 'link_data', kwargs)
-        call_docval_func(super(ZarrDataIO, self).__init__, kwargs)
+        # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
+        #       These parameters are used to create empty data to allocate the data but
+        #       leave the I/O to fill the data to the user.
+        super(ZarrDataIO, self).__init__(data=data,
+                                         dtype=None,
+                                         shape=None)
         if not isinstance(data, zarr.Array) and self.__link_data:
             self.__link_data = False
         self.__iosettings = dict()
