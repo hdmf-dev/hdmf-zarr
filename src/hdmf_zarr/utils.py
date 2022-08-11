@@ -1,3 +1,4 @@
+"""Collection of utility I/O classes for the ZarrIO backend store"""
 from zarr.hierarchy import Group
 import zarr
 import numcodecs

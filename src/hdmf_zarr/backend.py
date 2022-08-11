@@ -52,12 +52,6 @@ ROOT_NAME = 'root'
 SPEC_LOC_ATTR = '.specloc'
 
 
-# TODO We should resolve reference stored in datasets to the containers
-# TODO We should add support for RegionReferences
-# TODO HDF5IO uses export_source argument on export. Need to check with Ryan if we need it here as well.
-# TODO Handling of  external links on export is not yet fully implemented and is missing a few corner cases
-
-
 class ZarrIO(HDMFIO):
 
     @docval({'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
@@ -68,7 +62,7 @@ class ZarrIO(HDMFIO):
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
              'default': None},
             {'name': 'object_codec_class', 'type': None,
-             'doc': 'Set the numcodec object codec class to be used to encode objects.' 
+             'doc': 'Set the numcodec object codec class to be used to encode objects.'
                     'Use numcodecs.pickles.Pickle by default.',
              'default': None})
     def __init__(self, **kwargs):
