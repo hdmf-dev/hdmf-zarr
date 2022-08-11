@@ -29,7 +29,6 @@ from hdmf.backends.utils import (NamespaceToBuilderHelper,
 from hdmf.utils import (docval,
                         getargs,
                         popargs,
-                        call_docval_func,
                         get_docval,
                         get_data_shape)
 from hdmf.build import (Builder,
@@ -155,7 +154,7 @@ class ZarrIO(HDMFIO):
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification"""
         cache_spec = popargs('cache_spec', kwargs)
-        call_docval_func(super(ZarrIO, self).write, kwargs)
+        super(ZarrIO, self).write(**kwargs)
         if cache_spec:
             self.__cache_spec()
 
@@ -201,7 +200,7 @@ class ZarrIO(HDMFIO):
         # write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
-        call_docval_func(super().export, ckwargs)
+        super().export(**ckwargs)
         if cache_spec:
             self.__cache_spec()
 
