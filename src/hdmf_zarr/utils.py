@@ -2,8 +2,9 @@ from zarr.hierarchy import Group
 import zarr
 import numcodecs
 import numpy as np
-from collections import (Iterable,
-                         deque)
+from collections import deque
+from collections.abc import Iterable
+
 import json
 import logging
 
