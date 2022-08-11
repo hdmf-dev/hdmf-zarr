@@ -81,7 +81,7 @@ intersphinx_mapping = {
     'h5py': ('https://docs.h5py.org/en/latest/', None),
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
-    'pynwb': ('https://hdmf.readthedocs.io/en/stable/', None),
+    'pynwb': ('https://pynwb.readthedocs.io/en/stable/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
