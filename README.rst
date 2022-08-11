@@ -39,7 +39,7 @@ Usage
 The library is intended to be used in conjunction with HDMF. ``hdmf-zarr`` mainly provides
 with the ``ZarrIO`` class an alternative to the ``HDF5IO`` I/O backend that ships with HDMF.
 To support customization of I/O settings, ``hdmf-zarr`` provides ``ZarrDataIO`` (similar to
-``H5DataIO`` in HDMF). Using ``ZarrIO`` and ``ZarrDataIO` works much in the same way as ``HDF5IO``.
+``H5DataIO`` in HDMF). Using ``ZarrIO`` and ``ZarrDataIO`` works much in the same way as ``HDF5IO``.
 To ease integration with the NWB data standard and PyNWB, ``hdmf-zarr`` provides the ``NWBZarrIO``
 class as alternative to ``pynwb.NWBHDF5IO``. See the tutorials included with the documentation for more details.
 
