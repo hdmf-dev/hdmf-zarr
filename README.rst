@@ -1,5 +1,9 @@
 .. image:: docs/source/figures/logo_hdmf_zarr.png
      :width: 400
+     
+.. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=latest
+     :target: https://hdmf-zarr.readthedocs.io/en/latest/?badge=latest
+     :alt: Documentation Status
 
 hdmf-zarr
 =========
