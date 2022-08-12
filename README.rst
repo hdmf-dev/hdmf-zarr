@@ -18,20 +18,7 @@ The ``hdmf-zarr`` library implements a Zarr I/O backend for HDMF.
 Documentation
 -------------
 
-``hdmf-zarr`` using Sphinx for documentation. To build the docs, makes sure that all required packages are installed:
-
-.. code-block:: bash
-
-    pip install -r requirements-doc.txt
-
-
-To build the documentation simply:
-
-.. code-block:: bash
-
-    cd docs
-    make html
-
+See the ``hdmf-zarr`` documentation for details https://hdmf-zarr.readthedocs.io/en/latest/
 
 Usage
 -----
@@ -42,5 +29,3 @@ To support customization of I/O settings, ``hdmf-zarr`` provides ``ZarrDataIO`` 
 ``H5DataIO`` in HDMF). Using ``ZarrIO`` and ``ZarrDataIO`` works much in the same way as ``HDF5IO``.
 To ease integration with the NWB data standard and PyNWB, ``hdmf-zarr`` provides the ``NWBZarrIO``
 class as alternative to ``pynwb.NWBHDF5IO``. See the tutorials included with the documentation for more details.
-
-
