@@ -21,11 +21,11 @@ warnings.filterwarnings('ignore', '.*The ZarrIO backend is experimental*', )
 # Import DynamicTable and get the ROOT_NAME
 from hdmf.common.table import DynamicTable, VectorData
 from hdmf_zarr.backend import ROOT_NAME
+from hdmf_zarr import ZarrDataIO
 import numpy as np
 
 # Setup a DynamicTable for managing data about users
 data = np.arange(50).reshape(10, 5)
-from hdmf_zarr import ZarrDataIO
 column = VectorData(
     name='test_data_default_settings',
     description='Some 2D test data',
@@ -44,12 +44,11 @@ test_table = DynamicTable(
 # To define custom settings for write (e.g., for chunking and compression) we simply
 # wrap our data array using  :py:class:`~hdmf_zarr.utils.ZarrDataIO`.
 
-from hdmf_zarr import ZarrDataIO
 from numcodecs import Blosc
 
 data_with_data_io = ZarrDataIO(
     data=data * 3,
-    chunks=(10,10),
+    chunks=(10, 10),
     fillvalue=0,
     compressor=Blosc(cname='zstd', clevel=1, shuffle=Blosc.SHUFFLE)
 )
@@ -111,4 +110,3 @@ for c in intable.columns:
           (c.name,
            str(c.data.chunks),
            str(c.data.compressor)))
-
