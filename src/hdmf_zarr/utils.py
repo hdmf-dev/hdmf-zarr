@@ -157,6 +157,7 @@ class ZarrDataIO(DataIO):
     Wrap data arrays for write via ZarrIO to customize I/O behavior, such as compression and chunking
     for data arrays.
     """
+
     @docval({'name': 'data',
              'type': (np.ndarray, list, tuple, zarr.Array, Iterable),
              'doc': 'the data to be written. NOTE: If an zarr.Array is used, all other settings but link_data' +
@@ -225,6 +226,9 @@ class ZarrDataIO(DataIO):
 
 
 class ZarrReference(dict):
+    """
+    Data structure to describe a reference to another container used with the ZarrIO backend
+    """
 
     @docval({'name': 'source',
              'type': str,
