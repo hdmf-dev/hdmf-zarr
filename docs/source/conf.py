@@ -82,6 +82,7 @@ intersphinx_mapping = {
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
     'pynwb': ('https://pynwb.readthedocs.io/en/stable/', None),
+    'zarr': ('https://zarr.readthedocs.io/en/stable/', None)
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -108,6 +109,21 @@ exclude_patterns = []
 #
 html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+html_theme_options = {
+    'logo_only': False,  # Only show the hdmf-zarr logo without the documentation title
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',  # Show previous/next button at the bottom
+    'style_external_links': True,  # Add marker to indicate external links
+    'vcs_pageview_mode': '',
+    # 'style_nav_header_background': '#0281b8',
+    # Toc options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

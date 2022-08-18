@@ -448,6 +448,7 @@ class ZarrIO(HDMFIO):
     def __get_ref(self, ref_object):
         """
         Create a ZarrReference object that points to the given container
+
         :param ref_object: the object to be referenced
         :type ref_object: Builder, Container, ReferenceBuilder
         :returns: ZarrReference object
