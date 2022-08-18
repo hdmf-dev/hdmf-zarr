@@ -12,7 +12,7 @@ import sys
 import traceback
 import unittest
 
-flags = {'hdmf': 1, 'example': 4}
+flags = {'unit': 1, 'example': 4}
 
 TOTAL = 0
 FAILURES = 0
