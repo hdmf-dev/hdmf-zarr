@@ -41,5 +41,4 @@ TODO
 - Add support for RegionReferences
 - :py:class:`~hdmf.backends.hdf5.h5tools.HDF5IO` uses the ``export_source`` argument on export. Need to check with Ryan Ly if we need it here as well.
 - Handling of  external links on export is not yet fully implemented and is missing a few corner cases
-=======
 - Here we update the PyNWB test harness to add ZarrIO to the rountrip tests, which in turn runs all HDF5 roundtrip tests also for Zarr. This requires changing the test harness in PyNWB, instead it would be useful to be able to "inject" new I/O backends in the test harness so that we can specify those tests here, rather than implementing this in PyNWB and making PyNWB dependent on hdmf-zarr. See the files ``tests/integration/ui_write/base.py`` and ``tests/integration/hdf5/test_modular_storage.py`` as part of `PyNWB #1018 <https://github.com/NeurodataWithoutBorders/pynwb/pull/1018/files>`_ for details (the other parts of the this PR have already been ported to *hdmf-zarr*).
