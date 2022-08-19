@@ -6,4 +6,3 @@ pandas==1.0.5
 ruamel.yaml==0.16
 scipy==1.1
 setuptools
-dandi>=0.46.1
