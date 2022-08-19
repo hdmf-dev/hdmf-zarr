@@ -2,5 +2,5 @@
 sphinx
 sphinx_rtd_theme
 sphinx-gallery
-dandi>=0.46.1
+dandi
 matplotlib
