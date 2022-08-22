@@ -1,18 +1,54 @@
 .. image:: docs/source/figures/logo_hdmf_zarr.png
      :width: 400
      
+hdmf-zarr
+=========
+
+The ``hdmf-zarr`` library implements a Zarr backend for HDMF as well as convenience classes for integration of Zarr with PyNWB to support writing of NWB files to Zarr.
+
+The Zarr backend is currently experimental and may still change. See the `overiew page <https://hdmf-zarr.readthedocs.io/en/latest/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr. 
+
+
+Latest Release
+--------------
+
 .. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=latest
      :target: https://hdmf-zarr.readthedocs.io/en/latest/?badge=latest
      :alt: Documentation Status
 
-hdmf-zarr
-=========
+CI / Health Status
+-------------------
 
-The ``hdmf-zarr`` library implements a Zarr I/O backend for HDMF.
+.. image:: https://codecov.io/gh/hdmf-dev/hdmf-zarr/branch/dev/graph/badge.svg
+    :target: https://codecov.io/gh/hdmf-dev/hdmf-zarr
 
-**Status:** The library is under development and not indented for production use.
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20code%20coverage/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_coverage.yml
 
-**Citation:** If you use HDMF or hdmf_zarr in your research, please use the following citation:
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20tests/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_tests.yml
+
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20all%20tests/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_all_tests.yml
+
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Check%20Sphinx%20external%20links/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/check_external_links.yml
+
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Deploy%20release/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/deploy_release.yml
+    
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/black/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/black.yml
+
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20style%20check/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_flake8.yml
+
+
+
+Citing hdmf-zarr
+----------------
+
+If you use HDMF or hdmf_zarr in your research, please use the following citation:
 
 * A. J. Tritt, O. Ruebel, B. Dichter, R. Ly, D. Kang, E. F. Chang, L. M. Frank, K. Bouchard,
   *"HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards,"*
