@@ -50,5 +50,4 @@ jobs:
             --publish
           # upload assets in a separate command until https://github.com/j0057/github-release/issues/67 is resolved
           githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} asset hdmf-dev/hdmf \
-            upload ${{ github.ref_name }} \
-            --publish dist/*
+            upload ${{ github.ref_name }} dist/*
