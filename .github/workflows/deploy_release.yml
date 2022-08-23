@@ -45,9 +45,9 @@ jobs:
         run: |
           # use click<8 until https://github.com/j0057/github-release/issues/62 is resolved
           python -m pip install "click<8" githubrelease
-          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf \
+          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf-zarr \
             create ${{ github.ref_name }} --name ${{ github.ref_name }} \
             --publish
           # upload assets in a separate command until https://github.com/j0057/github-release/issues/67 is resolved
-          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} asset hdmf-dev/hdmf \
+          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} asset hdmf-dev/hdmf-zarr \
             upload ${{ github.ref_name }} dist/*
