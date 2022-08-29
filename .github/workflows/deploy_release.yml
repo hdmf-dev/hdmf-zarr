@@ -43,12 +43,7 @@ jobs:
           twine upload -u ${{ secrets.BOT_PYPI_USER }} -p ${{ secrets.BOT_PYPI_PASSWORD }} --skip-existing dist/*
       - name: Publish wheel and source distributions as a GitHub release
         run: |
-          # use click<8 until https://github.com/j0057/github-release/issues/62 is resolved
-          python -m pip install "click<8" githubrelease
-          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf-zarr \
+          python -m pip install "githubrelease>=1.5.9"
+          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf \
             create ${{ github.ref_name }} --name ${{ github.ref_name }} \
-            --publish
-          sleep 5
-          # upload assets in a separate command until https://github.com/j0057/github-release/issues/67 is resolved
-          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} asset hdmf-dev/hdmf-zarr \
-            upload ${{ github.ref_name }} dist/*
+            --publish dist/*
