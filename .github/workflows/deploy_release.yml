@@ -44,6 +44,6 @@ jobs:
       - name: Publish wheel and source distributions as a GitHub release
         run: |
           python -m pip install "githubrelease>=1.5.9"
-          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf \
+          githubrelease --github-token ${{ secrets.BOT_GITHUB_TOKEN }} release hdmf-dev/hdmf-zarr \
             create ${{ github.ref_name }} --name ${{ github.ref_name }} \
             --publish dist/*
