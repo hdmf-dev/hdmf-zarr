@@ -58,6 +58,7 @@ release = '{}'.format(get_versions()['version'])
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.extlinks',
     'sphinx.ext.napoleon',
     'sphinx_gallery.gen_gallery',
 ]
@@ -83,6 +84,12 @@ intersphinx_mapping = {
     'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
     'pynwb': ('https://pynwb.readthedocs.io/en/stable/', None),
     'zarr': ('https://zarr.readthedocs.io/en/stable/', None)
+}
+
+# Use this for mapping to external links
+extlinks = {
+    'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/', '%s'),
+    'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/', ''),
 }
 
 # Add any paths that contain templates here, relative to this directory.
