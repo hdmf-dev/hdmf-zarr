@@ -1,8 +1,8 @@
 """
 .. _nwbzarrio_tutorial:
 
-NWBZarrIO
-=========
+Creating NWB files using ``NWBZarrIO``
+======================================
 
 Similar to :py:class:`pynwb.NWBHDF5IO`, the :py:class:`~hdmf_zarr.nwb.NWBZarrIO` extends the basic
 :py:class:`~hdmf_zarr.backend.ZarrIO` to perform default setup for BuildManager, loading or namespaces etc.,
@@ -148,6 +148,7 @@ with NWBZarrIO(path=absolute_path, mode="r") as io:
 ###############################################################################
 # Test changing the current directory
 # ------------------------------------
+
 import os
 os.chdir(os.path.abspath(os.path.join(os.getcwd(), "../")))
 
