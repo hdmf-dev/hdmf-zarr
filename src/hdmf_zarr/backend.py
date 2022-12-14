@@ -549,7 +549,7 @@ class ZarrIO(HDMFIO):
         # for internal links (a.k.a, SoftLinks) they will be the same and our target will be part of
         # our new file, so we can safely replace the source
         if builder.source == target_builder.source:
-            zarr_ref.source = "." # self.__path
+            zarr_ref.source = "."  # Link should be relative to self
         # EXPORT WITH LINKS: Make sure target is written. If is not then if the target points to a
         #                    non-Zarr source, then we need to copy the data instead of writing a
         #                    link to the data
@@ -1160,7 +1160,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and 'zarr_dtype' in v:
                     # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        path =  self.__resolve_ref(v['value'])
+                        path = self.__resolve_ref(v['value'])
                         if not os.path.exists(path):
                             raise ValueError("Found bad link in attribute to %s" % (path))
 
