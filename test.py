@@ -58,7 +58,7 @@ def run_test_suite(directory, description="", verbose=True):
 
 def _import_from_file(script):
     import imp
-    return imp.load_source(os.path.basename(script), script)
+    return imp.load_source(os.path.basename(script).replace("\\", "/"), script)
 
 
 warning_re = re.compile("Parent module '[a-zA-Z0-9]+' not found while handling absolute import")
@@ -68,7 +68,7 @@ def run_example_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info('running example tests')
     examples_scripts = list()
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery")):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery").replace("\\", "/")):
         for f in files:
             if f.endswith(".py"):
                 examples_scripts.append(os.path.join(root, f))
