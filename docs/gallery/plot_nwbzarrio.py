@@ -30,7 +30,7 @@ from datetime import datetime
 from dateutil.tz import tzlocal
 
 import numpy as np
-from pynwb import NWBFile, NWBHDF5IO
+from pynwb import NWBFile
 from pynwb.ecephys import ElectricalSeries, LFP
 
 # Create the NWBFile
@@ -154,8 +154,3 @@ os.chdir(os.path.abspath(os.path.join(os.getcwd(), "../")))
 
 with NWBZarrIO(path=absolute_path, mode="r") as io:
     infile = io.read()
-
-
-
-
-
