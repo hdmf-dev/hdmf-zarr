@@ -72,9 +72,9 @@ Datasets
 .. table:: Mapping of datasets
     :class: longtable
 
-    ============================  ==========================================================================================================
+    ============================  ======================================================================================================================
     HDMF Specification Key        Zarr
-    ============================  ==========================================================================================================
+    ============================  ======================================================================================================================
     name                          Name of the dataset in Zarr
     doc                           Zarr attribute ``doc`` on the Zarr dataset
     dtype                         Data type of the Zarr dataset (see `dtype mappings`_ table) and stored in the ``zarr_dtype`` reserved attribute
@@ -86,7 +86,7 @@ Datasets
     neurodata_type                Attribute ``neurodata_type`` on the Zarr dataset
     namespace ID                  Attribute ``namespace`` on the Zarr dataset
     object ID                     Attribute ``object_id`` on the Zarr dataset
-    ============================  ===========================================================================================================
+    ============================  ======================================================================================================================
 
 .. note::
 
@@ -218,7 +218,7 @@ Similar to Links, object references are defined via dicts, which are stored as e
 the Dataset. In contrast to links, individual object reference do not have a ``name`` but are identified
 by their location (i.e., index) in the dataset. As such, object references only have the ``source`` with
 the relative path to the target Zarr file, and the ``path`` identifying the object within the source
-Zarr file.The individual object references are defined in the
+Zarr file. The individual object references are defined in the
 :py:class:`~hdmf_zarr.backend.ZarrIO` as py:class:`~hdmf_zarr.utils.ZarrReference` object created via
 the :py:meth:`~hdmf_zarr.backend.ZarrIO.__get_ref` helper function.
 
@@ -232,9 +232,26 @@ parameter of the :py:func:`~hdmf_zarr.backend.ZarrIO.__init__` constructor of
 Storing object references in Attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-{'zarr_dtype': type_str, 'value': refs}
+Object references are stored in a attributes as dicts with the following keys:
 
+* ``zarr_dtype`` : Indicating the data type for the attribute. For object references
+  ``zarr_dtype`` is set to ``"object"`` (or ``"region"`` for :ref:`sec-zarr-storage-references-region`)
+* ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
+  dictionary with the ``source`` and ``path`` keys defining the object reference (again, ``source`` is
+  here the relative path to the target Zarr file, and ``path`` identifys the object within the source
+   Zarr file).
 
+For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be defined as follows:
+
+.. code-block:: json
+
+    "table": {
+        "value": {
+            "path": "/general/extracellular_ephys/electrodes",
+            "source": "."
+        },
+        "zarr_dtype": "object"
+    }
 
 .. _sec-zarr-storage-references-region:
 
@@ -258,17 +275,10 @@ store the definition of the ``region`` that is being referenced, e.g., a slice o
     3) :py:meth:`~hdmf_zarr.backend.ZarrIO.write_dataset` already partially implements the required
     logic for creating region references by checking for :py:class:`hdmf.build.RegionBuilder` inputs
     but will likely need updates as well
-    4) :py:meth:`~hdmf_zarr.backend.ZarrIO.~__read_dataset` to support reading region references,
-    which may also require updates to :py:meth:`~hdmf_zarr.backend.ZarrIO.~__parse_ref` and
-    :py:meth:`~hdmf_zarr.backend.ZarrIO.~__resolve_ref`, and 5) and possibly other parts of
-    :py:class:`~hdmf_zarr.backend.ZarrIO`
-
-
-
-
-
-* In datasets
-* In attributes  {'zarr_dtype': type_str, 'value': refs}
+    4) :py:meth:`~hdmf_zarr.backend.ZarrIO.__read_dataset` to support reading region references,
+    which may also require updates to :py:meth:`~hdmf_zarr.backend.ZarrIO.__parse_ref` and
+    :py:meth:`~hdmf_zarr.backend.ZarrIO.__resolve_ref`, and
+    5) and possibly other parts of :py:class:`~hdmf_zarr.backend.ZarrIO`
 
 .. _sec-zarr-storage-dtypes:
 
@@ -277,71 +287,71 @@ dtype mappings
 
 The mappings of data types is as follows
 
-    +--------------------------+----------------------------------+----------------+
-    | ``dtype`` **spec value** | **storage type**                 | **size**       |
-    +--------------------------+----------------------------------+----------------+
-    |  * "float"               | single precision floating point  | 32 bit         |
-    |  * "float32"             |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "double"              | double precision floating point  | 64 bit         |
-    |  * "float64"             |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "long"                | signed 64 bit integer            | 64 bit         |
-    |  * "int64"               |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "int"                 | signed 32 bit integer            | 32 bit         |
-    |  * "int32"               |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "int16"               | signed 16 bit integer            | 16 bit         |
-    +--------------------------+----------------------------------+----------------+
-    |  * "int8"                | signed 8 bit integer             | 8 bit          |
-    +--------------------------+----------------------------------+----------------+
-    |  * "uint32"              | unsigned 32 bit integer          | 32 bit         |
-    +--------------------------+----------------------------------+----------------+
-    |  * "uint16"              | unsigned 16 bit integer          | 16 bit         |
-    +--------------------------+----------------------------------+----------------+
-    |  * "uint8"               | unsigned 8 bit integer           | 8 bit          |
-    +--------------------------+----------------------------------+----------------+
-    |  * "bool"                | boolean                          | 8 bit          |
-    +--------------------------+----------------------------------+----------------+
-    |  * "text"                | unicode                          | variable       |
-    |  * "utf"                 |                                  |                |
-    |  * "utf8"                |                                  |                |
-    |  * "utf-8"               |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "ascii"               | ascii                            | variable       |
-    |  * "str"                 |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "ref"                 | Reference to another group or    |                |
-    |  * "reference"           | dataset                          |                |
-    |  * "object"              |                                  |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * region                | Reference to a region            |                |
-    |                          | of another dataset               |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * compound dtype        | HDF5 compound data type          |                |
-    +--------------------------+----------------------------------+----------------+
-    |  * "isodatetime"         | ASCII ISO8061 datetime string.   | variable       |
-    |                          | For example                      |                |
-    |                          | ``2018-09-28T14:43:54.123+02:00``|                |
-    +--------------------------+----------------------------------+----------------+
+    +--------------------------+------------------------------------+----------------+
+    | ``dtype`` **spec value** | **storage type**                   | **size**       |
+    +--------------------------+------------------------------------+----------------+
+    |  * "float"               | single precision floating point    | 32 bit         |
+    |  * "float32"             |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "double"              | double precision floating point    | 64 bit         |
+    |  * "float64"             |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "long"                | signed 64 bit integer              | 64 bit         |
+    |  * "int64"               |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "int"                 | signed 32 bit integer              | 32 bit         |
+    |  * "int32"               |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "int16"               | signed 16 bit integer              | 16 bit         |
+    +--------------------------+------------------------------------+----------------+
+    |  * "int8"                | signed 8 bit integer               | 8 bit          |
+    +--------------------------+------------------------------------+----------------+
+    |  * "uint32"              | unsigned 32 bit integer            | 32 bit         |
+    +--------------------------+------------------------------------+----------------+
+    |  * "uint16"              | unsigned 16 bit integer            | 16 bit         |
+    +--------------------------+------------------------------------+----------------+
+    |  * "uint8"               | unsigned 8 bit integer             | 8 bit          |
+    +--------------------------+------------------------------------+----------------+
+    |  * "bool"                | boolean                            | 8 bit          |
+    +--------------------------+------------------------------------+----------------+
+    |  * "text"                | unicode                            | variable       |
+    |  * "utf"                 |                                    |                |
+    |  * "utf8"                |                                    |                |
+    |  * "utf-8"               |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "ascii"               | ascii                              | variable       |
+    |  * "str"                 |                                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "ref"                 | Reference to another group or      |                |
+    |  * "reference"           | dataset. See                       |                |
+    |  * "object"              | :ref:`sec-zarr-storage-references` |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * region                | Reference to a region              |                |
+    |                          | of another dataset. See            |                |
+    |                          | :ref:sec-zarr-storage-references`  |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * compound dtype        | Compound data type                 |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "isodatetime"         | ASCII ISO8061 datetime string.     | variable       |
+    |                          | For example                        |                |
+    |                          | ``2018-09-28T14:43:54.123+02:00``  |                |
+    +--------------------------+------------------------------------+----------------+
 
 
 Caching format specifications
 =============================
 
 In practice it is useful to cache the specification a file was created with (including extensions)
-directly in the HDF5 file. Caching the specification in the file ensures that users can access
-the specification directly if necessary without requiring external resources. However, the mechanisms for
-caching format specifications is likely different for different storage backends and is not
-part of the NWB format specification itself. For the HDF5 backend, caching of the schema is implemented as follows.
+directly in the Zarr file. Caching the specification in the file ensures that users can access
+the specification directly if necessary without requiring external resources.
+For the Zarr backend, caching of the schema is implemented as follows.
 
-The HDF5 backend adds the reserved top-level group ``/specifications`` in which all format specifications (including
+The Zarr backend adds the reserved top-level group ``/specifications`` in which all format specifications (including
 extensions) are cached. The ``/specifications`` group contains for each specification namespace a subgroup
 ``/specifications/<namespace-name>/<version>`` in which the specification for a particular version of a namespace
 are stored (e.g., ``/specifications/core/2.0.1`` in the case of the NWB core namespace at version 2.0.1).
 The actual specification data is then stored as a JSON string in scalar datasets with a binary, variable-length string
-data type (e.g., ``dtype=special_dtype(vlen=binary_type)`` in Python). The specification of the namespace is stored in
+data type. The specification of the namespace is stored in
 ``/specifications/<namespace-name>/<version>/namespace`` while additional source files are stored in
 ``/specifications/<namespace-name>/<version>/<source-filename>``. Here ``<source-filename>`` refers to the main name
 of the source-file without file extension (e.g., the core namespace defines ``nwb.ephys.yaml`` as source which would
