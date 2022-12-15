@@ -30,6 +30,7 @@ Citing hdmf-zarr
    :maxdepth: 2
    :caption: For Developers:
 
+   storage
    hdmf_zarr
 
 Indices and tables

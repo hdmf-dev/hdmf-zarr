@@ -10,11 +10,8 @@ Zarr Backend and Utilities
 * :py:class:`~hdmf_zarr.nwb.NWBZarrIO` uses :py:class:`~hdmf_zarr.backend.ZarrIO` to define a Zarr backend store for integration with PyNWB to simplify the use of `hdmf_zarr` with NWB (similar to :py:class:`~pynwb.NWBHDF5IO` in PyNWB)
 * :py:mod:`~hdmf_zarr.utils` implements utility classes for the :py:class:`~hdmf_zarr.backend.ZarrIO` backend. For end-users the :py:class:`~hdmf_zarr.utils.ZarrDataIO` class is relevant for defining advanced I/O options for datasets.
 
-Features and Known Limitations
-------------------------------
-
 Supported features
-^^^^^^^^^^^^^^^^^^^
+------------------
 
 - Write/Read of basic data types, strings and compound data types
 - Chunking
@@ -24,12 +21,11 @@ Supported features
 - Writing/loading namespaces/specifications
 - Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator`
 
-Limitations
-^^^^^^^^^^^
+Known Limitations
+-----------------
 
-- Support for region references is not yet implemented  (see :py:class:`hdmf_zarr.backend.ZarrIO.__get_ref`)
+- Support for region references is not yet implemented. See also :ref:`sec-zarr-storage-references-region` for details.
 - The Zarr backend is currently experimental and may still change.
-- Links and reference are not natively supported by Zarr. Links and references are implemented in :py:class:`~hdmf_zarr.backend.ZarrIO` in an OS independent fashion. The backend reserves attributes (see :py:attr:`~hdmf_zarr.backend.ZarrIO.__reserve_attribute`) to store the paths of the target objects (see also  :py:meth:`~hdmf_zarr.backend.ZarrIO.__write_link__`, :py:meth:`~hdmf_zarr.backend.ZarrIO.__add_link__`, :py:meth:`~hdmf_zarr.backend.ZarrIO.__read_links`)
 - Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
 - Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend uses Zarr's :py:class:`~zarr.storage.DirectoryStore` only. Other `Zarr stores <https://zarr.readthedocs.io/en/stable/api/storage.html>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `https://github.com/zarr-developers/zarr-python/issues/389 <https://github.com/zarr-developers/zarr-python/issues/389>`_.
 - Exporting of HDF5 files with external links is not yet fully implemented/tested
