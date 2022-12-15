@@ -1,5 +1,8 @@
 # HDMF-ZARR Changelog
 
+## 0.1.x (Upcoming)
+- Add docs for describing the mapping of HDMF schema to Zarr storage
+
 ## 0.1.0 
 
 ### New features
