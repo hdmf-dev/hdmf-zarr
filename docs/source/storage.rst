@@ -258,7 +258,7 @@ For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be
 Region references
 -----------------
 
-Region references, are similar to object references, but instead of references other Datasets or Groups,
+Region references are similar to object references, but instead of references other Datasets or Groups,
 region references link to subsets of another Dataset. To identify region references, the reserved attribute
 ``zarr_dtype`` is set to ``'region'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In addition
 to the ``source`` and ``path``, the  py:class:`~hdmf_zarr.utils.ZarrReference` object will also need to
