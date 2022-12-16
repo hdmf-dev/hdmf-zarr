@@ -8,7 +8,7 @@ from hdmf.utils import (docval,
 from hdmf.backends.io import HDMFIO
 from hdmf.build import (BuildManager,
                         TypeMap)
-
+from pynwb import get_manager, get_type_map
 try:
     from pynwb import get_manager, get_type_map
 
