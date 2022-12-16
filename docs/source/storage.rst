@@ -153,7 +153,7 @@ as JSON. Each dict (i.e., element) in the list defines a link, with each dict co
 * ``name`` : Name of the link
 * ``source`` : Relative path to the root of the Zarr file containing the linked object. For links
   pointing to an object within the same Zarr file, the value of source will be ``"."``. For external
-  links that point ot object in another Zarr file, the value of source will be the  path to
+  links that point to object in another Zarr file, the value of source will be the path to
   the other Zarr file relative to the root path of the Zarr file containing the link.
 * ``path`` : Path to the linked object within the Zarr file idenfied by the ``source`` key
 
