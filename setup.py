@@ -22,7 +22,7 @@ reqs = [
     'numcodecs>=0.9.1',
     'pynwb>=2.0.0',
     'setuptools',
-    'numpy>=1.23'
+    'numpy==1.21.6'
 ]
 
 print(reqs)
