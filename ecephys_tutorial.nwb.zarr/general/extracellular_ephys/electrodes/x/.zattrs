@@ -1,0 +1,7 @@
+{
+    "description": "the x coordinate of the position (+x is posterior)",
+    "namespace": "hdmf-common",
+    "neurodata_type": "VectorData",
+    "object_id": "0d249fe6-6a6b-45ab-9d1c-4f078e5cd42a",
+    "zarr_dtype": "float"
+}

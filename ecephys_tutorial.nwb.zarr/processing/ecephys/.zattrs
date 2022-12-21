@@ -1,0 +1,6 @@
+{
+    "description": "processed extracellular electrophysiology data",
+    "namespace": "core",
+    "neurodata_type": "ProcessingModule",
+    "object_id": "a42cfed9-2778-4b1e-85cc-2fa92ffe1791"
+}

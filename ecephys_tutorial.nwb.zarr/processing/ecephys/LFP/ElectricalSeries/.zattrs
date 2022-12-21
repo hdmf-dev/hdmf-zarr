@@ -1,0 +1,14 @@
+{
+    "comments": "no comments",
+    "description": "no description",
+    "namespace": "core",
+    "neurodata_type": "ElectricalSeries",
+    "object_id": "bc5eb5bc-91b6-42c7-bf8c-c8508b29ea44",
+    "zarr_link": [
+        {
+            "name": "electrodes",
+            "path": "/acquisition/ElectricalSeries/electrodes",
+            "source": "."
+        }
+    ]
+}

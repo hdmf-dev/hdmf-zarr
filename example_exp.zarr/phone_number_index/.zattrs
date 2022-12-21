@@ -1,0 +1,14 @@
+{
+    "data_type": "VectorIndex",
+    "description": "Index for VectorData 'phone_number'",
+    "namespace": "hdmf-common",
+    "object_id": "3b0dcce8-4d7f-4d16-9028-cae3569bd30c",
+    "target": {
+        "value": {
+            "path": "/phone_number",
+            "source": "."
+        },
+        "zarr_dtype": "object"
+    },
+    "zarr_dtype": "uint8"
+}

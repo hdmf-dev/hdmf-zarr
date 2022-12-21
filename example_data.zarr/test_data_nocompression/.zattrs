@@ -1,0 +1,7 @@
+{
+    "data_type": "VectorData",
+    "description": "Some 2D test data",
+    "namespace": "hdmf-common",
+    "object_id": "4a193689-5ddd-46ae-976d-bf90541624c8",
+    "zarr_dtype": "int64"
+}

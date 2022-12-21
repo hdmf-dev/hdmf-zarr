@@ -1,0 +1,7 @@
+{
+    "description": "label of electrode",
+    "namespace": "hdmf-common",
+    "neurodata_type": "VectorData",
+    "object_id": "e54567fc-4165-46fa-b4c6-a5b6d9388e00",
+    "zarr_dtype": "str"
+}

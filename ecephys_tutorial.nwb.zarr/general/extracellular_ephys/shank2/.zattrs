@@ -1,0 +1,14 @@
+{
+    "description": "electrode group for shank 2",
+    "location": "brain area",
+    "namespace": "core",
+    "neurodata_type": "ElectrodeGroup",
+    "object_id": "0929f3b2-680d-4962-84b8-8c788ec121f6",
+    "zarr_link": [
+        {
+            "name": "device",
+            "path": "/general/devices/array",
+            "source": "."
+        }
+    ]
+}
