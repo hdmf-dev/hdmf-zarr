@@ -1,7 +1,0 @@
-{
-    "description": "the z coordinate of the position (+z is right)",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "f191264c-bd4e-4160-98ac-6689ed3f2702",
-    "zarr_dtype": "float"
-}

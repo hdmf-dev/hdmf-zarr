@@ -1,6 +1,0 @@
-{
-    "data_type": "ElementIdentifiers",
-    "namespace": "hdmf-common",
-    "object_id": "f8440272-3bd1-4348-8132-d0951cecaa93",
-    "zarr_dtype": "int64"
-}

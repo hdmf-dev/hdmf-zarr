@@ -1,7 +1,0 @@
-{
-    "data_type": "VectorData",
-    "description": "the phone number of the user",
-    "namespace": "hdmf-common",
-    "object_id": "1171b44c-cdc0-4623-adaa-aac684e2aa8f",
-    "zarr_dtype": "object_"
-}

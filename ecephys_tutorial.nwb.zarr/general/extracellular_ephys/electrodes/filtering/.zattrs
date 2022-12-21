@@ -1,7 +1,0 @@
-{
-    "description": "description of hardware filtering, including the filter name and frequency cutoffs",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "541f1efe-13b5-4e93-a99f-8a313657afb1",
-    "zarr_dtype": "str"
-}

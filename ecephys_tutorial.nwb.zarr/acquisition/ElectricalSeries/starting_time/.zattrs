@@ -1,5 +1,0 @@
-{
-    "rate": 20000.0,
-    "unit": "seconds",
-    "zarr_dtype": "scalar"
-}

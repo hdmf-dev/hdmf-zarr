@@ -1,7 +1,0 @@
-{
-    "description": "the spike times for each unit",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "b9e78187-2195-4741-babb-b96799f0e924",
-    "zarr_dtype": "float64"
-}

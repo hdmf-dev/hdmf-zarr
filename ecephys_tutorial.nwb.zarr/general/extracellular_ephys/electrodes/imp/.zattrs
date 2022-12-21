@@ -1,7 +1,0 @@
-{
-    "description": "the impedance of the electrode, in ohms",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "0fa5c86c-41d3-4342-b6a8-fc66eed6e006",
-    "zarr_dtype": "float"
-}

@@ -1,8 +1,0 @@
-{
-    "description": "the spike waveform mean for each spike unit",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "79671238-1578-4b31-9adf-33d52662e561",
-    "unit": "volts",
-    "zarr_dtype": "float64"
-}

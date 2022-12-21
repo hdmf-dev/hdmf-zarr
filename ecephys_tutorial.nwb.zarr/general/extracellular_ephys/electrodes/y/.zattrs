@@ -1,7 +1,0 @@
-{
-    "description": "the y coordinate of the position (+y is inferior)",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "9d0e5ae0-3c3d-4d18-9cef-c9792a58d2e7",
-    "zarr_dtype": "float"
-}
