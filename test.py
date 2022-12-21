@@ -58,7 +58,7 @@ def run_test_suite(directory, description="", verbose=True):
 
 def _import_from_file(script):
     import imp
-    return imp.load_source(os.path.basename(script).replace("\\", "/"), script)
+    return imp.load_source(os.path.basename(script), script)
 
 
 warning_re = re.compile("Parent module '[a-zA-Z0-9]+' not found while handling absolute import")
@@ -68,7 +68,7 @@ def run_example_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info('running example tests')
     examples_scripts = list()
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery").replace("\\", "/")):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery")):
         for f in files:
             if f.endswith(".py"):
                 examples_scripts.append(os.path.join(root, f))
@@ -92,12 +92,18 @@ def run_example_tests():
 
 
 def main():
+    warnings.warn(
+        "python test.py is deprecated. Please use pytest to run unit tests and run python test_gallery.py to "
+        "test Sphinx Gallery files.",
+        DeprecationWarning
+    )
+
     # setup and parse arguments
     parser = argparse.ArgumentParser('python test.py [options]')
     parser.set_defaults(verbosity=1, suites=[])
     parser.add_argument('-v', '--verbose', const=2, dest='verbosity', action='store_const', help='run in verbose mode')
     parser.add_argument('-q', '--quiet', const=0, dest='verbosity', action='store_const', help='run disabling output')
-    parser.add_argument('-u', '--unit', action='append_const', const=flags['hdmf_zarr'], dest='suites',
+    parser.add_argument('-u', '--unit', action='append_const', const=flags['hdmf'], dest='suites',
                         help='run unit tests for hdmf package')
     parser.add_argument('-e', '--example', action='append_const', const=flags['example'], dest='suites',
                         help='run example tests')
@@ -118,9 +124,9 @@ def main():
 
     warnings.simplefilter('always')
 
-    # Run unit tests for hdmf_zarr package
-    if flags['hdmf_zarr'] in args.suites:
-        run_test_suite("tests/unit", "hdmf_zarr unit tests", verbose=args.verbosity)
+    # Run unit tests for hdmf package
+    if flags['hdmf'] in args.suites:
+        run_test_suite("tests/unit", "hdmf unit tests", verbose=args.verbosity)
 
     # Run example tests
     if flags['example'] in args.suites:
