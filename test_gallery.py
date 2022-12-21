@@ -32,8 +32,11 @@ _distutils_warning_re = (
 )
 
 _experimental_warning_re = (
-    "[a-zA-Z0-9]+ is experimental -- it may be removed in the future "
-    "and is not guaranteed to maintain backward compatibility"
+    "The ZarrIO backend is experimental. It is under active development. The ZarrIO backend may change any time and backward compatibility is not guaranteed."
+)
+
+_user_warning_transpose = (
+    "ElectricalSeries 'ElectricalSeries': The second dimension of data does not match the length of electrodes. Your data may be transposed."
 )
 
 
@@ -59,6 +62,9 @@ def run_gallery_tests():
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
+                )
+                warnings.filterwarnings(
+                    "ignore", message=_user_warning_transpose, category=UserWarning
                 )
                 warnings.filterwarnings(
                     # this warning is triggered from pandas when HDMF is installed with the minimum requirements
