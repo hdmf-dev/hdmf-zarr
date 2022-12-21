@@ -92,13 +92,19 @@ def run_example_tests():
 
 
 def main():
+    warnings.warn(
+        "python test.py is deprecated. Please use pytest to run unit tests and run python test_gallery.py to "
+        "test Sphinx Gallery files.",
+        DeprecationWarning
+    )
+
     # setup and parse arguments
     parser = argparse.ArgumentParser('python test.py [options]')
     parser.set_defaults(verbosity=1, suites=[])
     parser.add_argument('-v', '--verbose', const=2, dest='verbosity', action='store_const', help='run in verbose mode')
     parser.add_argument('-q', '--quiet', const=0, dest='verbosity', action='store_const', help='run disabling output')
     parser.add_argument('-u', '--unit', action='append_const', const=flags['hdmf_zarr'], dest='suites',
-                        help='run unit tests for hdmf package')
+                        help='run unit tests for hdmf_zarr package')
     parser.add_argument('-e', '--example', action='append_const', const=flags['example'], dest='suites',
                         help='run example tests')
     args = parser.parse_args()

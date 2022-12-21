@@ -27,7 +27,7 @@ asset.download(filename)
 # ---------------------------------------------
 #
 
-zarr_filename = "test_zarr_" + filename
+zarr_filename = "test_zarr_" + filename + ".zarr"
 hdf_filename = "test_hdf5_" + filename
 
 # Delete our converted HDF5 file from previous runs of this notebook

@@ -1,5 +1,15 @@
 # HDMF-ZARR Changelog
 
+## 0.1.7 (Upcoming)
+
+### Bugs
+* Use path relative to the current Zarr file in the definition of links and references to avoid breaking
+  links when moving Zarr files @oruebel ([#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46))
+* Fix bugs in requirements defined in setup.py @oruebel ([#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46))
+
+### Docs
+* Add tutoial illustrating how to create a new NWB file with NWBZarrIO @oruebel ([#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46))
+
 ## 0.1.0 
 
 ### New features

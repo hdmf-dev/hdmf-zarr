@@ -505,7 +505,7 @@ class TestZarrWriteUnit(TestCase):
         testgroup = self.io._ZarrIO__file  # For testing we just use our file and create some attributes
         attr = {'attr1': dataset_1}
         self.io.write_attributes(testgroup, attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': self.path, 'path': '/dataset_1'}}}
+        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
         self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
 
     def test_write_attributes_write_reference_to_referencebuilder(self):
@@ -515,7 +515,7 @@ class TestZarrWriteUnit(TestCase):
         testgroup = self.io._ZarrIO__file  # For testing we just use our file and create some attributes
         attr = {'attr1': ref1}
         self.io.write_attributes(testgroup, attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': self.path, 'path': '/dataset_1'}}}
+        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
         self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
 
     ##########################################
@@ -886,8 +886,8 @@ class TestExportZarrToZarr(TestCase):
             self.assertEqual(read_foofile2.foo_link.container_source, self.paths[1])
             zarr_linkspec1 = zarr.open(self.paths[0])['links'].attrs.asdict()['zarr_link'][0]
             zarr_linkspec2 = zarr.open(self.paths[1])['links'].attrs.asdict()['zarr_link'][0]
-            self.assertEqual(zarr_linkspec1.pop('source'), self.paths[0])
-            self.assertEqual(zarr_linkspec2.pop('source'), self.paths[1])
+            self.assertEqual(zarr_linkspec1.pop('source'), ".")
+            self.assertEqual(zarr_linkspec2.pop('source'), ".")
             self.assertDictEqual(zarr_linkspec1, zarr_linkspec2)
 
     def test_soft_link_dataset(self):
