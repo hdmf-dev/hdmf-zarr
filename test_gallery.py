@@ -32,11 +32,13 @@ _distutils_warning_re = (
 )
 
 _experimental_warning_re = (
-    "The ZarrIO backend is experimental. It is under active development. The ZarrIO backend may change any time and backward compatibility is not guaranteed."
+    "The ZarrIO backend is experimental. It is under active development. "
+    "The ZarrIO backend may change any time and backward compatibility is not guaranteed."
 )
 
 _user_warning_transpose = (
-    "ElectricalSeries 'ElectricalSeries': The second dimension of data does not match the length of electrodes. Your data may be transposed."
+    "ElectricalSeries 'ElectricalSeries': The second dimension of data does not match the "
+    "length of electrodes. Your data may be transposed."
 )
 
 
