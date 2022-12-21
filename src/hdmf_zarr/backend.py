@@ -87,10 +87,19 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         super().__init__(manager, source=path)
-        warn_msg = ('\033[91m' + 'The ZarrIO backend is experimental. It is under active ' +
-                    'development. The ZarrIO backend may change any time ' +
-                    'and backward compatibility is not guaranteed.' + '\033[0m')
+        warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
+                    "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
         warnings.warn(warn_msg)
+
+    @property
+    def path(self):
+        """The path to the Zarr file as set by the use"""
+        return self.__path
+
+    @property
+    def abspath(self):
+        """The absolute path to the Zarr file"""
+        return os.path.abspath(self.path)
 
     @property
     def synchronizer(self):
@@ -445,6 +454,27 @@ class ZarrIO(HDMFIO):
         else:
             return dtype == DatasetBuilder.OBJECT_REF_TYPE or dtype == DatasetBuilder.REGION_REF_TYPE
 
+    def __resolve_ref(self, zarr_ref):
+        """
+        Get the full path to the object linked to by the zarr reference
+
+        The function only constructs the links to the targe object, but it does not check if the object exists
+
+        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrRefernce` object
+        :return: Full path to the linked object
+        """
+        # Extract the path as defined in the zarr_ref object
+        if zarr_ref.get('source', None) is None:
+            ref_path = str(zarr_ref['path'])
+        elif zarr_ref.get('path', None) is None:
+            ref_path = str(zarr_ref['source'])
+        else:
+            ref_path = os.path.join(zarr_ref['source'], zarr_ref['path'].lstrip("/"))
+        # Make the path relative to the current file
+        ref_path = os.path.abspath(os.path.join(self.path, ref_path))
+        # Return the create path
+        return ref_path
+
     def __get_ref(self, ref_object):
         """
         Create a ZarrReference object that points to the given container
@@ -476,6 +506,9 @@ class ZarrIO(HDMFIO):
         source = (builder.source
                   if (builder.source is not None and os.path.isdir(builder.source))
                   else self.__path)
+        # Make the source relative to the current file
+        source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+        # Return the ZarrReference object
         return ZarrReference(source, path)
 
     def __add_link__(self, parent, target_source, target_path, link_name):
@@ -513,9 +546,9 @@ class ZarrIO(HDMFIO):
         # When exporting from one source to another, the LinkBuilders.source are not updated, i.e,. the
         # builder.source and target_builder.source are not being updated and point to the old file, but
         # for internal links (a.k.a, SoftLinks) they will be the same and our target will be part of
-        # our new file, so we can savely replace the source
+        # our new file, so we can safely replace the source
         if builder.source == target_builder.source:
-            zarr_ref.source = self.__path
+            zarr_ref.source = "."  # Link should be relative to self
         # EXPORT WITH LINKS: Make sure target is written. If is not then if the target points to a
         #                    non-Zarr source, then we need to copy the data instead of writing a
         #                    link to the data
@@ -998,15 +1031,10 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                if link['source'] is None:
-                    l_path = str(link['path'])
-                elif link['path'] is None:
-                    l_path = str(link['source'])
-                else:
-                    l_path = os.path.join(link['source'], link['path'].lstrip("/"))
+                l_path = self.__resolve_ref(link)
                 if not os.path.exists(l_path):
-                    raise ValueError("Found bad link %s in %s to %s" % (link_name, self.__path, l_path))
-
+                    raise ValueError("Found bad link %s in %s in file %s to %s" %
+                                     (link_name, self.__get_path(parent), self.__path, l_path))
                 target_name = str(os.path.basename(l_path))
                 target_zarr_obj = zarr.open(l_path, mode='r')
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
@@ -1108,11 +1136,7 @@ class ZarrIO(HDMFIO):
             o = data
             for i in p:
                 o = o[i]
-            source = o['source']
-            path = o['path']
-            if source is not None and source != "":
-                path = os.path.join(source, path.lstrip("/"))
-
+            path = self.__resolve_ref(o)
             if not os.path.exists(path):
                 raise ValueError("Found bad link in dataset to %s" % (path))
 
@@ -1135,11 +1159,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and 'zarr_dtype' in v:
                     # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        source = v['value']['source']
-                        path = v['value']['path']
-                        if source is not None and source != "":
-                            path = os.path.join(source, path.lstrip("/"))
-
+                        path = self.__resolve_ref(v['value'])
                         if not os.path.exists(path):
                             raise ValueError("Found bad link in attribute to %s" % (path))
 
