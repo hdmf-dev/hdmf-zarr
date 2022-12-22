@@ -77,6 +77,7 @@ def run_example_tests():
     for script in examples_scripts:
         try:
             logging.info("Executing %s" % script)
+            logging.info(os.getcwd())
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
                 _import_from_file(script)
