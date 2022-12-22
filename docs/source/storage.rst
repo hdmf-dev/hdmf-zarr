@@ -124,7 +124,7 @@ Attributes
 .. _sec-zarr-storage-attributes-reserved:
 
 Reserved attributes
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 The :py:class:`~hdmf_zarr.backend.ZarrIO` backend defines a set of reserved attribute names defined in
 py:attr:`~hdmf_zarr.backend.ZarrIO.__reserve_attribute`. These reserved attributes are used to implement
@@ -208,7 +208,7 @@ of datasets or attributes. This approach allows for storage of large collections
 of multi-dimensional arrays (i.e., the data type of the array is a reference type).
 
 Storing object references in Datasets
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 To identify that a dataset contains object reference, the reserved attribute ``zarr_dtype`` is set to
 ``'object'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In this way, we can unambiguously
@@ -230,7 +230,7 @@ parameter of the :py:func:`~hdmf_zarr.backend.ZarrIO.__init__` constructor of
 ``ZarrIO( ... , object_codec_class=numcodecs.JSON)`` to serialize objects using JSON.
 
 Storing object references in Attributes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 Object references are stored in a attributes as dicts with the following keys:
 
