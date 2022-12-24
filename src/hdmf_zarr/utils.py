@@ -242,14 +242,20 @@ class ZarrReference(dict):
             {'name': 'object_id',
              'type': str,
              'doc': 'Object_id of the referenced object (if available)',
+             'default': None},
+            {'name': 'source_object_id',
+             'type': str,
+             'doc': 'Object_id of the source (should always be available)',
              'default': None}
             )
     def __init__(self, **kwargs):
-        dest_source, dest_path, dest_object_id = getargs('source', 'path', 'object_id', kwargs)
+        dest_source, dest_path, dest_object_id, dest_source_object_id = getargs(
+            'source', 'path', 'object_id', 'source_object_id', kwargs)
         super(ZarrReference, self).__init__()
-        self.source =  dest_source
+        self.source = dest_source
         self.path = dest_path
         self.object_id = dest_object_id
+        self.source_object_id = dest_source_object_id
 
     @property
     def source(self) -> str:
@@ -263,6 +269,10 @@ class ZarrReference(dict):
     def object_id(self) -> str:
         return super(ZarrReference, self).__getitem__('object_id')
 
+    @property
+    def source_object_id(self) -> str:
+        return super(ZarrReference, self).__getitem__('source_object_id')
+
     @source.setter
     def source(self, source: str):
         super(ZarrReference, self).__setitem__('source', source)
@@ -271,6 +281,10 @@ class ZarrReference(dict):
     def path(self, path: str):
         super(ZarrReference, self).__setitem__('path', path)
 
-    @path.setter
+    @object_id.setter
     def object_id(self, object_id: str):
         super(ZarrReference, self).__setitem__('object_id', object_id)
+
+    @source_object_id.setter
+    def source_object_id(self, object_id: str):
+        super(ZarrReference, self).__setitem__('source_object_id', object_id)

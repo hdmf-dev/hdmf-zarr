@@ -156,7 +156,10 @@ as JSON. Each dict (i.e., element) in the list defines a link, with each dict co
   links that point to object in another Zarr file, the value of source will be the path to
   the other Zarr file relative to the root path of the Zarr file containing the link.
 * ``path`` : Path to the linked object within the Zarr file idenfied by the ``source`` key
-* ``object_id``: Object id of the reference object. May be None in case the referenced object does not have and assigned object_id (e.g., in the case we reference a dataset with a fixed name but without and assigned ``data_type`` (or ``neurodata_type`` in the case of NWB)/
+* ``object_id``: Object id of the reference object. May be None in case the referenced object
+  does not have and assigned object_id (e.g., in the case we reference a dataset with a fixed
+  name but without and assigned ``data_type`` (or ``neurodata_type`` in the case of NWB).
+* ``source_object_id``: Object if of the source Zarr file indicated by the ``source`` key.
 
 For example:
 
@@ -167,7 +170,8 @@ For example:
             "name": "device",
             "source": ".",
             "path": "/general/devices/array",
-            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa"
+            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa",
+            "source_object_id": "6224bb89-578a-4839-b31c-83f11009292c"
         }
     ]
 
@@ -239,9 +243,9 @@ Object references are stored in a attributes as dicts with the following keys:
 * ``zarr_dtype`` : Indicating the data type for the attribute. For object references
   ``zarr_dtype`` is set to ``"object"`` (or ``"region"`` for :ref:`sec-zarr-storage-references-region`)
 * ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
-  dictionary with the ``source``, ``path``, and ``object_id`` keys defining the object reference
-  (again, ``source`` is here the relative path to the target Zarr file,  ``path`` identifies the
-  object within the source Zarr file, and ``object_id`` is the option object_id of the referenced object).
+  dictionary with the ``source``, ``path``, ``object_id``, and ``source_object_id`` keys defining
+  the object reference, with the definition of the keys being the same as
+  for :ref:`sec-zarr-storage-links`.
 
 For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be defined as follows:
 
@@ -251,7 +255,8 @@ For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be
         "value": {
             "path": "/general/extracellular_ephys/electrodes",
             "source": ".",
-            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa"
+            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa",
+            "source_object_id": "6224bb89-578a-4839-b31c-83f11009292c"
         },
         "zarr_dtype": "object"
     }
