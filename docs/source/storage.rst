@@ -156,6 +156,7 @@ as JSON. Each dict (i.e., element) in the list defines a link, with each dict co
   links that point to object in another Zarr file, the value of source will be the path to
   the other Zarr file relative to the root path of the Zarr file containing the link.
 * ``path`` : Path to the linked object within the Zarr file idenfied by the ``source`` key
+* ``object_id``: Object id of the reference object. May be None in case the referenced object does not have and assigned object_id (e.g., in the case we reference a dataset with a fixed name but without and assigned ``data_type`` (or ``neurodata_type`` in the case of NWB)/
 
 For example:
 
@@ -164,8 +165,9 @@ For example:
     "zarr_link": [
         {
             "name": "device",
+            "source": ".",
             "path": "/general/devices/array",
-            "source": "."
+            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa"
         }
     ]
 
@@ -237,9 +239,9 @@ Object references are stored in a attributes as dicts with the following keys:
 * ``zarr_dtype`` : Indicating the data type for the attribute. For object references
   ``zarr_dtype`` is set to ``"object"`` (or ``"region"`` for :ref:`sec-zarr-storage-references-region`)
 * ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
-  dictionary with the ``source`` and ``path`` keys defining the object reference (again, ``source`` is
-  here the relative path to the target Zarr file, and ``path`` identifys the object within the source
-   Zarr file).
+  dictionary with the ``source``, ``path``, and ``object_id`` keys defining the object reference
+  (again, ``source`` is here the relative path to the target Zarr file,  ``path`` identifies the
+  object within the source Zarr file, and ``object_id`` is the option object_id of the referenced object).
 
 For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be defined as follows:
 
@@ -248,7 +250,8 @@ For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be
     "table": {
         "value": {
             "path": "/general/extracellular_ephys/electrodes",
-            "source": "."
+            "source": ".",
+            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa"
         },
         "zarr_dtype": "object"
     }
