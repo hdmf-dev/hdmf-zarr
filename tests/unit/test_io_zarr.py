@@ -504,8 +504,14 @@ class TestZarrWriteUnit(TestCase):
         dataset_1 = DatasetBuilder('dataset_1', data_1)
         testgroup = self.io._ZarrIO__file  # For testing we just use our file and create some attributes
         attr = {'attr1': dataset_1}
-        self.io.write_attributes(testgroup, attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
+        with self.assertWarnsWith(UserWarning,
+                                  "Could not determine source_object_id for builder with path: /dataset_1"):
+            self.io.write_attributes(testgroup, attr)
+        expected_value = {'attr1': {'zarr_dtype': 'object',
+                                    'value': {'source': ".",
+                                              'path': '/dataset_1',
+                                              'object_id': None,
+                                              'source_object_id': None}}}
         self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
 
     def test_write_attributes_write_reference_to_referencebuilder(self):
@@ -514,8 +520,16 @@ class TestZarrWriteUnit(TestCase):
         ref1 = ReferenceBuilder(dataset_1)
         testgroup = self.io._ZarrIO__file  # For testing we just use our file and create some attributes
         attr = {'attr1': ref1}
-        self.io.write_attributes(testgroup, attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
+        with self.assertWarnsWith(UserWarning,
+                                  "Could not determine source_object_id for builder with path: /dataset_1"):
+            self.io.write_attributes(testgroup, attr)
+        expected_value = {'attr1': {'zarr_dtype': 'object',
+                                    'value': {'source': ".",
+                                              'path': '/dataset_1',
+                                              'source_object_id': None,
+                                              'object_id': None},
+                                    }
+                          }
         self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
 
     ##########################################
@@ -877,9 +891,16 @@ class TestExportZarrToZarr(TestCase):
         foofile = FooFile(buckets=[foobucket], foo_link=foo1)
         with ZarrIO(self.paths[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
+        with open(self.paths[0]+"/.zattrs", 'r') as f:
+            print(f.readlines())
+
         with ZarrIO(self.paths[0], manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO(self.paths[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, write_args=dict(link_data=False))
+                with self.assertWarnsWith(UserWarning, "Could not determine source_object_id for "
+                                                       "builder with path: /buckets/bucket1/foo_holder/foo1"):
+                    export_io.export(
+                        src_io=read_io,
+                        write_args=dict(link_data=False))
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is within the same file
