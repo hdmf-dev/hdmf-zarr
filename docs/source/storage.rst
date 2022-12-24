@@ -159,7 +159,9 @@ as JSON. Each dict (i.e., element) in the list defines a link, with each dict co
 * ``object_id``: Object id of the reference object. May be None in case the referenced object
   does not have and assigned object_id (e.g., in the case we reference a dataset with a fixed
   name but without and assigned ``data_type`` (or ``neurodata_type`` in the case of NWB).
-* ``source_object_id``: Object if of the source Zarr file indicated by the ``source`` key.
+* ``source_object_id``: Object id of the source Zarr file indicated by the ``source`` key.
+  The ``source`` should always have an ``object_id`` (at least if the ``source`` file is
+  a valid HDMF formatted file).
 
 For example:
 

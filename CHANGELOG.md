@@ -2,6 +2,11 @@
 
 ## 0.1.7 (Upcoming)
 
+### Enhancements
+* Updated storage of references to also save the ``object_id`` and ``source_object_id``. While these
+  fields are not strictly necessary to define a link they are useful for validation of references
+  and enhance the rigor of the definition of references. @oruebel [#57](https://github.com/hdmf-dev/hdmf-zarr/pull/57)
+
 ### Bugs
 * Use path relative to the current Zarr file in the definition of links and references to avoid breaking
   links when moving Zarr files @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
