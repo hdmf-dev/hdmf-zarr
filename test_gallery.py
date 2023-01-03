@@ -41,9 +41,10 @@ _user_warning_transpose = (
     "length of electrodes. Your data may be transposed."
 )
 
-_deprication_warning = ("DeprecationWarning: Classes in map.py should be imported from hdmf.build. "
- "Importing from hdmf.build.map will be removed in HDMF 3.0.")
-
+_deprication_warning = (
+    "DeprecationWarning: Classes in map.py should be imported from hdmf.build. "
+    "Importing from hdmf.build.map will be removed in HDMF 3.0."
+)
 
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
