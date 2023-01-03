@@ -42,8 +42,8 @@ _user_warning_transpose = (
 )
 
 _deprication_warning = (
-    "DeprecationWarning: Classes in map.py should be imported from hdmf.build. "
-    "Importing from hdmf.build.map will be removed in HDMF 3.0."
+    'Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed '
+    'in HDMF 3.0.'
 )
 
 
