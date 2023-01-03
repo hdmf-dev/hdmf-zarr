@@ -20,7 +20,7 @@ reqs = [
     'hdmf>=3.4.0',
     'zarr>=2.11.0',
     'numcodecs>=0.9.1',
-    'pynwb<=2.1.0; python_version>"3.7"',
+    'pynwb==2.1.0',
     'setuptools',
     'numpy>=1.23; python_version>"3.7"'
 ]
