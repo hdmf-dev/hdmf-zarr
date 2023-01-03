@@ -78,6 +78,7 @@ from hdmf_zarr.backend import ZarrIO
 zarr_dir = "example.zarr"
 with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
     zarr_io.write(users_table)
+    zarr_io.close()
 
 ###############################################################################
 # Reading the table from Zarr
@@ -85,6 +86,7 @@ with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
 zarr_io = ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r')
 intable = zarr_io.read()
 intable.to_dataframe()
+zarr_io.close()
 
 
 ###############################################################################
@@ -103,6 +105,8 @@ from hdmf.backends.hdf5 import HDF5IO
 with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r') as zarr_read_io:
     with HDF5IO(path="example.h5", manager=get_manager(), mode='w') as hdf5_export_io:
         hdf5_export_io.export(src_io=zarr_read_io, write_args=dict(link_data=False))  # use export!
+        hdf5_export_io.close()
+    zarr_read_io.close()
 
 ###############################################################################
 # .. note::
@@ -117,6 +121,7 @@ with HDF5IO(path="example.h5", manager=get_manager(), mode='r') as hdf5_read_io:
     intable_from_hdf5 = hdf5_read_io.read()
     intable_hdf5_df = intable_from_hdf5.to_dataframe()
 intable_hdf5_df  # display the table in the gallery output
+hdf5_read_io.close()
 
 ###############################################################################
 # Exporting the HDF5 file to Zarr
@@ -129,6 +134,8 @@ intable_hdf5_df  # display the table in the gallery output
 with HDF5IO(path="example.h5", manager=get_manager(), mode='r') as hdf5_read_io:
     with ZarrIO(path="example_exp.zarr",  manager=get_manager(), mode='w') as zarr_export_io:
         zarr_export_io.export(src_io=hdf5_read_io, write_args=dict(link_data=False))  # use export!
+        zarr_export_io.close()
+    hdf5_read_io.close()
 
 ###############################################################################
 # Check that the Zarr file is correct
@@ -137,3 +144,4 @@ with ZarrIO(path="example_exp.zarr", manager=get_manager(), mode='r') as zarr_re
     intable_from_zarr = zarr_read_io.read()
     intable_zarr_df = intable_from_zarr.to_dataframe()
 intable_zarr_df  # display the table in the gallery output
+zarr_read_io.close()
