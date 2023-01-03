@@ -46,6 +46,7 @@ _deprication_warning = (
     "Importing from hdmf.build.map will be removed in HDMF 3.0."
 )
 
+
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info("Testing execution of Sphinx Gallery files")
