@@ -46,9 +46,16 @@ _deprication_warning_map = (
     'in HDMF 3.0.'
 )
 
-_deprication_warning_docval = (
+_deprication_warning_fmt_docval_args = (
     "fmt_docval_args will be deprecated in a future version of HDMF. Instead of using fmt_docval_args, "
     "call the function directly with the kwargs. Please note that fmt_docval_args "
+    "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
+    "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
+    "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
+)
+
+_deprication_warning_call_docval_func = (
+    "call the function directly with the kwargs. Please note that call_docval_func "
     "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
     "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
@@ -79,7 +86,10 @@ def run_gallery_tests():
                     "ignore", message=_deprication_warning_map, category=DeprecationWarning
                 )
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_docval, category=DeprecationWarning
+                    "ignore", message=_deprication_warning_fmt_docval_args, category=PendingDeprecationWarning
+                )
+                warnings.filterwarnings(
+                    "ignore", message=_deprication_warning_call_docval_func, category=PendingDeprecationWarning
                 )
                 warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
