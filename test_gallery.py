@@ -41,6 +41,9 @@ _user_warning_transpose = (
     "length of electrodes. Your data may be transposed."
 )
 
+_deprication_warning = ("DeprecationWarning: Classes in map.py should be imported from hdmf.build. "
+ "Importing from hdmf.build.map will be removed in HDMF 3.0.")
+
 
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
@@ -62,6 +65,9 @@ def run_gallery_tests():
         logging.info("Executing %s" % script)
         try:
             with warnings.catch_warnings(record=True):
+                warnings.filterwarnings(
+                    "ignore", message=_deprication_warning, category=DeprecationWarning
+                )
                 warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
                 )
