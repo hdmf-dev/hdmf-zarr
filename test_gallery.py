@@ -52,7 +52,7 @@ _deprication_warning_docval = (
     "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
     "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
-
+)
 
 
 def run_gallery_tests():
