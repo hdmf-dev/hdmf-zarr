@@ -52,7 +52,6 @@ data_with_data_io = ZarrDataIO(
     fillvalue=0,
     compressor=Blosc(cname='zstd', clevel=1, shuffle=Blosc.SHUFFLE)
 )
-data_with_data_io.close()
 
 ###############################################################################
 # Adding the data to our table
@@ -71,7 +70,6 @@ test_table.add_column(
     name='test_data_nocompression',
     description='Some 2D test data',
     data=data_without_compression)
-data_without_compression.close()
 
 ###############################################################################
 # .. note::
