@@ -52,6 +52,7 @@ data_with_data_io = ZarrDataIO(
     fillvalue=0,
     compressor=Blosc(cname='zstd', clevel=1, shuffle=Blosc.SHUFFLE)
 )
+data_with_data_io.close()
 
 ###############################################################################
 # Adding the data to our table
@@ -70,6 +71,7 @@ test_table.add_column(
     name='test_data_nocompression',
     description='Some 2D test data',
     data=data_without_compression)
+data_without_compression.close()
 
 ###############################################################################
 # .. note::
@@ -94,6 +96,7 @@ from hdmf_zarr.backend import ZarrIO
 zarr_dir = "example_data.zarr"
 with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
     zarr_io.write(test_table)
+    zarr_io.close()
 
 ###############################################################################
 # reading the table from Zarr
@@ -101,6 +104,7 @@ with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
 zarr_io = ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r')
 intable = zarr_io.read()
 intable.to_dataframe()
+zarr_io.close()
 
 ###############################################################################
 # Check dataset settings used.
