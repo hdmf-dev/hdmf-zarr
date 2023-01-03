@@ -41,10 +41,18 @@ _user_warning_transpose = (
     "length of electrodes. Your data may be transposed."
 )
 
-_deprication_warning = (
+_deprication_warning_map = (
     'Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed '
     'in HDMF 3.0.'
 )
+
+_deprication_warning_docval = (
+    "fmt_docval_args will be deprecated in a future version of HDMF. Instead of using fmt_docval_args, "
+    "call the function directly with the kwargs. Please note that fmt_docval_args "
+    "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
+    "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
+    "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
+
 
 
 def run_gallery_tests():
@@ -68,7 +76,10 @@ def run_gallery_tests():
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning, category=DeprecationWarning
+                    "ignore", message=_deprication_warning_map, category=DeprecationWarning
+                )
+                warnings.filterwarnings(
+                    "ignore", message=_deprication_warning_docval, category=DeprecationWarning
                 )
                 warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
