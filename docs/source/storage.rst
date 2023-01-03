@@ -238,8 +238,7 @@ Object references are stored in a attributes as dicts with the following keys:
   ``zarr_dtype`` is set to ``"object"`` (or ``"region"`` for :ref:`sec-zarr-storage-references-region`)
 * ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
   dictionary with the ``source`` and ``path`` keys defining the object reference (again, ``source`` is
-  here the relative path to the target Zarr file, and ``path`` identifys the object within the source
-   Zarr file).
+  here the relative path to the target Zarr file, and ``path`` identifys the object within the source Zarr file).
 
 For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be defined as follows:
 
