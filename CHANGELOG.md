@@ -6,9 +6,10 @@
 * Use path relative to the current Zarr file in the definition of links and references to avoid breaking
   links when moving Zarr files @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fix bugs in requirements defined in setup.py @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
+* Update dateset used in conversion tutorial, which caused warnings  @oruebel [#56](https://github.com/hdmf-dev/hdmf-zarr/pull/56)
 
 ### Docs
-* Add tutoial illustrating how to create a new NWB file with NWBZarrIO @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
+* Add tutorial illustrating how to create a new NWB file with NWBZarrIO @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Add docs for describing the mapping of HDMF schema to Zarr storage @oruebel [#48](https://github.com/hdmf-dev/hdmf-zarr/pull/48)
 
 ## 0.1.0 
