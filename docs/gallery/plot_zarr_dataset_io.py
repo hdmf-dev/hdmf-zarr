@@ -110,3 +110,7 @@ for c in intable.columns:
           (c.name,
            str(c.data.chunks),
            str(c.data.compressor)))
+
+###############################################################################
+#
+zarr_io.close()

@@ -86,6 +86,9 @@ zarr_io = ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r')
 intable = zarr_io.read()
 intable.to_dataframe()
 
+###############################################################################
+#
+zarr_io.close()
 
 ###############################################################################
 # Converting to/from HDF5 using ``export``

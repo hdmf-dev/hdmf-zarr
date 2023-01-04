@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # NOTE this script is currently used in CI *only* to test the sphinx gallery examples using python test.py -e
-
 import warnings
 import re
 import argparse
@@ -67,6 +66,8 @@ warning_re = re.compile("Parent module '[a-zA-Z0-9]+' not found while handling a
 def run_example_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info('running example tests')
+
+    # get list of example scripts
     examples_scripts = list()
     for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery")):
         for f in files:
@@ -74,12 +75,18 @@ def run_example_tests():
                 examples_scripts.append(os.path.join(root, f))
 
     TOTAL += len(examples_scripts)
+    curr_dir = os.getcwd()
     for script in examples_scripts:
+        os.chdir(curr_dir)  # Reset the working directory
+        script_abs = os.path.abspath(script)  # Determine the full path of the script
+        # Set the working dir to be relative to the script to allow the use of relative file paths in the scripts
+        os.chdir(os.path.dirname(script_abs))
         try:
             logging.info("Executing %s" % script)
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
-                _import_from_file(script)
+                # Import/run the example gallery
+                _import_from_file(script_abs)
                 for w in tmp:  # ignore RunTimeWarnings about importing
                     if isinstance(w.message, RuntimeWarning) and not warning_re.match(str(w.message)):
                         ws.append(w)
@@ -89,6 +96,8 @@ def run_example_tests():
             print(traceback.format_exc())
             FAILURES += 1
             ERRORS += 1
+    # Make sure to reset the working directory at the end
+    os.chdir(curr_dir)
 
 
 def main():

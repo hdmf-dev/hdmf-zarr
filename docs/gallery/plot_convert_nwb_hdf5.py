@@ -5,7 +5,8 @@ Converting NWB HDF5 files to/from Zarr
 This tutorial illustrates how to convert data between HDF5 and Zarr using
 a Neurodata Without Borders (NWB) file from the DANDI data archive as an example.
 In this tutorial we will convert our example file from HDF5 to Zarr and then
-back again to HDF5.
+back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and uses the
+:py:class:`~ hdmf.backends.hdf5.h5tools.HDF5IO`  HDF5 backend from HDMF for storage.
 """
 
 
@@ -13,29 +14,36 @@ back again to HDF5.
 # Setup
 # -----
 #
-# We first **download a small NWB file** from the DANDI neurophysiology data archive as an example.
-# The NWB standard is defined using HDMF and uses the :py:class:`~ hdmf.backends.hdf5.h5tools.HDF5IO`
-# HDF5 backend from HDMF for storage.
+# Here we use a small NWB file from the DANDI neurophysiology data archive from
+# `DANDIset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_ as an example.
+# To download the file directly from DANDI we can use:
+#
+# .. code-block:: python
+#    :linenos:
+#
+#    from dandi.dandiapi import DandiAPIClient
+#    dandiset_id = "000009"
+#    filepath = "sub-anm00239123/sub-anm00239123_ses-20170627T093549_ecephys+ogen.nwb"   # ~0.5MB file
+#    with DandiAPIClient() as client:
+#        asset = client.get_dandiset(dandiset_id, 'draft').get_asset_by_path(filepath)
+#        s3_path = asset.get_content_url(follow_redirects=1, strip_query=True)
+#        filename = os.path.basename(asset.path)
+#    asset.download(filename)
+#
+# We here use a local copy of a small file from this DANDIset as an example:
+#
 
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_convert_nwb.png'
 import os
 import shutil
-from dandi.dandiapi import DandiAPIClient
 
-dandiset_id = "000009"
-filepath = "sub-anm00239123/sub-anm00239123_ses-20170627T093549_ecephys+ogen.nwb"   # ~0.5MB file
-with DandiAPIClient() as client:
-    asset = client.get_dandiset(dandiset_id, 'draft').get_asset_by_path(filepath)
-    s3_path = asset.get_content_url(follow_redirects=1, strip_query=True)
-    filename = os.path.basename(asset.path)
-asset.download(filename)
-
-###############################################################################
-# Next we define the names of the files to generate as part of this tutorial and clean up any
-# data from previous executions of this tutorial.
-
-zarr_filename = "test_zarr_" + filename + ".zarr"
-hdf_filename = "test_hdf5_" + filename
+# Input file to convert
+basedir = "resources"
+filename = os.path.join(basedir, "sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb")
+# Zarr file to generate for converting from HDF5 to Zarr
+zarr_filename = "test_zarr_" + os.path.basename(filename) + ".zarr"
+# HDF5 file to generate for converting from Zarr to HDF5
+hdf_filename = "test_hdf5_" + os.path.basename(filename)
 
 # Delete our converted HDF5 and Zarr file from previous runs of this notebook
 for fname in [zarr_filename, hdf_filename]:
@@ -91,6 +99,7 @@ print(type(zf.trials['start_time'].data))
 # :pynwb-docs:`Trials <tutorials/general/plot_timeintervals.html>` table.
 
 zf.trials.to_dataframe()[['start_time', 'stop_time', 'type', 'photo_stim_type']]
+zr.close()
 
 ###############################################################################
 # Convert the Zarr file back to HDF5
