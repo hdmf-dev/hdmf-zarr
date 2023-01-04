@@ -80,6 +80,7 @@ def run_gallery_tests():
     TOTAL += len(gallery_file_names)
     curr_dir = os.getcwd()
     for script in gallery_file_names:
+        os.chdir(curr_dir)
         logging.info("Executing %s" % script)
         script_abs = os.path.abspath(script)
         os.chdir(os.path.dirname(script_abs))

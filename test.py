@@ -77,6 +77,7 @@ def run_example_tests():
     TOTAL += len(examples_scripts)
     curr_dir = os.getcwd()
     for script in examples_scripts:
+        os.chdir(curr_dir)
         script_abs = os.path.abspath(script)
         os.chdir(os.path.dirname(os.path.abspath(script_abs)))
         try:
