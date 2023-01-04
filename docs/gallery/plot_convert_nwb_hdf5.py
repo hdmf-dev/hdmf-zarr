@@ -39,6 +39,8 @@ import shutil
 
 # Input file to convert
 filename = "resources/sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb"
+if not os.path.exists(filename):  # Keep CLI happy
+    filename = os.path.join("/home/runner/work/hdmf-zarr/hdmf-zarr/docs/gallery/", filename)
 # Zarr file to generate for converting from HDF5 to Zarr
 zarr_filename = "test_zarr_" + os.path.basename(filename) + ".zarr"
 # HDF5 file to generate for converting from Zarr to HDF5
