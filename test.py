@@ -77,7 +77,7 @@ def run_example_tests():
     TOTAL += len(examples_scripts)
     curr_dir = os.getcwd()
     for script in examples_scripts:
-        os.chdir(os.path.abspath(os.path.dirname(script)))
+        os.chdir(os.path.dirname(os.path.abspath(script)))
         try:
             logging.info("Executing %s" % script)
             ws = list()
