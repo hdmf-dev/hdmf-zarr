@@ -67,8 +67,6 @@ warning_re = re.compile("Parent module '[a-zA-Z0-9]+' not found while handling a
 def run_example_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info('running example tests')
-    # copy gallery resources to current directory
-    shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"), "resources")
 
     # get list of example scripts
     examples_scripts = list()
@@ -83,6 +81,9 @@ def run_example_tests():
             logging.info("Executing %s" % script)
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
+                # copy gallery resources to current directory
+                shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
+                                os.path.join(os.path.dirname(script), "resources"))
                 _import_from_file(script)
                 for w in tmp:  # ignore RunTimeWarnings about importing
                     if isinstance(w.message, RuntimeWarning) and not warning_re.match(str(w.message)):
