@@ -82,8 +82,10 @@ def run_example_tests():
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
                 # copy gallery resources to current directory
-                shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
-                                os.path.join(os.path.dirname(script), "resources"))
+                resource_path = os.path.join(os.path.dirname(script), "resources")
+                if not os.path.exists(resource_path):
+                    shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
+                                    resource_path)
                 _import_from_file(script)
                 for w in tmp:  # ignore RunTimeWarnings about importing
                     if isinstance(w.message, RuntimeWarning) and not warning_re.match(str(w.message)):
