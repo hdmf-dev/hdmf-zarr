@@ -6,8 +6,9 @@ sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb
 
 This NWB file was downloaded from `DANDIset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_
 The file was modified to replace ``:`` characters used in the name of the ``ElectrodeGroup`` called ``ADunit: 32`` in
-``'general/extracellular_ephys/`` to ``'ADunit_32'``. This is to avoid issues on Windows file systems that do not
-support ``:`` as part of folder names. The asses can be downloaded from DANDI via:
+``'general/extracellular_ephys/`` to ``'ADunit_32'``. The dataset ``general/extracellular_ephys/electrodes/group_name``
+as part of the electrodes table was updated accordingly to list the appropriate group name. This is to avoid issues
+on Windows file systems that do not support ``:`` as part of folder names. The asses can be downloaded from DANDI via:
 
 .. code-block:: python
     :linenos:
