@@ -134,7 +134,6 @@ path = "ecephys_tutorial.nwb.zarr"
 absolute_path = os.path.abspath(path)
 with NWBZarrIO(path=path, mode="w") as io:
     io.write(nwbfile)
-    io.close()
 
 ###############################################################################
 # Test opening with the absolute path instead
@@ -145,4 +144,3 @@ with NWBZarrIO(path=path, mode="w") as io:
 # relative ``path`` here instead is fine.
 with NWBZarrIO(path=absolute_path, mode="r") as io:
     infile = io.read()
-    io.close()
