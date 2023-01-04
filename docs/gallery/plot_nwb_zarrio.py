@@ -134,25 +134,15 @@ path = "ecephys_tutorial.nwb.zarr"
 absolute_path = os.path.abspath(path)
 with NWBZarrIO(path=path, mode="w") as io:
     io.write(nwbfile)
-
-###############################################################################
-# Test opening the file
-# ---------------------
-with NWBZarrIO(path=path, mode="r") as io:
-    infile = io.read()
+    io.close()
 
 ###############################################################################
 # Test opening with the absolute path instead
 # -------------------------------------------
+#
+# The main reason for using the ``absolute_path`` here is for testing purposes
+# to ensure links and references work as expected. Otherwise, using the
+# relative ``path`` here instead is fine.
 with NWBZarrIO(path=absolute_path, mode="r") as io:
     infile = io.read()
-
-###############################################################################
-# Test changing the current directory
-# ------------------------------------
-
-import os
-os.chdir(os.path.abspath(os.path.join(os.getcwd(), "../")))
-
-with NWBZarrIO(path=absolute_path, mode="r") as io:
-    infile = io.read()
+    io.close()

@@ -68,6 +68,8 @@ from hdmf_zarr.nwb import NWBZarrIO
 with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:  # Create HDF5 IO object for read
     with NWBZarrIO(zarr_filename, mode='w') as export_io:         # Create Zarr IO object for write
         export_io.export(src_io=read_io, write_args=dict(link_data=False))   # Export from HDF5 to Zarr
+        export_io.close()
+    read_io.close()
 
 ###############################################################################
 # .. note::
@@ -99,6 +101,7 @@ print(type(zf.trials['start_time'].data))
 # :pynwb-docs:`Trials <tutorials/general/plot_timeintervals.html>` table.
 
 zf.trials.to_dataframe()[['start_time', 'stop_time', 'type', 'photo_stim_type']]
+zr.close()
 
 ###############################################################################
 # Convert the Zarr file back to HDF5
@@ -109,6 +112,8 @@ zf.trials.to_dataframe()[['start_time', 'stop_time', 'type', 'photo_stim_type']]
 with NWBZarrIO(zarr_filename, mode='r') as read_io:  # Create Zarr IO object for read
     with NWBHDF5IO(hdf_filename, 'w') as export_io:  # Create HDF5 IO object for write
         export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from Zarr to HDF5
+        export_io.close()
+    read_io.close()
 
 ###############################################################################
 # Read the new HDF5 file back
@@ -119,3 +124,4 @@ with NWBZarrIO(zarr_filename, mode='r') as read_io:  # Create Zarr IO object for
 
 with NWBHDF5IO(hdf_filename, 'r') as hr:
     hf = hr.read()
+    hr.close()

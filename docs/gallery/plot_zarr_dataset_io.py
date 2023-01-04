@@ -94,6 +94,7 @@ from hdmf_zarr.backend import ZarrIO
 zarr_dir = "example_data.zarr"
 with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
     zarr_io.write(test_table)
+    zarr_io.close()
 
 ###############################################################################
 # reading the table from Zarr
@@ -101,6 +102,7 @@ with ZarrIO(path=zarr_dir,  manager=get_manager(), mode='w') as zarr_io:
 zarr_io = ZarrIO(path=zarr_dir,  manager=get_manager(), mode='r')
 intable = zarr_io.read()
 intable.to_dataframe()
+zarr_io.close()
 
 ###############################################################################
 # Check dataset settings used.
