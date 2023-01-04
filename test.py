@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # NOTE this script is currently used in CI *only* to test the sphinx gallery examples using python test.py -e
-
+import shutil
 import warnings
 import re
 import argparse
@@ -67,6 +67,10 @@ warning_re = re.compile("Parent module '[a-zA-Z0-9]+' not found while handling a
 def run_example_tests():
     global TOTAL, FAILURES, ERRORS
     logging.info('running example tests')
+    # copy gallery resources to current directory
+    shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"), "resources")
+
+    # get list of example scripts
     examples_scripts = list()
     for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), "docs", "gallery")):
         for f in files:
