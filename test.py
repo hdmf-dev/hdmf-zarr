@@ -77,13 +77,14 @@ def run_example_tests():
     TOTAL += len(examples_scripts)
     curr_dir = os.getcwd()
     for script in examples_scripts:
-        os.chdir(os.path.dirname(os.path.abspath(script)))
+        script_abs = os.path.abspath(script)
+        os.chdir(os.path.dirname(os.path.abspath(script_abs)))
         try:
             logging.info("Executing %s" % script)
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
                 # Import/run the example gallery
-                _import_from_file(script)
+                _import_from_file(script_abs)
                 for w in tmp:  # ignore RunTimeWarnings about importing
                     if isinstance(w.message, RuntimeWarning) and not warning_re.match(str(w.message)):
                         ws.append(w)

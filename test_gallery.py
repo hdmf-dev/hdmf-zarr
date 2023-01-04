@@ -81,7 +81,8 @@ def run_gallery_tests():
     curr_dir = os.getcwd()
     for script in gallery_file_names:
         logging.info("Executing %s" % script)
-        os.chdir(os.path.dirname(os.path.abspath(script)))
+        script_abs = os.path.abspath(script)
+        os.chdir(os.path.dirname(script_abs))
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
@@ -108,7 +109,7 @@ def run_gallery_tests():
                     # against a different version of numpy than the one installed
                     "ignore", message=_numpy_warning_re, category=RuntimeWarning
                 )
-                _import_from_file(script)
+                _import_from_file(script_abs)
         except Exception:
             print(traceback.format_exc())
             FAILURES += 1
