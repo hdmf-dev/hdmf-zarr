@@ -38,9 +38,8 @@ import os
 import shutil
 
 # Input file to convert
-filename = "resources/sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb"
-if not os.path.exists(filename): # fix path for CLI tests
-    filename = "/docs/" + filename
+basedir = "resources" if os.path.exists("resources") else "/docs_resources"
+filename = os.path.join(basedir, "sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb")
 # Zarr file to generate for converting from HDF5 to Zarr
 zarr_filename = "test_zarr_" + os.path.basename(filename) + ".zarr"
 # HDF5 file to generate for converting from Zarr to HDF5

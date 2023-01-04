@@ -82,9 +82,9 @@ def run_example_tests():
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
                 # copy gallery resources to current directory
-                resource_path = "/docs/gallery/resources"
+                resource_path = "/docs_resources"
                 if not os.path.exists(resource_path):
-                    shutil.copytree(os.path.join(os.path.dirname(__file__), "/docs/gallery/resources"),
+                    shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
                                     resource_path)
                 # Import/run the example gallery
                 _import_from_file(script)
