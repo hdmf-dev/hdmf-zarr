@@ -77,9 +77,10 @@ def run_example_tests():
     TOTAL += len(examples_scripts)
     curr_dir = os.getcwd()
     for script in examples_scripts:
-        os.chdir(curr_dir)
-        script_abs = os.path.abspath(script)
-        os.chdir(os.path.dirname(os.path.abspath(script_abs)))
+        os.chdir(curr_dir)  # Reset the working directory
+        script_abs = os.path.abspath(script)  # Determine the full path of the script
+        # Set the working dir to be relative to the script to allow the use of relative file paths in the scripts
+        os.chdir(os.path.dirname(script_abs))
         try:
             logging.info("Executing %s" % script)
             ws = list()
@@ -95,6 +96,7 @@ def run_example_tests():
             print(traceback.format_exc())
             FAILURES += 1
             ERRORS += 1
+    # Make sure to reset the working directory at the end
     os.chdir(curr_dir)
 
 
