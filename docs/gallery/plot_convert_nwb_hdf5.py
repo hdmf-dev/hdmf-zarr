@@ -38,7 +38,7 @@ import os
 import shutil
 
 # Input file to convert
-basedir = "resources" if os.path.exists("resources") else "/docs_resources"
+basedir = "resources" if os.path.exists("resources") else "/usr/shared/docs_resources"
 filename = os.path.join(basedir, "sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb")
 # Zarr file to generate for converting from HDF5 to Zarr
 zarr_filename = "test_zarr_" + os.path.basename(filename) + ".zarr"

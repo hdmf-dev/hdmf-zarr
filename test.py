@@ -82,8 +82,9 @@ def run_example_tests():
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
                 # copy gallery resources to current directory
-                resource_path = "/docs_resources"
+                resource_path = "/usr/shared/docs_resources"
                 if not os.path.exists(resource_path):
+                    os.makedirs(os.path.dirname((resource_path)))
                     shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
                                     resource_path)
                 # Import/run the example gallery
