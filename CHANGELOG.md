@@ -11,6 +11,7 @@
 ### Docs
 * Add tutorial illustrating how to create a new NWB file with NWBZarrIO @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Add docs for describing the mapping of HDMF schema to Zarr storage @oruebel [#48](https://github.com/hdmf-dev/hdmf-zarr/pull/48)
+* Remove dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
 ## 0.1.0 
 
