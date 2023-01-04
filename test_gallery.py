@@ -17,13 +17,6 @@ ERRORS = 0
 
 
 def _import_from_file(script):
-    # Copy resource files to a standard location
-    resource_path = "/usr/shared/docs_resources"
-    if not os.path.exists(resource_path):
-        os.makedirs(os.path.dirname((resource_path)))
-        shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
-                        resource_path)
-    # Import the module script
     modname = os.path.basename(script)
     spec = importlib.util.spec_from_file_location(os.path.basename(script), script)
     module = importlib.util.module_from_spec(spec)
@@ -86,8 +79,10 @@ def run_gallery_tests():
     warnings.simplefilter("error")
 
     TOTAL += len(gallery_file_names)
+    curr_dir = os.getcwd()
     for script in gallery_file_names:
         logging.info("Executing %s" % script)
+        os.chdir(os.path.dirname(script))
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
@@ -119,6 +114,7 @@ def run_gallery_tests():
             print(traceback.format_exc())
             FAILURES += 1
             ERRORS += 1
+    os.chdir(curr_dir)
 
 
 def main():

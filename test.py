@@ -76,17 +76,13 @@ def run_example_tests():
                 examples_scripts.append(os.path.join(root, f))
 
     TOTAL += len(examples_scripts)
+    curr_dir = os.getcwd()
     for script in examples_scripts:
+        os.chdir(os.path.dirname(script))
         try:
             logging.info("Executing %s" % script)
             ws = list()
             with warnings.catch_warnings(record=True) as tmp:
-                # copy gallery resources to current directory
-                resource_path = "/usr/shared/docs_resources"
-                if not os.path.exists(resource_path):
-                    os.makedirs(os.path.dirname((resource_path)))
-                    shutil.copytree(os.path.join(os.path.dirname(__file__), "docs/gallery/resources"),
-                                    resource_path)
                 # Import/run the example gallery
                 _import_from_file(script)
                 for w in tmp:  # ignore RunTimeWarnings about importing
@@ -98,7 +94,7 @@ def run_example_tests():
             print(traceback.format_exc())
             FAILURES += 1
             ERRORS += 1
-
+    os.chdir(curr_dir)
 
 def main():
     warnings.warn(
