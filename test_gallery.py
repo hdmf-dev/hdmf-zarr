@@ -9,7 +9,6 @@ import os.path
 import sys
 import traceback
 import warnings
-import shutil
 
 TOTAL = 0
 FAILURES = 0
@@ -82,7 +81,7 @@ def run_gallery_tests():
     curr_dir = os.getcwd()
     for script in gallery_file_names:
         logging.info("Executing %s" % script)
-        os.chdir(os.path.dirname(script))
+        os.chdir(os.path.abspath(os.path.dirname(script)))
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(

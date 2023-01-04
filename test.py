@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # NOTE this script is currently used in CI *only* to test the sphinx gallery examples using python test.py -e
-import shutil
 import warnings
 import re
 import argparse
@@ -78,7 +77,7 @@ def run_example_tests():
     TOTAL += len(examples_scripts)
     curr_dir = os.getcwd()
     for script in examples_scripts:
-        os.chdir(os.path.dirname(script))
+        os.chdir(os.path.abspath(os.path.dirname(script)))
         try:
             logging.info("Executing %s" % script)
             ws = list()
@@ -95,6 +94,7 @@ def run_example_tests():
             FAILURES += 1
             ERRORS += 1
     os.chdir(curr_dir)
+
 
 def main():
     warnings.warn(
