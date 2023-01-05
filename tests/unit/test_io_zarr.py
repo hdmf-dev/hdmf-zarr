@@ -3,6 +3,7 @@ import unittest
 import os
 import numpy as np
 import shutil
+import warnings
 
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
@@ -35,15 +36,16 @@ from tests.unit.utils import (Foo,
                               get_temp_filepath)
 
 
-def total_directory_size(source):
-    """Helper function used to compute the size of a directory"""
+def total_size(source):
+    """Helper function used to compute the size of a directory or file"""
     dsize = os.path.getsize(source)
-    for item in os.listdir(source):
-        itempath = os.path.join(source, item)
-        if os.path.isfile(itempath):
-            dsize += os.path.getsize(itempath)
-        elif os.path.isdir(itempath):
-            dsize += total_directory_size(itempath)
+    if os.path.isdir(source):
+        for item in os.listdir(source):
+            itempath = os.path.join(source, item)
+            if os.path.isfile(itempath):
+                dsize += os.path.getsize(itempath)
+            elif os.path.isdir(itempath):
+                dsize += total_size(itempath)
     return dsize
 
 
@@ -53,6 +55,7 @@ class TestZarrWriter(TestCase):
         self.manager = get_foo_buildmanager()
         self.path = "test_io.zarr"
         self.source_path = self.path
+        self.store_cls = None
 
     def tearDown(self):
         if os.path.exists(self.source_path):
@@ -210,7 +213,11 @@ class TestZarrWriter(TestCase):
         self.createGroupBuilder()
         writer = ZarrIO(self.path, manager=self.manager, mode='a')
         writer.write_builder(self.builder)
-        zarr_array = zarr.open(self.source_path+"/test_bucket/foo_holder/foo1/my_data", mode='r')
+        if self.store_cls is None:
+            zarr_file = zarr.open(self.source_path, mode='r')
+        else:
+            zarr_file = zarr.open(self.store_cls(self.source_path), mode='r')
+        zarr_array = zarr_file["/test_bucket/foo_holder/foo1/my_data"]
         link_io = ZarrDataIO(data=zarr_array, link_data=True)
         link_dataset = DatasetBuilder('dataset_link', link_io)
         self.builder['test_bucket'].set_dataset(link_dataset)
@@ -350,6 +357,7 @@ class TestZarrWriteUnit(TestCase):
         self.path = "test_io.zarr"
         self.io = ZarrIO(self.path, mode='w')
         self.f = self.io._ZarrIO__file
+        self.store_cls = None
 
     def tearDown(self):
         if os.path.exists(self.path):
@@ -361,14 +369,20 @@ class TestZarrWriteUnit(TestCase):
     def test_set_object_codec(self):
         # Test that the default codec is the Pickle store
         self.assertEqual(self.io.object_codec_class.__qualname__, 'Pickle')
-        temp_io = ZarrIO(self.path, mode='w', object_codec_class=JSON)
+        if self.store_cls is None:
+            temp_io = ZarrIO(self.path, mode='w', object_codec_class=JSON)
+        else:
+            temp_io = ZarrIO(self.store_cls(self.path), mode='w', object_codec_class=JSON)
         self.assertEqual(temp_io.object_codec_class.__qualname__, 'JSON')
 
     def test_synchronizer_constructor_arg_bool(self):
         """Test that setting the synchronizer argument to True/False works in ZarrIO"""
         self.assertIsNone(self.io.synchronizer)
         self.io.close()
-        self.io = ZarrIO(self.path, mode='w', synchronizer=True)
+        if self.store_cls is None:
+            self.io = ZarrIO(self.path, mode='w', synchronizer=True)
+        else:
+            self.io = ZarrIO(self.store_cls(self.path), mode='w', synchronizer=True)
         self.assertTrue(isinstance(self.io.synchronizer, zarr.ProcessSynchronizer))
 
     def test_zarrdataio_enable_default_compressor(self):
@@ -415,10 +429,14 @@ class TestZarrWriteUnit(TestCase):
         self.io.write_dataset(self.f, dset_builder)
         self.assertTrue(self.io.get_written(dset_builder))   # Make sure True is returned after write
         self.assertTrue(self.io.get_written(dset_builder, check_on_disk=True))   # Make sure its also on disk
-        # Now delete it from disk and check again
-        shutil.rmtree(self.io.get_builder_disk_path(dset_builder))
-        self.assertTrue(self.io.get_written(dset_builder))   # The written flag should still be true
-        self.assertFalse(self.io.get_written(dset_builder, check_on_disk=True))   # But with check on disk should fail
+        # Now delete it from disk and check again.
+        builder_path = self.io.get_builder_disk_path(dset_builder)
+        if os.path.isdir(builder_path):  # Skip this check for file-based stores were we can easily delete objects
+            shutil.rmtree(builder_path)
+            # The written flag should still be true
+            self.assertTrue(self.io.get_written(dset_builder))
+            # But with check on disk should fail
+            self.assertFalse(self.io.get_written(dset_builder, check_on_disk=True))
 
     ##########################################
     #  write_attributes
@@ -688,7 +706,10 @@ class TestZarrWriteUnit(TestCase):
         self.io.write_dataset(self.f, builder=dset)
         softlink = DatasetBuilder('test_softlink', self.f['test_dataset'], attributes={})
         self.io.write_dataset(self.f, builder=softlink)
-        tempf = zarr.open(store=self.path, mode='r')
+        if self.store_cls is None:
+            tempf = zarr.open(store=self.path, mode='r')
+        else:
+            tempf = zarr.open(store=self.store_cls(self.path), mode='r')
         expected_link = {'name': 'test_softlink',
                          'path': '/test_dataset',
                          'source': os.path.abspath(self.path)}
@@ -710,7 +731,10 @@ class TestZarrWriteUnit(TestCase):
                                                      ZarrDataIO(data=self.f['test_dataset'],
                                                                 link_data=True),
                                                      attributes={}))
-        tempf = zarr.open(store=self.path, mode='r')
+        if self.store_cls is None:
+            tempf = zarr.open(self.path, mode='r')
+        else:
+            tempf = zarr.open(self.store_cls(self.path), mode='r')
         expected_link = {'name': 'test_softlink',
                          'path': '/test_dataset',
                          'source': os.path.abspath(self.path)}
@@ -753,7 +777,12 @@ class TestExportZarrToZarr(TestCase):
     def tearDown(self):
         for p in self.source_paths:
             if os.path.exists(p):
-                shutil.rmtree(p)
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                elif os.path.isfile(p):
+                    os.remove(p)
+                else:
+                    warnings.warn("Could not remove: %s" % p)
 
     def test_basic(self):
         """Test that exporting a written container works between Zarr and Zarr."""
@@ -867,7 +896,9 @@ class TestExportZarrToZarr(TestCase):
                     src_io=read_io,
                     container=read_foofile,
                     cache_spec=True)
-        self.assertTrue(os.path.exists(os.path.join(self.source_paths[1], 'specifications')))
+
+        with zarr.open(self.paths[1], mode='r') as zarr_io:
+            self.assertTrue('specifications' in zarr_io.keys())
 
     def test_soft_link_group(self):
         """
@@ -1060,8 +1091,8 @@ class TestExportZarrToZarr(TestCase):
             self.assertDictEqual(read_foofile2.buckets, {})
 
         # check that file size of file 2 is smaller
-        dirsize1 = total_directory_size(self.source_paths[0])
-        dirsize2 = total_directory_size(self.source_paths[1])
+        dirsize1 = total_size(self.source_paths[0])
+        dirsize2 = total_size(self.source_paths[1])
         self.assertTrue(dirsize1 > dirsize2)
 
     def test_pop_linked_group(self):
