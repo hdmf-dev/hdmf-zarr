@@ -92,7 +92,7 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         source_path = self.__path
-        if isinstance(self.__path, DirectoryStore):
+        if isinstance(self.__path, (DirectoryStore, TempStore, NestedDirectoryStore)):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
         warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
@@ -239,8 +239,19 @@ class ZarrIO(HDMFIO):
             {'name': 'filepath', 'type': str,
              'doc': 'The path to the Zarr file or None for this file', 'default': None})
     def get_builder_exists_on_disk(self, **kwargs):
-        """Convenience function to check whether a given builder exists on disk"""
+        """
+        Convenience function to check whether a given builder exists on disk.
+        """
+        builder, filepath = getargs('builder', 'filepath', kwargs)
         builder_path = self.get_builder_disk_path(**kwargs)
+        # if isinstance(self.path, SQLiteStore):
+        #     try:
+        #         self.__file[self.__get_path(builder)]
+        #         exists_on_disk = True
+        #     except Exception:
+        #         exists_on_disk = False
+        # else:
+        #     exists_on_disk = os.path.exists(builder_path)
         exists_on_disk = os.path.exists(builder_path)
         return exists_on_disk
 
@@ -471,19 +482,42 @@ class ZarrIO(HDMFIO):
         The function only constructs the links to the targe object, but it does not check if the object exists
 
         :param zarr_ref: Dict with `source` and `path` keys or a `ZarrRefernce` object
-        :return: Full path to the linked object
+        :return: 1) name of the target object
+                 2) the target zarr object within the target file
         """
         # Extract the path as defined in the zarr_ref object
         if zarr_ref.get('source', None) is None:
-            ref_path = str(zarr_ref['path'])
-        elif zarr_ref.get('path', None) is None:
-            ref_path = str(zarr_ref['source'])
+            source_file = str(zarr_ref['path'])
         else:
-            ref_path = os.path.join(zarr_ref['source'], zarr_ref['path'].lstrip("/"))
-        # Make the path relative to the current file
-        ref_path = os.path.abspath(os.path.join(self.source, ref_path))
+            source_file = str(zarr_ref['source'])
+        # Resolve the path relative to the current file
+        source_file = os.path.abspath(os.path.join(self.source, source_file))
+        object_path = zarr_ref.get('path', None)
+        # full_path = None
+        # if os.path.isdir(source_file):
+        #    if object_path is not None:
+        #        full_path = os.path.join(source_file, object_path.lstrip('/'))
+        #    else:
+        #        full_path = source_file
+        if object_path:
+            target_name = os.path.basename(object_path)
+        else:
+            target_name = ROOT_NAME
+        target_zarr_obj = zarr.open(source_file, mode='r')
+        # try:
+        #     target_zarr_obj = zarr.open(source_file, mode='r')
+        # except zarr.errors.FSPathExistNotDir:
+        #     try:
+        #         target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
+        #     except:
+        #         raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
+        if object_path is not None:
+            try:
+                target_zarr_obj = target_zarr_obj[object_path]
+            except Exception:
+                raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
-        return ref_path
+        return target_name, target_zarr_obj
 
     def __get_ref(self, ref_object):
         """
@@ -1041,12 +1075,7 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                l_path = self.__resolve_ref(link)
-                if not os.path.exists(l_path):
-                    raise ValueError("Found bad link %s in %s in file %s to %s" %
-                                     (link_name, self.__get_path(parent), self.source, l_path))
-                target_name = str(os.path.basename(l_path))
-                target_zarr_obj = zarr.open(l_path, mode='r')
+                target_name, target_zarr_obj = self.__resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
                     builder = self.__read_group(target_zarr_obj, target_name)
@@ -1146,13 +1175,7 @@ class ZarrIO(HDMFIO):
             o = data
             for i in p:
                 o = o[i]
-            path = self.__resolve_ref(o)
-            if not os.path.exists(path):
-                raise ValueError("Found bad link in dataset to %s" % (path))
-
-            target_name = os.path.basename(path)
-            target_zarr_obj = zarr.open(path, mode='r')
-
+            target_name, target_zarr_obj = self.__resolve_ref(o)
             o = data
             for i in range(0, len(p)-1):
                 o = data[p[i]]
@@ -1169,12 +1192,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and 'zarr_dtype' in v:
                     # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        path = self.__resolve_ref(v['value'])
-                        if not os.path.exists(path):
-                            raise ValueError("Found bad link in attribute to %s" % (path))
-
-                        target_name = str(os.path.basename(path))
-                        target_zarr_obj = zarr.open(str(path), mode='r')
+                        target_name, target_zarr_obj = self.__resolve_ref(v['value'])
                         if isinstance(target_zarr_obj, zarr.hierarchy.Group):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:
