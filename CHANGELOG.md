@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## 0.2.0 (Upcoming)
+
+### New Features
+* Added support for using ``DirectoryStore``, ``TempStore``, and ``NestedDirectoryStore`` Zarr storage
+  backends with ``ZarrIO`` @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
 ## 0.1.7 (Upcoming)
 
 ### Bugs
