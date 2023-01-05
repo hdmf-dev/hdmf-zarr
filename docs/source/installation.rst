@@ -4,7 +4,19 @@ Installation
 For Users
 ---------
 
-Coming soon ....
+Install hdmf-zarr from PyPI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block::
+
+    pip install hdmf-zarr
+    
+Install hdmf-zarr from conda-forge
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block::
+
+    conda install -c conda-forge hdmf-zarr
 
 For Developers
 --------------
