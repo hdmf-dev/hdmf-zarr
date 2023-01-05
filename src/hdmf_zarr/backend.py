@@ -12,6 +12,9 @@ import logging
 import zarr
 from zarr.hierarchy import Group
 from zarr.core import Array
+from zarr.storage import (DirectoryStore,
+                          TempStore,
+                          NestedDirectoryStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -53,7 +56,9 @@ SPEC_LOC_ATTR = '.specloc'
 
 class ZarrIO(HDMFIO):
 
-    @docval({'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+    @docval({'name': 'path',
+             'type': (str, DirectoryStore, TempStore, NestedDirectoryStore),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
              'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-")'},
@@ -86,7 +91,10 @@ class ZarrIO(HDMFIO):
         self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
-        super().__init__(manager, source=path)
+        source_path = self.__path
+        if isinstance(self.__path, DirectoryStore):
+            source_path = self.__path.path
+        super().__init__(manager, source=source_path)
         warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
                     "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
         warnings.warn(warn_msg)
@@ -99,7 +107,7 @@ class ZarrIO(HDMFIO):
     @property
     def abspath(self):
         """The absolute path to the Zarr file"""
-        return os.path.abspath(self.path)
+        return os.path.abspath(self.source)
 
     @property
     def synchronizer(self):
@@ -112,7 +120,7 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.__path,
+            self.__file = zarr.open(store=self.path,
                                     mode=self.__mode,
                                     synchronizer=self.__synchronizer)
 
@@ -125,7 +133,9 @@ class ZarrIO(HDMFIO):
     @docval({'name': 'namespace_catalog',
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
-            {'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+            {'name': 'path',
+             'type': (str, DirectoryStore, TempStore, NestedDirectoryStore),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
         '''
@@ -222,7 +232,7 @@ class ZarrIO(HDMFIO):
         """
         written = self._written_builders.get_written(builder)
         if written and check_on_disk:
-            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.__path)
+            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.source)
         return written
 
     @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
@@ -239,7 +249,7 @@ class ZarrIO(HDMFIO):
              'doc': 'The path to the Zarr file or None for this file', 'default': None})
     def get_builder_disk_path(self, **kwargs):
         builder, filepath = getargs('builder', 'filepath', kwargs)
-        basepath = filepath if filepath is not None else self.__path
+        basepath = filepath if filepath is not None else self.source
         builder_path = os.path.join(basepath, self.__get_path(builder).lstrip("/"))
         return builder_path
 
@@ -471,7 +481,7 @@ class ZarrIO(HDMFIO):
         else:
             ref_path = os.path.join(zarr_ref['source'], zarr_ref['path'].lstrip("/"))
         # Make the path relative to the current file
-        ref_path = os.path.abspath(os.path.join(self.path, ref_path))
+        ref_path = os.path.abspath(os.path.join(self.source, ref_path))
         # Return the create path
         return ref_path
 
@@ -505,7 +515,7 @@ class ZarrIO(HDMFIO):
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source
                   if (builder.source is not None and os.path.isdir(builder.source))
-                  else self.__path)
+                  else self.source)
         # Make the source relative to the current file
         source = os.path.relpath(os.path.abspath(source), start=self.abspath)
         # Return the ZarrReference object
@@ -998,7 +1008,7 @@ class ZarrIO(HDMFIO):
 
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
-        ret = GroupBuilder(name=name, source=self.__path, attributes=attributes)
+        ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
         ret.location = self.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
@@ -1034,7 +1044,7 @@ class ZarrIO(HDMFIO):
                 l_path = self.__resolve_ref(link)
                 if not os.path.exists(l_path):
                     raise ValueError("Found bad link %s in %s in file %s to %s" %
-                                     (link_name, self.__get_path(parent), self.__path, l_path))
+                                     (link_name, self.__get_path(parent), self.source, l_path))
                 target_name = str(os.path.basename(l_path))
                 target_zarr_obj = zarr.open(l_path, mode='r')
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
@@ -1042,7 +1052,7 @@ class ZarrIO(HDMFIO):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
-                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.__path)
+                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
                 parent.set_link(link_builder)
@@ -1059,7 +1069,7 @@ class ZarrIO(HDMFIO):
                   "dtype": zarr_obj.attrs['zarr_dtype'],
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
-                  "source": self.__path}
+                  "source": self.source}
         dtype = kwargs['dtype']
 
         # By default, use the zarr.core.Array as data for lazy data load

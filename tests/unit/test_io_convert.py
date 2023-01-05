@@ -164,7 +164,7 @@ class MixinTestDynamicTableContainer():
     TABLE_TYPE = 0
 
     def setUpContainer(self):
-        # TODO: The tables are names "root" because otherwise the Zarr backend does not determine the path correctly
+        # TODO: The tables are named "root" because otherwise the Zarr backend does not determine the path correctly
         if self.TABLE_TYPE == 0:
             table = DynamicTable(name=ROOT_NAME,
                                  description='an example table')

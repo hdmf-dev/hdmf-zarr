@@ -52,10 +52,11 @@ class TestZarrWriter(TestCase):
     def setUp(self):
         self.manager = get_foo_buildmanager()
         self.path = "test_io.zarr"
+        self.source_path = self.path
 
     def tearDown(self):
-        if os.path.exists(self.path):
-            shutil.rmtree(self.path)
+        if os.path.exists(self.source_path):
+            shutil.rmtree(self.source_path)
 
     def createGroupBuilder(self):
         self.foo_builder = GroupBuilder('foo1',
@@ -67,7 +68,7 @@ class TestZarrWriter(TestCase):
         # self.manager.prebuilt(self.foo, self.foo_builder)
         self.builder = GroupBuilder(
             'root',
-            source=self.path,
+            source=self.source_path,
             groups={'test_bucket':
                     GroupBuilder('test_bucket',
                                  groups={'foo_holder':
@@ -87,7 +88,7 @@ class TestZarrWriter(TestCase):
         dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype='object')
 
         builder = GroupBuilder('root',
-                               source=self.path,
+                               source=self.source_path,
                                datasets={'dataset_1': dataset_1,
                                          'dataset_2': dataset_2,
                                          'ref_dataset': dataset_ref})
@@ -110,7 +111,7 @@ class TestZarrWriter(TestCase):
                          {'name': 'reference', 'dtype': 'object'}]
         dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype=ref_data_type)
         builder = GroupBuilder('root',
-                               source=self.path,
+                               source=self.source_path,
                                datasets={'dataset_1': dataset_1,
                                          'dataset_2': dataset_2,
                                          'ref_dataset': dataset_ref})
@@ -209,7 +210,7 @@ class TestZarrWriter(TestCase):
         self.createGroupBuilder()
         writer = ZarrIO(self.path, manager=self.manager, mode='a')
         writer.write_builder(self.builder)
-        zarr_array = zarr.open(self.path+"/test_bucket/foo_holder/foo1/my_data", mode='r')
+        zarr_array = zarr.open(self.source_path+"/test_bucket/foo_holder/foo1/my_data", mode='r')
         link_io = ZarrDataIO(data=zarr_array, link_data=True)
         link_dataset = DatasetBuilder('dataset_link', link_io)
         self.builder['test_bucket'].set_dataset(link_dataset)
@@ -328,7 +329,7 @@ class TestZarrWriter(TestCase):
                          {'name': 'reference', 'dtype': 'object'}]
         dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype=ref_data_type)
         builder = GroupBuilder('root',
-                               source=self.path,
+                               source=self.source_path,
                                datasets={'dataset_1': dataset_1,
                                          'dataset_2': dataset_2,
                                          'ref_dataset': dataset_ref})
@@ -747,9 +748,10 @@ class TestExportZarrToZarr(TestCase):
             get_temp_filepath(),
             get_temp_filepath()
         ]
+        self.source_paths = self.paths
 
     def tearDown(self):
-        for p in self.paths:
+        for p in self.source_paths:
             if os.path.exists(p):
                 shutil.rmtree(p)
 
@@ -766,12 +768,12 @@ class TestExportZarrToZarr(TestCase):
             with ZarrIO(self.paths[1], mode='w') as export_io:
                 export_io.export(src_io=read_io)
 
-        self.assertTrue(os.path.exists(self.paths[1]))
-        self.assertEqual(foofile.container_source, self.paths[0])
+        self.assertTrue(os.path.exists(self.source_paths[1]))
+        self.assertEqual(foofile.container_source, self.source_paths[0])
 
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
-            self.assertEqual(read_foofile.container_source, self.paths[1])
+            self.assertEqual(read_foofile.container_source, self.source_paths[1])
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
 
     def test_basic_container(self):
@@ -788,12 +790,12 @@ class TestExportZarrToZarr(TestCase):
             with ZarrIO(self.paths[1], mode='w') as export_io:
                 export_io.export(src_io=read_io, container=read_foofile)
 
-        self.assertTrue(os.path.exists(self.paths[1]))
-        self.assertEqual(foofile.container_source, self.paths[0])
+        self.assertTrue(os.path.exists(self.source_paths[1]))
+        self.assertEqual(foofile.container_source, self.source_paths[0])
 
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
-            self.assertEqual(read_foofile.container_source, self.paths[1])
+            self.assertEqual(read_foofile.container_source, self.source_paths[1])
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
 
     def test_container_part(self):
@@ -846,7 +848,7 @@ class TestExportZarrToZarr(TestCase):
                     src_io=read_io,
                     container=read_foofile,
                     cache_spec=False)
-        self.assertFalse(os.path.exists(os.path.join(self.paths[1], 'specifications')))
+        self.assertFalse(os.path.exists(os.path.join(self.source_paths[1], 'specifications')))
 
     def test_cache_spec_enabled(self):
         """Test that exporting with cache_spec works."""
@@ -865,7 +867,7 @@ class TestExportZarrToZarr(TestCase):
                     src_io=read_io,
                     container=read_foofile,
                     cache_spec=True)
-        self.assertTrue(os.path.exists(os.path.join(self.paths[1], 'specifications')))
+        self.assertTrue(os.path.exists(os.path.join(self.source_paths[1], 'specifications')))
 
     def test_soft_link_group(self):
         """
@@ -883,9 +885,9 @@ class TestExportZarrToZarr(TestCase):
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is within the same file
-            self.assertEqual(read_foofile2.foo_link.container_source, self.paths[1])
-            zarr_linkspec1 = zarr.open(self.paths[0])['links'].attrs.asdict()['zarr_link'][0]
-            zarr_linkspec2 = zarr.open(self.paths[1])['links'].attrs.asdict()['zarr_link'][0]
+            self.assertEqual(read_foofile2.foo_link.container_source, self.source_paths[1])
+            zarr_linkspec1 = zarr.open(self.source_paths[0])['links'].attrs.asdict()['zarr_link'][0]
+            zarr_linkspec2 = zarr.open(self.source_paths[1])['links'].attrs.asdict()['zarr_link'][0]
             self.assertEqual(zarr_linkspec1.pop('source'), ".")
             self.assertEqual(zarr_linkspec2.pop('source'), ".")
             self.assertDictEqual(zarr_linkspec1, zarr_linkspec2)
@@ -909,8 +911,8 @@ class TestExportZarrToZarr(TestCase):
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked dataset is within the same file
-            print(open(self.paths[1]+"/buckets/bucket1/foo_holder/foo1/.zattrs", 'r').read())
-            self.assertEqual(read_foofile2.foofile_data.path, self.paths[1])
+            print(open(self.source_paths[1]+"/buckets/bucket1/foo_holder/foo1/.zattrs", 'r').read())
+            self.assertEqual(read_foofile2.foofile_data.path, self.source_paths[1])
         """
 
     def test_external_link_group(self):
@@ -936,7 +938,7 @@ class TestExportZarrToZarr(TestCase):
             self.assertDictEqual(zarr.open(self.paths[1])['links'].attrs.asdict(),
                                  {'zarr_link': [{'name': 'foo_link',
                                                  'path': '/buckets/bucket1/foo_holder/foo1',
-                                                 'source': self.paths[0]}]})
+                                                 'source': self.source_paths[0]}]})
         # Export File 2 to a new File 3 and make sure the external link from File 2 is being preserved
         with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
              with ZarrIO(self.paths[2], mode='w') as export_io:
@@ -948,7 +950,7 @@ class TestExportZarrToZarr(TestCase):
         with ZarrIO(self.paths[2], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is read from the first file
-            self.assertEqual(read_foofile2.foo_link.container_source, self.paths[0])
+            self.assertEqual(read_foofile2.foo_link.container_source, self.source_paths[0])
         """
 
     def test_external_link_dataset(self):
@@ -975,7 +977,7 @@ class TestExportZarrToZarr(TestCase):
             self.ios.append(read_io)  # track IO objects for tearDown
             read_foofile2 = read_io.read()
             # make sure the linked dataset is read from the first file
-            self.assertEqual(read_foofile2.foofile_data.file.filename, self.paths[0])
+            self.assertEqual(read_foofile2.foofile_data.file.filename, self.source_paths[0])
         """
 
     def test_external_link_link(self):
@@ -1007,7 +1009,7 @@ class TestExportZarrToZarr(TestCase):
         with ZarrIO(self.paths[3], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile3 = read_io.read()
             # make sure the linked group is read from the first file
-            self.assertEqual(read_foofile3.foo_link.container_source, self.paths[0])
+            self.assertEqual(read_foofile3.foo_link.container_source, self.source_paths[0])
         """
 
     def test_attr_reference(self):
@@ -1026,10 +1028,10 @@ class TestExportZarrToZarr(TestCase):
         #with ZarrIO(self.paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
         #    read_foofile2 = read_io.read()
             #self.assertTupleEqual(ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data),
-            #                     (self.paths[1], '/buckets/bucket1/foo_holder/foo1/my_data'))
+            #                     (self.source_paths[1], '/buckets/bucket1/foo_holder/foo1/my_data'))
             # make sure the attribute reference resolves to the container within the same file
             #self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket1'].foos['foo1'])
-        expected_ref = {'value': {'path': '/buckets/bucket1/foo_holder/foo1', 'source': self.paths[1]},
+        expected_ref = {'value': {'path': '/buckets/bucket1/foo_holder/foo1', 'source': self.source_paths[1]},
                         'zarr_dtype': 'object'}
         real_ref = zarr.open(self.paths[1]).attrs['foo_ref_attr']
         self.assertDictEqual(real_ref, expected_ref)
@@ -1058,8 +1060,8 @@ class TestExportZarrToZarr(TestCase):
             self.assertDictEqual(read_foofile2.buckets, {})
 
         # check that file size of file 2 is smaller
-        dirsize1 = total_directory_size(self.paths[0])
-        dirsize2 = total_directory_size(self.paths[1])
+        dirsize1 = total_directory_size(self.source_paths[0])
+        dirsize2 = total_directory_size(self.source_paths[1])
         self.assertTrue(dirsize1 > dirsize2)
 
     def test_pop_linked_group(self):
@@ -1161,9 +1163,9 @@ class TestExportZarrToZarr(TestCase):
                 self.assertEqual(read_foofile4.buckets['bucket2'].foos['foo2'].my_data,
                                  read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
                 self.assertEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-        #with File(self.paths[2], 'r') as f:
-        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.paths[0])
-        #    self.assertEqual(f['foofile_data'].file.filename, self.paths[0])
+        #with File(self.source_paths[2], 'r') as f:
+        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.source_paths[0])
+        #    self.assertEqual(f['foofile_data'].file.filename, self.souce_paths[0])
         #    self.assertIsInstance(f.get('buckets/bucket2/foo_holder/foo2/my_data', getlink=True),
         #                          h5py.ExternalLink)
         #    self.assertIsInstance(f.get('foofile_data', getlink=True), h5py.ExternalLink)
@@ -1205,9 +1207,9 @@ class TestExportZarrToZarr(TestCase):
                                     read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
                 self.assertNotEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
                 self.assertNotEqual(read_foofile4.foofile_data, read_foofile4.buckets['bucket2'].foos['foo2'].my_data)
-        # with File(self.paths[2], 'r') as f:
-        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.paths[2])
-        #    self.assertEqual(f['foofile_data'].file.filename, self.paths[2])
+        # with File(self.source_paths[2], 'r') as f:
+        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.source_paths[2])
+        #    self.assertEqual(f['foofile_data'].file.filename, self.source_paths[2])
         """
 
     def test_export_dset_refs(self):
@@ -1348,6 +1350,6 @@ class TestExportZarrToZarr(TestCase):
 
         with ZarrIO(self.paths[0], mode='r') as read_io:
             with ZarrIO(self.paths[1], mode='a') as export_io:
-                msg = "Cannot export to file %s in mode 'a'. Please use mode 'w'." % self.paths[1]
+                msg = "Cannot export to file %s in mode 'a'. Please use mode 'w'." % self.source_paths[1]
                 with self.assertRaisesWith(UnsupportedOperation, msg):
                     export_io.export(src_io=read_io)
