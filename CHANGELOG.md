@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.1.7 (Upcoming)
+## 0.2.0 (Latest)
 
 ### Bugs
 * Updated the storage of links/references to use paths relative to the current Zarr file to avoid breaking
