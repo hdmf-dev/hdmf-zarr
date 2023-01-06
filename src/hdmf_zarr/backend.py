@@ -100,6 +100,15 @@ class ZarrIO(HDMFIO):
         warnings.warn(warn_msg)
 
     @property
+    def file(self):
+        """
+        The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
+        May be None in case open has not been called yet, e.g., if no data has been
+        read or written yet via this instance
+        """
+        return self.__file
+
+    @property
     def path(self):
         """The path to the Zarr file as set by the use"""
         return self.__path
