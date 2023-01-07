@@ -1,10 +1,10 @@
 """Module with Zarr backend for NWB for integration with PyNWB"""
 from warnings import warn
 from .backend import ZarrIO
-import zarr
 
 from hdmf.utils import (docval,
-                        popargs)
+                        popargs,
+                        get_docval)
 from hdmf.backends.io import HDMFIO
 from hdmf.build import (BuildManager,
                         TypeMap)
@@ -19,20 +19,12 @@ try:
         is to perform default setup for BuildManager, loading or namespaces etc., in the context
         of the NWB format.
         """
-
-        @docval({'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
-                {'name': 'mode', 'type': str,
-                 'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-")'},
+        @docval(*get_docval(ZarrIO.__init__),
                 {'name': 'load_namespaces', 'type': bool,
                  'doc': 'whether or not to load cached namespaces from given path - not applicable in write mode',
                  'default': False},
-                {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O',
-                 'default': None},
                 {'name': 'extensions', 'type': (str, TypeMap, list),
                  'doc': 'a path to a namespace, a TypeMap, or a list consisting paths  to namespaces and TypeMaps',
-                 'default': None},
-                {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
-                 'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
                  'default': None})
         def __init__(self, **kwargs):
             path, mode, manager, extensions, load_namespaces, synchronizer = \
