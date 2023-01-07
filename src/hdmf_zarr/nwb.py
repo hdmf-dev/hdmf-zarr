@@ -15,7 +15,7 @@ try:
         """
         IO backend for PyNWB for writing NWB files
 
-        This class is similar to the NWBHDF5IO class in PyNWB. The main purpose of this class
+        This class is similar to the :py:class:`~pynwb.NWBHDF5IO` class in PyNWB. The main purpose of this class
         is to perform default setup for BuildManager, loading or namespaces etc., in the context
         of the NWB format.
         """

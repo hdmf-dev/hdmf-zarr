@@ -39,6 +39,8 @@ from tests.unit.utils import (Foo,
                               CacheSpecTestHelper,
                               get_temp_filepath)
 
+from abc import ABCMeta, abstractmethod
+
 
 def total_size(source):
     """Helper function used to compute the size of a directory or file"""
@@ -53,7 +55,7 @@ def total_size(source):
     return dsize
 
 
-class BaseZarrWriterTestCase(TestCase):
+class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
     """
     Base class for unit tests for ZarrIO with support to configure the data store used.
 
@@ -65,6 +67,7 @@ class BaseZarrWriterTestCase(TestCase):
     :ivar store_path: The path to the Zarr file defined by the store
     """
 
+    @abstractmethod
     def setUp(self):
         raise NotImplementedError
 
