@@ -78,7 +78,7 @@ class TestExportZarrToZarrDirectoryStore(BaseTestExportZarrToZarr):
 #  TempStore tests
 #########################################
 class TestZarrWriterTempStore(BaseTestZarrWriter):
-    """Test writing of builder with Zarr using a custom DirectoryStore"""
+    """Test writing of builder with Zarr using a custom TempStore"""
     def setUp(self):
         super().setUp()
         self.store = TempStore()
@@ -86,8 +86,9 @@ class TestZarrWriterTempStore(BaseTestZarrWriter):
 
 
 class TestZarrWriteUnitTempStore(BaseTestZarrWriteUnit):
-    """Unit test for individual write functions using a custom DirectoryStore"""
+    """Unit test for individual write functions using a custom TempStore"""
     def setUp(self):
+        super().setUp()
         self.store = TempStore()
         self.store_path = self.store.path
 
