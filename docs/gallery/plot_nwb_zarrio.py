@@ -84,7 +84,7 @@ all_table_region = nwbfile.create_electrode_table_region(
 )
 
 # Add a mock electrical recording acquisition to the NWBFile
-raw_data = np.random.randn(50, 4)
+raw_data = np.random.randn(50, len(all_table_region))
 raw_electrical_series = ElectricalSeries(
     name="ElectricalSeries",
     data=raw_data,
@@ -95,7 +95,7 @@ raw_electrical_series = ElectricalSeries(
 nwbfile.add_acquisition(raw_electrical_series)
 
 # Add a mock LFP processing result to the NWBFile
-lfp_data = np.random.randn(50, 4)
+lfp_data = np.random.randn(50, len(all_table_region))
 lfp_electrical_series = ElectricalSeries(
     name="ElectricalSeries",
     data=lfp_data,
@@ -136,23 +136,11 @@ with NWBZarrIO(path=path, mode="w") as io:
     io.write(nwbfile)
 
 ###############################################################################
-# Test opening the file
-# ---------------------
-with NWBZarrIO(path=path, mode="r") as io:
-    infile = io.read()
-
-###############################################################################
 # Test opening with the absolute path instead
 # -------------------------------------------
-with NWBZarrIO(path=absolute_path, mode="r") as io:
-    infile = io.read()
-
-###############################################################################
-# Test changing the current directory
-# ------------------------------------
-
-import os
-os.chdir(os.path.abspath(os.path.join(os.getcwd(), "../")))
-
+#
+# The main reason for using the ``absolute_path`` here is for testing purposes
+# to ensure links and references work as expected. Otherwise, using the
+# relative ``path`` here instead is fine.
 with NWBZarrIO(path=absolute_path, mode="r") as io:
     infile = io.read()
