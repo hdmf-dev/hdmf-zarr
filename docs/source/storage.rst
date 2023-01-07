@@ -368,7 +368,8 @@ For the Zarr backend, caching of the schema is implemented as follows.
 
 The :py:class:`~hdmf_zarr.backend.ZarrIO`` backend adds the reserved top-level group ``/specifications``
 in which all format specifications (including extensions) are cached. The default name for this group is
-defined in ``ZarrIO.__default_spec_dir``and caching of specifications is implemented in ``ZarrIO.__cache_spec``.
+defined in :py:attr:`~hdmf_zarr.backend.DEFAULT_SPEC_LOC_DIR` and caching of
+specifications is implemented in ``ZarrIO.__cache_spec``.
 The ``/specifications`` group contains for each specification namespace a subgroup
 ``/specifications/<namespace-name>/<version>`` in which the specification for a particular version of a namespace
 are stored (e.g., ``/specifications/core/2.0.1`` in the case of the NWB core namespace at version 2.0.1).

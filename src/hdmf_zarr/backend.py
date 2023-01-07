@@ -51,13 +51,30 @@ from hdmf.container import Container
 
 # Module variables
 ROOT_NAME = 'root'
+"""
+Name of the root builder for read/write
+"""
+
 SPEC_LOC_ATTR = '.specloc'
+"""
+Reserved attribute storing the path to the Group where the schema for the file are chached
+"""
+
+DEFAULT_SPEC_LOC_DIR = 'specifications'
+"""
+Default name of the group where specifications should be cached
+"""
+
+SUPPORTED_ZARR_STORES = (DirectoryStore, TempStore, NestedDirectoryStore)
+"""
+Tuple listing all Zarr storage backends supported by ZarrIO
+"""
 
 
 class ZarrIO(HDMFIO):
 
     @docval({'name': 'path',
-             'type': (str, DirectoryStore, TempStore, NestedDirectoryStore),
+             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
@@ -92,7 +109,7 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         source_path = self.__path
-        if isinstance(self.__path, (DirectoryStore, TempStore, NestedDirectoryStore)):
+        if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
         warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
@@ -143,7 +160,7 @@ class ZarrIO(HDMFIO):
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
-             'type': (str, DirectoryStore, TempStore, NestedDirectoryStore),
+             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
@@ -187,7 +204,7 @@ class ZarrIO(HDMFIO):
         if ref is not None:
             spec_group = self.__file[ref]
         else:
-            path = 'specifications'  # do something to figure out where the specifications should go
+            path = DEFAULT_SPEC_LOC_DIR  # do something to figure out where the specifications should go
             spec_group = self.__file.require_group(path)
             self.__file.attrs[SPEC_LOC_ATTR] = path
         ns_catalog = self.manager.namespace_catalog
