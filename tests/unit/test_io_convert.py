@@ -232,11 +232,11 @@ class MixinTestZarrToZarr():
     """
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore_Source.zarr'),
-                   TempStore(),
+                   TempStore(dir=os.path.dirname(__file__)),
                    NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr')]
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
-                    TempStore(),
+                    TempStore(dir=os.path.dirname(__file__)),
                     NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
 
     def get_manager(self):
