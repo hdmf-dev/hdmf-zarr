@@ -160,9 +160,9 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                 # TODO: May need to add further asserts here
 
 
-############################################
-# HDMF Common test harness
-###########################################
+##########################################################
+# Mixins for tesing export between different backend IO
+#########################################################
 class MixinTestHDF5ToZarr():
     """
     Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests from HDF5 to Zarr.
@@ -223,6 +223,42 @@ class MixinTestZarrToHDF5():
         return exportContainer
 
 
+class MixinTestZarrToZarr():
+    """
+    Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests from Zarr to Zarr.
+    This class only defines the roundtripExportContainer and get_manager functions for the test.
+    The setUpContainer function required for the test needs to be defined separately
+    (e.g., by another mixin or the test class itself)
+    """
+    WRITE_PATHS = [None,
+                   DirectoryStore('test_export_DirectoryStore_Source.zarr'),
+                   TempStore(),
+                   NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr')]
+    EXPORT_PATHS = [None,
+                    DirectoryStore('test_export_DirectoryStore_Export.zarr'),
+                    TempStore(),
+                    NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
+
+    def get_manager(self):
+        return get_hdmfcommon_manager()
+
+    def roundtripExportContainer(self, container,  write_path, export_path):
+        with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
+            write_io.write(container, cache_spec=True)
+
+        with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
+            with ZarrIO(export_path,  mode='w') as export_io:
+                export_io.export(src_io=read_io, write_args={'link_data': False})
+
+        read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
+        self.ios.append(read_io)
+        exportContainer = read_io.read()
+        return exportContainer
+
+
+############################################
+# HDMF Common test container mixins
+###########################################
 class MixinTestDynamicTableContainer():
     """
     Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests that
@@ -285,29 +321,13 @@ class MixinTestCSRMatrix():
 #########################################
 # HDMF Foo test container test harness
 #########################################
-class MixinTestZarrToHDF5Foo(MixinTestZarrToHDF5):
-    """
-    Convert mixin for Zarr to HDF5 but using the BuildManager for the Foo test containers
-    """
-    def get_manager(self):
-        return get_foo_buildmanager()
-
-
-class MixinTestHDF5ToZarrFoo(MixinTestHDF5ToZarr):
-    """
-    Convert mixin for HDF5 to Zarr but using the BuildManager for the Foo test containers
-    """
-    def get_manager(self):
-        return get_foo_buildmanager()
-
-
 class MixinTestFoo():
     """
     Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests that
     test export of a variety of Foo container classes. This class only defines the setUpContainer
-    function for the test. The roundtripExportContainer and get_manager function required for
+    and get_manager functions. The roundtripExportContainer function required for
     the test needs to be defined separately, e.g., by another mixin for Foo test cases, e.g.,
-    MixinTestZarrToHDF5Foo or MixinTestHDF5ToZarrFoo.
+    MixinTestZarrToHDF5,  MixinTestHDF5ToZarr, or MixinTestZarrToZarr
     This mixin adds the class variable, FOO_TYPE  which is an int to select between different
     container types for testing:
 
@@ -318,6 +338,9 @@ class MixinTestFoo():
     FOO_TYPES = {'int_data': 0,
                  'link_data': 1,
                  'str_data': 2}
+
+    def get_manager(self):
+        return get_foo_buildmanager()
 
     def setUpContainer(self):
         if self.FOO_TYPE == 0:
@@ -369,6 +392,20 @@ class TestZarrToHDF5DynamicTableC0(MixinTestDynamicTableContainer,
     TABLE_TYPE = 0
 
 
+class TestZarrToZarrDynamicTableC0(MixinTestDynamicTableContainer,
+                                   MixinTestZarrToZarr,
+                                   MixinTestCaseConvert,
+                                   TestCase):
+    """
+    Test the conversion of DynamicTable containers from Zarr to HDF5.
+    See MixinTestDynamicTableContainer.setUpContainer for the container spec.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = False
+    TABLE_TYPE = 0
+
+
 class TestHDF5ToZarrDynamicTableC1(MixinTestDynamicTableContainer,
                                    MixinTestHDF5ToZarr,
                                    MixinTestCaseConvert,
@@ -385,6 +422,20 @@ class TestHDF5ToZarrDynamicTableC1(MixinTestDynamicTableContainer,
 
 class TestZarrToHDF5DynamicTableC1(MixinTestDynamicTableContainer,
                                    MixinTestZarrToHDF5,
+                                   MixinTestCaseConvert,
+                                   TestCase):
+    """
+    Test the conversion of DynamicTable containers from Zarr to HDF5.
+    See MixinTestDynamicTableContainer.setUpContainer for the container spec.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True   # Need to ignore conversion of strings to bytes
+    TABLE_TYPE = 1
+
+
+class TestZarrToZarrDynamicTableC1(MixinTestDynamicTableContainer,
+                                   MixinTestZarrToZarr,
                                    MixinTestCaseConvert,
                                    TestCase):
     """
@@ -421,8 +472,34 @@ class TestZarrToHDF5CSRMatrix(MixinTestCSRMatrix,
     IGNORE_STRING_TO_BYTE = False
 
 
+class TestZarrToZarrCSRMatrix(MixinTestCSRMatrix,
+                              MixinTestZarrToZarr,
+                              MixinTestCaseConvert,
+                              TestCase):
+    """
+    Test the conversion of CSRMatrix containers from Zarr to HDF5.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = False
+
+
 class TestZarrToHDF5FooCase1(MixinTestFoo,
-                             MixinTestZarrToHDF5Foo,
+                             MixinTestZarrToHDF5,
+                             MixinTestCaseConvert,
+                             TestCase):
+    """
+    Test the conversion of a simple Foo container with two buckets of datasets from Zarr to HDF5
+    See MixinTestFoo.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    FOO_TYPE = MixinTestFoo.FOO_TYPES['int_data']
+
+
+class TestZarrToZarrFooCase1(MixinTestFoo,
+                             MixinTestZarrToZarr,
                              MixinTestCaseConvert,
                              TestCase):
     """
@@ -436,7 +513,7 @@ class TestZarrToHDF5FooCase1(MixinTestFoo,
 
 
 class TestHDF5toZarrFooCase1(MixinTestFoo,
-                             MixinTestHDF5ToZarrFoo,
+                             MixinTestHDF5ToZarr,
                              MixinTestCaseConvert,
                              TestCase):
     """
@@ -450,7 +527,21 @@ class TestHDF5toZarrFooCase1(MixinTestFoo,
 
 
 class TestZarrToHDF5FooCase2(MixinTestFoo,
-                             MixinTestZarrToHDF5Foo,
+                             MixinTestZarrToHDF5,
+                             MixinTestCaseConvert,
+                             TestCase):
+    """
+    Test the conversion of a simple Foo container with two buckets of datasets from Zarr to HDF5
+    See MixinTestFoo.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    FOO_TYPE = MixinTestFoo.FOO_TYPES['link_data']
+
+
+class TestZarrToZarrFooCase2(MixinTestFoo,
+                             MixinTestZarrToZarr,
                              MixinTestCaseConvert,
                              TestCase):
     """
@@ -464,7 +555,7 @@ class TestZarrToHDF5FooCase2(MixinTestFoo,
 
 
 class TestHDF5toZarrFooCase2(MixinTestFoo,
-                             MixinTestHDF5ToZarrFoo,
+                             MixinTestHDF5ToZarr,
                              MixinTestCaseConvert,
                              TestCase):
     """
