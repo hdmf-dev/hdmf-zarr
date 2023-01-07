@@ -3,8 +3,21 @@
 ## 0.3.0 (Upcoming)
 
 ### New Features
-* Added support for using ``DirectoryStore``, ``TempStore``, and ``NestedDirectoryStore`` Zarr storage
-  backends with ``ZarrIO`` @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+* Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
+  @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Minor enhancements
+* Updated handling of references on read to simplify future integration of file-based Zarr 
+  stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Test suite enhancements
+* Modularized unit tests to simplify running tests for multiple Zarr storage backends
+  @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Docs
+* Added developer documentation on how to integrate new storage backends with ZarrIO
+  [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ## 0.2.0 (Latest)
 
