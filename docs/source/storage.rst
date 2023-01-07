@@ -1,8 +1,8 @@
 .. _sec-zarr-storage:
 
-========
-Storage
-========
+=====================
+Storage Specification
+=====================
 
 hdmf-zarr currently uses the Zarr :zarr-docs:`DirectoryStory <api/storage.html#zarr.storage.DirectoryStore>`,
 which uses directories and files on a standard file system to serialize data. Below we describe how
