@@ -62,6 +62,14 @@ Groups
     object ID                     Attribute ``object_id`` on the Zarr Group
     ============================  ======================================================================================
 
+.. _sec-zarr-storage-groups-reserved:
+
+Reserved groups
+----------------
+
+The :py:class:`~hdmf_zarr.backend.ZarrIO` backend typically caches the schema used to create a file in the
+group ``/specifications`` (see also :ref:`sec-zarr-caching-specifications`)
+
 .. _sec-zarr-storage-datasets:
 
 Datasets
@@ -127,8 +135,9 @@ Reserved attributes
 -------------------
 
 The :py:class:`~hdmf_zarr.backend.ZarrIO` backend defines a set of reserved attribute names defined in
-py:attr:`~hdmf_zarr.backend.ZarrIO.__reserve_attribute`. These reserved attributes are used to implement
-functionality (e.g., links and object references) that are not natively supported by Zarr.
+:py:attr:`~hdmf_zarr.backend.ZarrIO.__reserve_attribute`. These reserved attributes are used to implement
+functionality (e.g., links and object references, which are not natively supported by Zarr) and may be
+added on any Group or Dataset in the file.
 
     ============================  ======================================================================================
     Reserved Attribute Name       Usage
@@ -138,6 +147,16 @@ functionality (e.g., links and object references) that are not natively supporte
                                   storage of object references as part of datasets.
                                   See :ref:`sec-zarr-storage-references`
     ============================  ======================================================================================
+
+In addition the, following reserved attributes are added to the root Group of the file only:
+
+    ============================  ======================================================================================
+    Reserved Attribute Name       Usage
+    ============================  ======================================================================================
+    .specloc                      Attribute storing the path to the Group where the scheme for the file are
+                                  cached. See :py:attr:`~hdmf_zarr.backend.SPEC_LOC_ATTR`
+    ============================  ======================================================================================
+
 
 .. _sec-zarr-storage-links:
 
@@ -337,6 +356,8 @@ The mappings of data types is as follows
     +--------------------------+------------------------------------+----------------+
 
 
+.. _sec-zarr-caching-specifications:
+
 Caching format specifications
 =============================
 
@@ -345,8 +366,10 @@ directly in the Zarr file. Caching the specification in the file ensures that us
 the specification directly if necessary without requiring external resources.
 For the Zarr backend, caching of the schema is implemented as follows.
 
-The Zarr backend adds the reserved top-level group ``/specifications`` in which all format specifications (including
-extensions) are cached. The ``/specifications`` group contains for each specification namespace a subgroup
+The :py:class:`~hdmf_zarr.backend.ZarrIO`` backend adds the reserved top-level group ``/specifications``
+in which all format specifications (including extensions) are cached. The default name for this group is
+defined in ``ZarrIO.__default_spec_dir``and caching of specifications is implemented in ``ZarrIO.__cache_spec``.
+The ``/specifications`` group contains for each specification namespace a subgroup
 ``/specifications/<namespace-name>/<version>`` in which the specification for a particular version of a namespace
 are stored (e.g., ``/specifications/core/2.0.1`` in the case of the NWB core namespace at version 2.0.1).
 The actual specification data is then stored as a JSON string in scalar datasets with a binary, variable-length string
