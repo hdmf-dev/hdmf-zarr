@@ -90,6 +90,15 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
         """
         Remove all files and folders defined by self.store_path
         """
+        # close the stores. Needed on Windows to avoid access conflict when deleting files
+        stores = self.store if isinstance(self.store, list) else [self.store]
+        for sto in stores:
+            try:
+                sto.close()
+            except Exception:
+                pass
+            del sto
+        # clean up files created as part of the tests
         paths = self.store_path if isinstance(self.store_path, list) else [self.store_path, ]
         for path in paths:
             if os.path.exists(path):
