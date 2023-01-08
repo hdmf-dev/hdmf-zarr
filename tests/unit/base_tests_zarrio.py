@@ -1012,9 +1012,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                     container=read_foofile,
                     cache_spec=True)
 
-        with zarr.open(reopen_store(self.store[1]), mode='r') as zarr_io:
-            self.assertTrue('specifications' in zarr_io.keys())
-            zarr_io.store.close()
+        with ZarrIO(reopen_store(self.store[1]), mode='r') as zarr_io:
+            self.assertTrue('specifications' in zarr_io.file.keys())
 
     def test_soft_link_group(self):
         """
