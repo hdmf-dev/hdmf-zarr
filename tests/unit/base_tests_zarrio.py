@@ -11,7 +11,8 @@ import warnings
 
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
-from hdmf_zarr.backend import ZarrIO
+from hdmf_zarr.backend import (ZarrIO,
+                               SUPPORTED_ZARR_STORES)
 from hdmf_zarr.utils import ZarrDataIO
 
 # Try to import numcodecs and disable compression tests if it is not available
@@ -41,6 +42,15 @@ from tests.unit.utils import (Foo,
 
 from abc import ABCMeta, abstractmethod
 
+
+def reopen_store(in_store):
+    """
+    Internal helper function to reopen a store or create a new instance,
+    needed by some test cases for reading data after it has been written and closed."""
+    re_store = in_store  # most stores we don't need to reopen
+    if isinstance(in_store, SUPPORTED_ZARR_STORES['SQLiteStore']):
+        re_store = SUPPORTED_ZARR_STORES['SQLiteStore'](in_store.path)
+    return re_store
 
 def total_size(source):
     """Helper function used to compute the size of a directory or file"""
@@ -171,13 +181,13 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         return builder
 
     def read_test_dataset(self):
-        reader = ZarrIO(self.store, manager=self.manager, mode='r')
+        reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
         dataset = self.root['test_bucket/foo_holder/foo1/my_data']
         return dataset
 
     def read(self):
-        reader = ZarrIO(self.store, manager=self.manager, mode='r')
+        reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
 
     def test_cache_spec(self):
@@ -196,7 +206,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
         # Load the spec and assert that it is valid
         ns_catalog = NamespaceCatalog()
-        ZarrIO.load_namespaces(ns_catalog, self.store)
+        ZarrIO.load_namespaces(ns_catalog, reopen_store(self.store))
         self.assertEqual(ns_catalog.namespaces, ('test_core',))
         source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
@@ -271,7 +281,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer.write_builder(self.builder)
         writer.close()
 
-        reader = ZarrIO(self.store, manager=self.manager, mode='r')
+        reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
         read_link = self.root['test_bucket/dataset_link']
         read_link_data = read_link['builder']['data'][:]
@@ -412,8 +422,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         # Test that the default codec is the Pickle store
         tempIO = ZarrIO(self.store, mode='w')
         self.assertEqual(tempIO.object_codec_class.__qualname__, 'Pickle')
-        tempIO.close()
-        del tempIO
         tempIO = ZarrIO(self.store, mode='w', object_codec_class=JSON)
         self.assertEqual(tempIO.object_codec_class.__qualname__, 'JSON')
 
@@ -421,7 +429,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         """Test that setting the synchronizer argument to True/False works in ZarrIO"""
         tempIO = ZarrIO(self.store, mode='w', synchronizer=False)
         self.assertIsNone(tempIO.synchronizer)
-        tempIO.close()
         tempIO = ZarrIO(self.store, mode='w', synchronizer=True)
         self.assertTrue(isinstance(tempIO.synchronizer, zarr.ProcessSynchronizer))
 
@@ -886,14 +893,14 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
                 export_io.export(src_io=read_io)
 
         self.assertTrue(os.path.exists(self.store_path[1]))
         self.assertEqual(foofile.container_source, self.store_path[0])
 
-        with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[1]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             self.assertEqual(read_foofile.container_source, self.store_path[1])
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
@@ -907,7 +914,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             with ZarrIO(self.store[1], mode='w') as export_io:
                 export_io.export(src_io=read_io, container=read_foofile)
@@ -915,7 +922,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         self.assertTrue(os.path.exists(self.store_path[1]))
         self.assertEqual(foofile.container_source, self.store_path[0])
 
-        with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[1]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             self.assertEqual(read_foofile.container_source, self.store_path[1])
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
@@ -929,7 +936,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             with ZarrIO(self.store[1], mode='w') as export_io:
                 msg = ("The provided container must be the root of the hierarchy of the source used to read the "
@@ -946,7 +953,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
                 dummy_file = FooFile(buckets=[])
                 msg = "The provided container must have been read by the provided src_io."
@@ -962,7 +969,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile, cache_spec=False)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
 
             with ZarrIO(self.store[1], mode='w') as export_io:
@@ -981,7 +988,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
 
             with ZarrIO(self.store[1], mode='w') as export_io:
@@ -990,7 +997,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                     container=read_foofile,
                     cache_spec=True)
 
-        with zarr.open(self.store[1], mode='r') as zarr_io:
+        with zarr.open(reopen_store(self.store[1]), mode='r') as zarr_io:
             self.assertTrue('specifications' in zarr_io.keys())
 
     def test_soft_link_group(self):
@@ -1003,19 +1010,20 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         foofile = FooFile(buckets=[foobucket], foo_link=foo1)
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args=dict(link_data=False))
-        with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[1]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is within the same file
             self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[1])
-            zarr_linkspec1 = zarr.open(self.store_path[0])['links'].attrs.asdict()['zarr_link'][0]
-            zarr_linkspec2 = zarr.open(self.store_path[1])['links'].attrs.asdict()['zarr_link'][0]
+            zarr_linkspec1 = zarr.open(reopen_store(self.store_path[0]))['links'].attrs.asdict()['zarr_link'][0]
+            zarr_linkspec2 = zarr.open(reopen_store(self.store_path[1]))['links'].attrs.asdict()['zarr_link'][0]
             self.assertEqual(zarr_linkspec1.pop('source'), ".")
             self.assertEqual(zarr_linkspec2.pop('source'), ".")
             self.assertDictEqual(zarr_linkspec1, zarr_linkspec2)
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_soft_link_dataset(self):
         """Test that exporting a written file with soft linked datasets keeps links within the file."""
         """Link to a dataset in the same file should have a link to the same new dataset in the new file """
@@ -1039,6 +1047,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             self.assertEqual(read_foofile2.foofile_data.path, self.source_paths[1])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_external_link_group(self):
         """Test that exporting a written file with external linked groups maintains the links."""
         """External links remain"""
@@ -1077,6 +1086,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             self.assertEqual(read_foofile2.foo_link.container_source, self.source_paths[0])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_external_link_dataset(self):
         """Test that exporting a written file with external linked datasets maintains the links."""
         pass  # TODO this test currently fails
@@ -1102,6 +1112,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             self.assertEqual(read_foofile2.foofile_data.file.filename, self.source_paths[0])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_external_link_link(self):
         """Test that exporting a written file with external links to external links maintains the links."""
         pass  # TODO this test currently fails
@@ -1134,6 +1145,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             self.assertEqual(read_foofile3.foo_link.container_source, self.source_paths[0])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_attr_reference(self):
         """Test that exporting a written file with attribute references maintains the references."""
         """Attribute with object reference needs to point to the new object in the new file"""
@@ -1168,14 +1180,14 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             read_foofile.remove_bucket('bucket1')  # remove child group
 
             with ZarrIO(self.store[1], mode='w') as export_io:
                 export_io.export(src_io=read_io, container=read_foofile)
 
-        with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[1]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
 
             # make sure the read foofile has no buckets
@@ -1195,7 +1207,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
             read_foofile.buckets['bucket1'].remove_foo('foo1')  # remove child group
 
@@ -1205,6 +1217,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(OrphanContainerBuildError, msg):
                     export_io.export(src_io=read_io, container=read_foofile)
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_append_data(self):
         """Test that exporting a written container after adding groups, links, and references to it works."""
         # TODO: This test currently fails because I do not understand how the link to my_data is expected to be
@@ -1250,6 +1263,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         #    self.assertIsInstance(f.attrs['foo_ref_attr'], h5py.Reference)
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_append_external_link_data(self):
         """Test that exporting a written container after adding a link with link_data=True creates external links."""
         pass  # TODO: This test currently fails
@@ -1292,6 +1306,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         #    self.assertIsInstance(f.get('foofile_data', getlink=True), h5py.ExternalLink)
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_append_external_link_copy_data(self):
         """Test that exporting a written container after adding a link with link_data=False copies the data."""
         pass  # TODO: This test currently fails
@@ -1333,6 +1348,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         #    self.assertEqual(f['foofile_data'].file.filename, self.source_paths[2])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_export_dset_refs(self):
         """Test that exporting a written container with a dataset of references works."""
         pass  # TODO: This test currently fails
@@ -1364,6 +1380,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 self.assertIs(read_bucket2.baz_data.data[i], read_bucket2.bazs[baz_name])
         """
 
+    @unittest.skip("Test case ported from HDMF but not finalized yet")
     def test_export_cpd_dset_refs(self):
         """Test that exporting a written container with a compound dataset with references works."""
         pass  # TODO: This test currently fails
@@ -1469,7 +1486,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store[0], mode='r') as read_io:
+        with ZarrIO(reopen_store(self.store[0]), mode='r') as read_io:
             with ZarrIO(self.store[1], mode='a') as export_io:
                 msg = "Cannot export to file %s in mode 'a'. Please use mode 'w'." % self.store_path[1]
                 with self.assertRaisesWith(UnsupportedOperation, msg):

@@ -45,8 +45,10 @@ from tests.unit.utils import (Foo,
 
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          SQLiteStore)
 
+from tests.unit.base_tests_zarrio import reopen_store
 
 class MixinTestCaseConvert(metaclass=ABCMeta):
     """
@@ -98,7 +100,11 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
         for io in self.ios:
             if io is not None:
                 io.close()
-        for fn in self.filenames:
+        paths = (self.filenames +
+                 [p if isinstance(p, str) else p.path
+                  for p in (self.EXPORT_PATHS + self.WRITE_PATHS)
+                  if p is not None])
+        for fn in paths:
             if fn is not None and os.path.exists(fn):
                 if os.path.isdir(fn):
                     shutil.rmtree(fn)
@@ -174,7 +180,8 @@ class MixinTestHDF5ToZarr():
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore.zarr'),
                     TempStore(),
-                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
+                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
+                    SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -184,10 +191,10 @@ class MixinTestHDF5ToZarr():
             write_io.write(container, cache_spec=True)
 
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
-            with ZarrIO(export_path, mode='w') as export_io:
+            with ZarrIO(reopen_store(export_path), mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
-        read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
+        read_io = ZarrIO(reopen_store(export_path), manager=self.get_manager(), mode='r')
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -203,17 +210,18 @@ class MixinTestZarrToHDF5():
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore.zarr'),
                    TempStore(),
-                   NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
+                   NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
+                   SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
     EXPORT_PATHS = [None, ]
 
     def get_manager(self):
         return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
-        with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
 
-        with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='r') as read_io:
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
@@ -233,24 +241,26 @@ class MixinTestZarrToZarr():
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore_Source.zarr'),
                    TempStore(dir=os.path.dirname(__file__)),  # set dir to avoid switching drives on Windows
-                   NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr')]
+                   NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr'),
+                   SQLiteStore('test_export_SQLiteStore_Source.zarr.sqlite')]
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
                     TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
-                    NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
+                    NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr'),
+                    SQLiteStore('test_export_SQLiteStore_Export.zarr.sqlite')]
 
     def get_manager(self):
         return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
-        with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
 
-        with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
-            with ZarrIO(export_path,  mode='w') as export_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='r') as read_io:
+            with ZarrIO(reopen_store(export_path),  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
-        read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
+        read_io = ZarrIO(reopen_store(export_path), manager=self.get_manager(), mode='r')
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer

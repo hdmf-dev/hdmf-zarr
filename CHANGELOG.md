@@ -6,6 +6,8 @@
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
   ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+* Added support, tests, and docs for using ``SQLiteStore`` Zarr storage backend with
+  ``ZarrIO`` @oruebel
 
 ### Minor enhancements
 * Updated handling of references on read to simplify future integration of file-based Zarr 
@@ -18,6 +20,11 @@
 ### Docs
 * Added developer documentation on how to integrate new storage backends with ZarrIO
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### API Changes
+* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` @oruebel
+* Added ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` dictionary with supported zarr stores @oruebel
+
 
 ## 0.2.0 (Latest)
 

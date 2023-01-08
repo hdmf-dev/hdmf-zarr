@@ -14,7 +14,8 @@ from zarr.hierarchy import Group
 from zarr.core import Array
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          SQLiteStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -65,7 +66,10 @@ DEFAULT_SPEC_LOC_DIR = 'specifications'
 Default name of the group where specifications should be cached
 """
 
-SUPPORTED_ZARR_STORES = (DirectoryStore, TempStore, NestedDirectoryStore)
+SUPPORTED_ZARR_STORES = {'DirectoryStore': DirectoryStore,
+                         'TempStore': TempStore,
+                         'NestedDirectoryStore': NestedDirectoryStore,
+                         'SQLiteStore': SQLiteStore}
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -74,7 +78,7 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 class ZarrIO(HDMFIO):
 
     @docval({'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
@@ -109,7 +113,7 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         source_path = self.__path
-        if isinstance(self.__path, SUPPORTED_ZARR_STORES):
+        if isinstance(self.__path, tuple(SUPPORTED_ZARR_STORES.values())):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
         warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
@@ -146,12 +150,20 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.path,
-                                    mode=self.__mode,
-                                    synchronizer=self.__synchronizer)
+            # Open Zarr file
+            if isinstance(self.path, SQLiteStore):
+                overwrite = 'w' in self.__mode
+                self.__file = zarr.group(store=self.path,
+                                         overwrite=overwrite)
+            else:
+                self.__file = zarr.open(store=self.path,
+                                        mode=self.__mode,
+                                        synchronizer=self.__synchronizer)
 
     def close(self):
         """Close the Zarr file"""
+        if isinstance(self.path, SQLiteStore):
+            self.path.close()
         self.__file = None
         return
 
@@ -160,7 +172,7 @@ class ZarrIO(HDMFIO):
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
@@ -258,18 +270,23 @@ class ZarrIO(HDMFIO):
         """
         written = self._written_builders.get_written(builder)
         if written and check_on_disk:
-            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.source)
+            written = written and self.get_builder_exists_on_disk(builder=builder)
         return written
 
-    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
-            {'name': 'filepath', 'type': str,
-             'doc': 'The path to the Zarr file or None for this file', 'default': None})
+    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'})
     def get_builder_exists_on_disk(self, **kwargs):
         """
-        Convenience function to check whether a given builder exists on disk.
+        Convenience function to check whether a given builder exists on disk in this Zarr file.
         """
-        builder_path = self.get_builder_disk_path(**kwargs)
+        builder = getargs('builder', kwargs)
+        builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
+        if isinstance(self.path, SQLiteStore):
+            try:
+                self.file[self.__get_path(builder)]
+                exists_on_disk = True
+            except Exception:
+                exists_on_disk = False
         return exists_on_disk
 
     @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
@@ -520,14 +537,15 @@ class ZarrIO(HDMFIO):
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
-        target_zarr_obj = zarr.open(source_file, mode='r')
-        # try:
-        #     target_zarr_obj = zarr.open(source_file, mode='r')
-        # except zarr.errors.FSPathExistNotDir:
-        #     try:
-        #         target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
-        #     except:
-        #         raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
+        # Open the source_file containing the link. We here need to determine the correct zarr.storage store to use
+        try:
+             target_zarr_obj = zarr.open(source_file, mode='r')
+        except zarr.errors.FSPathExistNotDir:
+             try:
+                 target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
+             except:
+                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
+        # Get the linked object from the file
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]

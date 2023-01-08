@@ -14,7 +14,8 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
                                           BaseTestExportZarrToZarr)
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          SQLiteStore)
 
 
 ######################################################
@@ -122,3 +123,30 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
     def setUp(self):
         super().setUp()
         self.store = [NestedDirectoryStore(p) for p in self.store_path]
+
+
+#########################################
+#  SQLiteStore tests
+#########################################
+class TestZarrWriterSQLiteStore(BaseTestZarrWriter):
+    """Test writing of builder with Zarr using a custom SQLiteStore """
+    def setUp(self):
+        super().setUp()
+        self.store_path += ".sqldb"
+        self.store = SQLiteStore(self.store_path)
+
+
+class TestZarrWriteUnitSQLiteStore(BaseTestZarrWriteUnit):
+    """Unit test for individual write functions using a custom DirectoryStore"""
+    def setUp(self):
+        super().setUp()
+        self.store_path += ".sqldb"
+        self.store = SQLiteStore(self.store_path)
+
+
+class TestExportZarrToZarrSQLiteStore(BaseTestExportZarrToZarr):
+    """Test exporting Zarr to Zarr using SQLiteStore"""
+    def setUp(self):
+        super().setUp()
+        self.store = [SQLiteStore(p) for p in self.store_path]
+
