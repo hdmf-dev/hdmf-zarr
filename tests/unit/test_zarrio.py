@@ -63,7 +63,7 @@ class TestZarrWriterDirectoryStore(BaseTestZarrWriter):
 class TestZarrWriteUnitDirectoryStore(BaseTestZarrWriteUnit):
     """Unit test for individual write functions using a custom DirectoryStore"""
     def setUp(self):
-        super().setUp()
+        self.store_path = "test_io.zarr"
         self.store = DirectoryStore(self.store_path)
 
 
@@ -88,7 +88,6 @@ class TestZarrWriterTempStore(BaseTestZarrWriter):
 class TestZarrWriteUnitTempStore(BaseTestZarrWriteUnit):
     """Unit test for individual write functions using a custom TempStore"""
     def setUp(self):
-        super().setUp()
         self.store = TempStore()
         self.store_path = self.store.path
 
@@ -114,7 +113,7 @@ class TestZarrWriterNestedDirectoryStore(BaseTestZarrWriter):
 class TestZarrWriteUnitNestedDirectoryStore(BaseTestZarrWriteUnit):
     """Unit test for individual write functions using a custom NestedDirectoryStore"""
     def setUp(self):
-        super().setUp()
+        self.store_path = "test_io.zarr"
         self.store = NestedDirectoryStore(self.store_path)
 
 
