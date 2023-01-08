@@ -268,16 +268,7 @@ class ZarrIO(HDMFIO):
         """
         Convenience function to check whether a given builder exists on disk.
         """
-        builder, filepath = getargs('builder', 'filepath', kwargs)
         builder_path = self.get_builder_disk_path(**kwargs)
-        # if isinstance(self.path, SQLiteStore):
-        #     try:
-        #         self.__file[self.__get_path(builder)]
-        #         exists_on_disk = True
-        #     except Exception:
-        #         exists_on_disk = False
-        # else:
-        #     exists_on_disk = os.path.exists(builder_path)
         exists_on_disk = os.path.exists(builder_path)
         return exists_on_disk
 
