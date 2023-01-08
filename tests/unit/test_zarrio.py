@@ -71,7 +71,7 @@ class TestExportZarrToZarrDirectoryStore(BaseTestExportZarrToZarr):
     """Test exporting Zarr to Zarr using DirectoryStore"""
     def setUp(self):
         super().setUp()
-        self.stores = [DirectoryStore(p) for p in self.store_path]
+        self.store = [DirectoryStore(p) for p in self.store_path]
 
 
 #########################################
@@ -97,8 +97,8 @@ class TestExportZarrToZarrTempStore(BaseTestExportZarrToZarr):
     """Test exporting Zarr to Zarr using TempStore."""
     def setUp(self):
         super().setUp()
-        self.stores = [TempStore() for i in range(len(self.store_path))]
-        self.store_paths = [s.path for s in self.stores]
+        self.store = [TempStore() for i in range(len(self.store_path))]
+        self.store_path = [s.path for s in self.store]
 
 
 #########################################
@@ -122,39 +122,4 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
     """Test exporting Zarr to Zarr using NestedDirectoryStore"""
     def setUp(self):
         super().setUp()
-        self.stores = [NestedDirectoryStore(p) for p in self.store_path]
-
-
-#########################################
-#  SQLiteStore tests
-#########################################
-# class TestZarrWriterSQLiteStore (TestZarrWriter):
-#     """Test writing of builder with Zarr using a custom SQLiteStore """
-#     def setUp(self):
-#         super().setUp()
-#         self.source_path += ".sqldb"
-#         self.path = SQLiteStore(self.source_path)
-#         self.store_cls = SQLiteStore
-#
-#     def tearDown(self):
-#         if os.path.exists(self.source_path):
-#             os.remove(self.source_path)
-#
-#
-# class TestZarrWriteUnitSQLiteStore(BaseTestZarrWriteUnit):
-#     """Unit test for individual write functions using a custom DirectoryStore"""
-#     def setUp(self):
-#         self.path = "test_io.zarr.sqldb"
-#         self.io = ZarrIO(SQLiteStore(self.path), mode='w')
-#         self.store_cls = SQLiteStore
-#
-#     def tearDown(self):
-#         if os.path.exists(self.path):
-#             os.remove(self.path)
-#
-#
-# class TestExportZarrToZarrSQLiteStore(BaseTestExportZarrToZarr):
-#     """Test exporting Zarr to Zarr using SQLiteStore"""
-#     def setUp(self):
-#         super().setUp()
-#         self.paths = [SQLiteStore(p) for p in self.source_paths]
+        self.store = [NestedDirectoryStore(p) for p in self.store_path]

@@ -96,7 +96,7 @@ the data store to use with :py:class:`~hdmf_zarr.backend.ZarrIO` while running t
 to setup links in test ``Builders`` or if a test case requires opening a file with zarr directly.
 
 ``BaseTestExportZarrToZarr`` tests exporting between Zarr data stores but requires 4 stores and
-paths to be specified via the ``self.stores`` and ``self.store_paths`` variable. To test export
+paths to be specified via the ``self.store`` and ``self.store_path`` variable. To test export
 between your new backend, you can simply set up all 4 instances to the new store while using different
 storage paths for the different instances (which are saved in  ``self.store_paths``).
 
