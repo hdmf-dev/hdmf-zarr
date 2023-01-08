@@ -2,7 +2,8 @@
 Module defining the base unit test cases for ZarrIO.
 
 The actual tests are then instantiated with various different backends in the
-test_zarrio.py module."""
+test_zarrio.py module.
+"""
 import unittest
 import os
 import numpy as np
@@ -1021,8 +1022,14 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             read_foofile2 = read_io.read()
             # make sure the linked group is within the same file
             self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[1])
-            zarr_linkspec1 = zarr.open(reopen_store(self.store_path[0]))['links'].attrs.asdict()['zarr_link'][0]
-            zarr_linkspec2 = zarr.open(reopen_store(self.store_path[1]))['links'].attrs.asdict()['zarr_link'][0]
+            # normally we only need the Zarr file object here, but by using ZarrIO
+            # we can reuse the logic defined in ZarrIO.open to ensure the file gets
+            # opened correctly for the different backends, whereas, zarr.open only
+            # supports DirectoryStores and ZipStore (i.e., it fails, e.g,. for SQLiteStore)
+            with ZarrIO(reopen_store(self.store[0]), manager=get_foo_buildmanager(), mode='r') as temp_io:
+                zarr_linkspec1 = temp_io.file['links'].attrs.asdict()['zarr_link'][0]
+            zarr_linkspec2 = read_io.file['links'].attrs.asdict()['zarr_link'][0]
+            # Compare the links specifications
             self.assertEqual(zarr_linkspec1.pop('source'), ".")
             self.assertEqual(zarr_linkspec2.pop('source'), ".")
             self.assertDictEqual(zarr_linkspec1, zarr_linkspec2)
