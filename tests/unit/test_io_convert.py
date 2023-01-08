@@ -27,6 +27,7 @@ customize the behavior of the mixin.
 """
 import os
 import shutil
+import warnings
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
@@ -107,10 +108,13 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                   if p is not None])
         for fn in paths:
             if fn is not None and os.path.exists(fn):
-                if os.path.isdir(fn):
-                    shutil.rmtree(fn)
-                else:
-                    os.remove(fn)
+                try:
+                    if os.path.isdir(fn):
+                        shutil.rmtree(fn)
+                    else:
+                        os.remove(fn)
+                except PermissionError:  # This can happen on Windows
+                    warnings.warn("Could not remove: %s" % fn)
         self.filenames = []
         self.ios = []
 

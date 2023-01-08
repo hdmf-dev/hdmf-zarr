@@ -109,7 +109,7 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
                         os.remove(path)
                     else:
                         warnings.warn("Could not remove: %s" % path)
-                except PermissionError:
+                except PermissionError:  # This can happen on Windows
                     warnings.warn("Could not remove: %s" % path)
 
 
