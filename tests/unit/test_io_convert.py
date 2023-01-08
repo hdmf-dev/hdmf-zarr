@@ -50,6 +50,7 @@ from zarr.storage import (DirectoryStore,
 
 from tests.unit.base_tests_zarrio import reopen_store
 
+
 class MixinTestCaseConvert(metaclass=ABCMeta):
     """
     Mixin class used to define the basic structure for a conversion test.

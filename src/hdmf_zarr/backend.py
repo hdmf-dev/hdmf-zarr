@@ -539,12 +539,12 @@ class ZarrIO(HDMFIO):
             target_name = ROOT_NAME
         # Open the source_file containing the link. We here need to determine the correct zarr.storage store to use
         try:
-             target_zarr_obj = zarr.open(source_file, mode='r')
+            target_zarr_obj = zarr.open(source_file, mode='r')
         except zarr.errors.FSPathExistNotDir:
-             try:
-                 target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
-             except:
-                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
+            try:
+                target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
+            except Exception:
+                raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Get the linked object from the file
         if object_path is not None:
             try:

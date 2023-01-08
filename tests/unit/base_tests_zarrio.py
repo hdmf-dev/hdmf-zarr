@@ -45,12 +45,16 @@ from abc import ABCMeta, abstractmethod
 
 def reopen_store(in_store):
     """
-    Internal helper function to reopen a store or create a new instance,
-    needed by some test cases for reading data after it has been written and closed."""
+    Helper function to reopen a store or create a new instance, needed by
+    some test cases for reading data after it has been written and closed.
+
+    :param in_store: zarr.storage store that needs to be reopened
+    """
     re_store = in_store  # most stores we don't need to reopen
     if isinstance(in_store, SUPPORTED_ZARR_STORES['SQLiteStore']):
         re_store = SUPPORTED_ZARR_STORES['SQLiteStore'](in_store.path)
     return re_store
+
 
 def total_size(source):
     """Helper function used to compute the size of a directory or file"""

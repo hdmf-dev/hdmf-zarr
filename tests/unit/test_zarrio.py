@@ -149,4 +149,3 @@ class TestExportZarrToZarrSQLiteStore(BaseTestExportZarrToZarr):
     def setUp(self):
         super().setUp()
         self.store = [SQLiteStore(p) for p in self.store_path]
-
