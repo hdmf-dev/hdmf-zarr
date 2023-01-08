@@ -7,6 +7,7 @@
   Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
 ### Minor enhancements
 * Updated handling of references on write/read to simplify integration of file-based Zarr 
@@ -22,8 +23,10 @@
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### API Changes
-* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` @oruebel
-* Added ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` dictionary with supported zarr stores @oruebel
+* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
+* Added ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` dictionary with supported zarr stores 
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
 
 ## 0.2.0 (Latest)
