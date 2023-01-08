@@ -848,6 +848,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                          'source': os.path.abspath(self.store_path)}
         self.assertEqual(len(tempf.attrs['zarr_link']), 1)
         self.assertDictEqual(tempf.attrs['zarr_link'][0], expected_link)
+        tempf.store.close()
 
     def test_copy_dataset_zarrdataio_input(self):
         tempIO = ZarrIO(self.store, mode='w')
@@ -1013,6 +1014,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         with zarr.open(reopen_store(self.store[1]), mode='r') as zarr_io:
             self.assertTrue('specifications' in zarr_io.keys())
+            zarr_io.store.close()
 
     def test_soft_link_group(self):
         """
