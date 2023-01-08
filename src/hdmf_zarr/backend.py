@@ -458,6 +458,14 @@ class ZarrIO(HDMFIO):
         :type zarr_object: Zarr Group or Array
         :return: Tuple of two string with: 1) path of the Zarr file and 2) full path within the zarr file to the object
         """
+        filepath = zarr_object.store.path.replace("\\", "/")
+        objectpath = ("/" + zarr_object.path).replace("\\", "/")
+        return filepath, objectpath
+        # NOTE: Leaving this code here for now as there (at least used to be) as reason why we could not
+        #       use the paths from Zarr directly. However, the code below would need to be fixed, as for
+        #       file-based stores (e.g., SQLiteStore) we can't check for objects with os.path.exists since
+        #       there are not directories for groups (they are in the file).
+        """
         # In Zarr the path is a combination of the path of the store and the path of the object. So we first need to
         # merge those two paths, then remove the path of the file, add the missing leading "/" and then compute the
         # directory name to get the path of the parent
@@ -473,6 +481,7 @@ class ZarrIO(HDMFIO):
         objectpath = "/" + os.path.relpath(fullpath, filepath)
         # return the result
         return filepath, objectpath
+        """
 
     @staticmethod
     def get_zarr_parent_path(zarr_object):
@@ -539,16 +548,17 @@ class ZarrIO(HDMFIO):
             target_name = ROOT_NAME
         # Open the source_file containing the link. We here need to determine the correct zarr.storage store to use
         try:
-            target_zarr_obj = zarr.open(source_file, mode='r')
+            target_zarr_file = zarr.open(source_file, mode='r')
         except zarr.errors.FSPathExistNotDir:
             try:
-                target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
+                target_zarr_file = zarr.open(SQLiteStore(source_file), mode='r')
             except Exception:
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Get the linked object from the file
+        target_zarr_obj = target_zarr_file
         if object_path is not None:
             try:
-                target_zarr_obj = target_zarr_obj[object_path]
+                target_zarr_obj = target_zarr_file[object_path]
             except Exception:
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
