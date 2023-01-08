@@ -285,15 +285,14 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         data = np.arange(100, 200, 10).reshape(2, 5)
         self.__dataset_builder = DatasetBuilder('my_data', data, attributes={'attr2': 17})
         self.createGroupBuilder()
-        writer = ZarrIO(self.store, manager=self.manager, mode='a')
-        writer.write_builder(self.builder)
-        zarr_file = zarr.open(self.store, mode='r')
-        zarr_array = zarr_file["/test_bucket/foo_holder/foo1/my_data"]
-        link_io = ZarrDataIO(data=zarr_array, link_data=True)
-        link_dataset = DatasetBuilder('dataset_link', link_io)
-        self.builder['test_bucket'].set_dataset(link_dataset)
-        writer.write_builder(self.builder)
-        writer.close()
+        with ZarrIO(self.store, manager=self.manager, mode='a') as writer:
+            writer.write_builder(self.builder)
+            zarr_file = writer.file
+            zarr_array = zarr_file["/test_bucket/foo_holder/foo1/my_data"]
+            link_io = ZarrDataIO(data=zarr_array, link_data=True)
+            link_dataset = DatasetBuilder('dataset_link', link_io)
+            self.builder['test_bucket'].set_dataset(link_dataset)
+            writer.write_builder(self.builder)
 
         reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
@@ -814,7 +813,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO.write_dataset(tempIO.file, builder=dset)
         softlink = DatasetBuilder('test_softlink', tempIO.file['test_dataset'], attributes={})
         tempIO.write_dataset(tempIO.file, builder=softlink)
-        tempf = zarr.open(store=self.store, mode='r')
+        tempf = tempIO.file
         expected_link = {'name': 'test_softlink',
                          'path': '/test_dataset',
                          'source': os.path.abspath(self.store_path)}
@@ -842,13 +841,13 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                                  ZarrDataIO(data=tempIO.file['test_dataset'], link_data=True),
                                  attributes={})
                              )
-        tempf = zarr.open(self.store, mode='r')
+        tempf = tempIO.file
         expected_link = {'name': 'test_softlink',
                          'path': '/test_dataset',
                          'source': os.path.abspath(self.store_path)}
         self.assertEqual(len(tempf.attrs['zarr_link']), 1)
         self.assertDictEqual(tempf.attrs['zarr_link'][0], expected_link)
-        tempf.store.close()
+        tempIO.close()
 
     def test_copy_dataset_zarrdataio_input(self):
         tempIO = ZarrIO(self.store, mode='w')
