@@ -102,11 +102,14 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
         paths = self.store_path if isinstance(self.store_path, list) else [self.store_path, ]
         for path in paths:
             if os.path.exists(path):
-                if os.path.isdir(path):
-                    shutil.rmtree(path)
-                elif os.path.isfile(path):
-                    os.remove(path)
-                else:
+                try:
+                    if os.path.isdir(path):
+                        shutil.rmtree(path)
+                    elif os.path.isfile(path):
+                        os.remove(path)
+                    else:
+                        warnings.warn("Could not remove: %s" % path)
+                except PermissionError:
                     warnings.warn("Could not remove: %s" % path)
 
 
