@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import tempfile
 import logging
+from sqlite3 import ProgrammingError as SQLiteProgrammingError
 
 # Zarr imports
 import zarr
@@ -169,7 +170,10 @@ class ZarrIO(HDMFIO):
     def close(self):
         """Close the Zarr file"""
         if isinstance(self.path, SQLiteStore):
-            self.path.close()
+            try:
+                self.path.close()
+            except SQLiteProgrammingError:  # raised if close has been called previously
+                pass
         self.__file = None
         return
 
