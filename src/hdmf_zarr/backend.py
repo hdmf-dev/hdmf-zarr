@@ -120,6 +120,12 @@ class ZarrIO(HDMFIO):
                     "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
         warnings.warn(warn_msg)
 
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
     @property
     def file(self):
         """
