@@ -14,9 +14,6 @@ As a simple example, we first create a ``DynamicTable`` container
 to store some arbitrary data columns.
 """
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_zarr_dataset_io.png'
-# Ignore warnings about the development of the ZarrIO backend
-import warnings
-warnings.filterwarnings('ignore', '.*The ZarrIO backend is experimental*', )
 
 # Import DynamicTable and get the ROOT_NAME
 from hdmf.common.table import DynamicTable, VectorData

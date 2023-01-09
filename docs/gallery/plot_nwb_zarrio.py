@@ -23,8 +23,6 @@ tutorial.
 """
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_nwbzarrio.png'
 # Ignore warnings about the development of the ZarrIO backend
-import warnings
-warnings.filterwarnings('ignore', '.*The ZarrIO backend is experimental*', )
 
 from datetime import datetime
 from dateutil.tz import tzlocal
