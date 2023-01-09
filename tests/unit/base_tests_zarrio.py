@@ -137,6 +137,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.manager = get_foo_buildmanager()
         self.store = "test_io.zarr"
         self.store_path = self.store
+        self.io = None  # may not to keep an ZarrIO object open, e.g., in read()
 
     def createGroupBuilder(self):
         self.foo_builder = GroupBuilder('foo1',
@@ -201,11 +202,12 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
         dataset = self.root['test_bucket/foo_holder/foo1/my_data']
-        return dataset
+        data = dataset['data'][:]
+        return data
 
     def read(self):
-        reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
-        self.root = reader.read_builder()
+        self.io = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
+        self.root = self.io.read_builder()
 
     def test_cache_spec(self):
 
@@ -320,31 +322,31 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
     def test_read_int(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
         self.test_write_int(test_data=test_data)
-        dataset = self.read_test_dataset()['data'][:]
-        self.assertTrue(np.all(test_data == dataset))
+        data = self.read_test_dataset()
+        self.assertTrue(np.all(test_data == data))
 
     def test_read_chunk(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
         self.test_write_chunk(test_data=test_data)
-        dataset = self.read_test_dataset()['data'][:]
-        self.assertTrue(np.all(test_data == dataset))
+        data = self.read_test_dataset()
+        self.assertTrue(np.all(test_data == data))
 
     def test_read_strings(self):
         test_data = [['a1', 'aa2', 'aaa3', 'aaaa4', 'aaaaa5'],
                      ['b1', 'bb2', 'bbb3', 'bbbb4', 'bbbbb5']]
         self.test_write_strings(test_data=test_data)
-        dataset = self.read_test_dataset()['data'][:]
-        self.assertTrue(np.all(np.asarray(test_data) == dataset))
+        data = self.read_test_dataset()
+        self.assertTrue(np.all(np.asarray(test_data) == data))
 
     def test_read_compound(self):
         test_data = [(1, 'Allen1'),
                      (2, 'Bob1'),
                      (3, 'Mike1')]
         self.test_write_compound(test_data=test_data)
-        dataset = self.read_test_dataset()['data']
-        self.assertTupleEqual(test_data[0], tuple(dataset[0]))
-        self.assertTupleEqual(test_data[1], tuple(dataset[1]))
-        self.assertTupleEqual(test_data[2], tuple(dataset[2]))
+        data = self.read_test_dataset()
+        self.assertTupleEqual(test_data[0], tuple(data[0]))
+        self.assertTupleEqual(test_data[1], tuple(data[1]))
+        self.assertTupleEqual(test_data[2], tuple(data[2]))
 
     def test_read_link(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
@@ -517,7 +519,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         :returns: the value read from disk so we can do our own tests if needed
         """
         # write the attribute
-        tempIO = ZarrIO(self.store, mode='w')
+        tempIO = ZarrIO(reopen_store(self.store), mode='w')
         tempIO.open()
         testgroup = tempIO.file  # For testing we just use our file and create some attributes
         attr = {name: value}
@@ -532,7 +534,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                 self.assertListEqual(list(read_val), value.tolist())
             else:
                 self.assertEqual(testgroup.attrs[name], value)
-        return read_val
+        return read_val, tempIO
 
     def test_write_attributes_write_scalar_int(self):
         self.__write_attribute_test_helper('intattr', np.int32(5))
@@ -576,9 +578,11 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         Test writing of lists of bytes. Bytes are not JSON serializable and therefore cover a differnt code path.
         Note, bytes are here encoded as strings to the return value does not match exactly but the data type changes.
         """
-        val = self.__write_attribute_test_helper('attr', [b'a', b'b', b'c', b'd'], assert_value=False)
+        val, zio = self.__write_attribute_test_helper('attr', [b'a', b'b', b'c', b'd'], assert_value=False)
         self.assertTupleEqual(val, tuple(['a', 'b', 'c', 'd']))
-        val = self.__write_attribute_test_helper('attr', [b'e', b'f', b'g'], assert_value=False)
+        del zio
+        del val
+        val, zio = self.__write_attribute_test_helper('attr', [b'e', b'f', b'g'], assert_value=False)
         self.assertTupleEqual(val, tuple(['e', 'f', 'g']))
 
     def test_write_attributes_write_1Darray_of_floats(self):
@@ -594,7 +598,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO.open()
         testgroup = tempIO.file  # For testing we just use our file and create some attributes
         attr = {'attr1': dataset_1}
-        tempIO = ZarrIO(self.store, mode='w')
         tempIO.write_attributes(testgroup, attr)
         expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
         self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
