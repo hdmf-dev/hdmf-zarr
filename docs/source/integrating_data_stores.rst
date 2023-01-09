@@ -40,6 +40,11 @@ Updating ZarrIO
    particular in case the links to your store also modify the storage schema for links
    (e.g., if you need to store additional metadata in order to resolve links to your store).
 
+   * Note, if your store has to be closed explicitly (e.g., a SQLiteStore), then any stores
+     that are opened to resolve references should be added to ``ZarrIO.__opened_stores_references``
+     list so that the stores are closed when :py:meth:`~hdmf_zarr.backend.ZarrIO.close` is
+     called.
+
 Updating NWBZarrIO
 ==================
 
