@@ -139,6 +139,11 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.store_path = self.store
         self.io = None  # may not to keep an ZarrIO object open, e.g., in read()
 
+    def tearDown(self):
+        if self.io is not None:
+            del self.io
+        super().tearDown()
+
     def createGroupBuilder(self):
         self.foo_builder = GroupBuilder('foo1',
                                         attributes={'data_type': 'Foo',
