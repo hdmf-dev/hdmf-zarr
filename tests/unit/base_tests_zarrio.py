@@ -308,6 +308,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         read_link = self.root['test_bucket/dataset_link']
         read_link_data = read_link['builder']['data'][:]
         self.assertTrue(np.all(data == read_link_data))
+        reader.close()
 
     def test_write_reference(self):
         builder = self.createReferenceBuilder()

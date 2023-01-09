@@ -109,6 +109,7 @@ class ZarrIO(HDMFIO):
         self.__path = path
         self.__file = None
         self.__built = dict()
+        self.__opened_stores_references = []  # Zarr stores that were opened to resolve links that need to be closed
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
@@ -174,6 +175,12 @@ class ZarrIO(HDMFIO):
                 self.path.close()
             except SQLiteProgrammingError:  # raised if close has been called previously
                 pass
+        for store in self.__opened_stores_references:
+            try:
+                store.close()
+            except Exception:  # May be raised if close has been called previously
+                pass
+
         self.__file = None
         return
 
@@ -561,7 +568,9 @@ class ZarrIO(HDMFIO):
             target_zarr_file = zarr.open(source_file, mode='r')
         except zarr.errors.FSPathExistNotDir:
             try:
-                target_zarr_file = zarr.open(SQLiteStore(source_file), mode='r')
+                fstore = SQLiteStore(source_file)
+                target_zarr_file = zarr.open(fstore, mode='r')
+                self.__opened_stores_references.append(fstore)
             except Exception:
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Get the linked object from the file
