@@ -87,9 +87,6 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         super().__init__(manager, source=path)
-        warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
-                    "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
-        warnings.warn(warn_msg)
 
     @property
     def path(self):

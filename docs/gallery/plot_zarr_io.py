@@ -24,9 +24,6 @@ describing basic user data.
    of a file does not appear in the path to locate it.
 """
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_zarr_io.png'
-# Ignore warnings about the development of the ZarrIO backend
-import warnings
-warnings.filterwarnings('ignore', '.*The ZarrIO backend is experimental*', )
 
 # Import DynamicTable and get the ROOT_NAME
 from hdmf.common.table import DynamicTable

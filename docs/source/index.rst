@@ -10,6 +10,9 @@ Welcome to hdmf-zarr's documentation!
 convenience classes for integration of Zarr with `PyNWB <https://pynwb.readthedocs.io>`_ to
 support writing of NWB files to `Zarr <https://zarr.readthedocs.io/en/stable/>`_.
 
+**Status:** The Zarr backend is **under development** and may still change. See the
+:ref:`sec-overview` section for a description of available features and known limitations of hdmf-zarr.
+
 Citing hdmf-zarr
 ^^^^^^^^^^^^^^^^
 
