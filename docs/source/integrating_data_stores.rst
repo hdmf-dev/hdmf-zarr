@@ -29,7 +29,9 @@ Updating ZarrIO
 2. Depending on the type of data store, it may also be necessary to update the handling of links
    and references in :py:class:`~hdmf_zarr.backend.ZarrIO`. In principle, reading and writing of
    links should not need to change, however, in particular the
-   :py:meth:`~hdmf_zarr.backend.ZarrIO.__resolve_ref` method may need to be updated to ensure
+   :py:meth:`~hdmf_zarr.backend.ZarrIO.__resolve_ref` and
+   :py:meth:`~hdmf_zarr.backend.ZarrIO.get_builder_exists_on_disk`
+   method may need to be updated to ensure
    references are opened correctly on read for files stored with your new store. The
    :py:meth:`~hdmf_zarr.backend.ZarrIO.__get_ref` function may also need to be updated, in
    particular in case the links to your store also modify the storage schema for links

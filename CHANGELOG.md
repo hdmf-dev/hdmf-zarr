@@ -19,6 +19,9 @@
 * Added developer documentation on how to integrate new storage backends with ZarrIO
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
+### API Changes
+* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
 ## 0.2.0 (Latest)
 
 ### Bugs

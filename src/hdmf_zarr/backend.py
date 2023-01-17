@@ -14,7 +14,8 @@ from zarr.hierarchy import Group
 from zarr.core import Array
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          SQLiteStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -65,7 +66,10 @@ DEFAULT_SPEC_LOC_DIR = 'specifications'
 Default name of the group where specifications should be cached
 """
 
-SUPPORTED_ZARR_STORES = (DirectoryStore, TempStore, NestedDirectoryStore)
+SUPPORTED_ZARR_STORES = (DirectoryStore,
+                         TempStore,
+                         NestedDirectoryStore,
+                         SQLiteStore)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -258,18 +262,23 @@ class ZarrIO(HDMFIO):
         """
         written = self._written_builders.get_written(builder)
         if written and check_on_disk:
-            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.source)
+            written = written and self.get_builder_exists_on_disk(builder=builder)
         return written
 
-    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
-            {'name': 'filepath', 'type': str,
-             'doc': 'The path to the Zarr file or None for this file', 'default': None})
+    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'})
     def get_builder_exists_on_disk(self, **kwargs):
         """
-        Convenience function to check whether a given builder exists on disk.
+        Convenience function to check whether a given builder exists on disk in this Zarr file.
         """
-        builder_path = self.get_builder_disk_path(**kwargs)
+        builder = getargs('builder', kwargs)
+        builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
+        if isinstance(self.path, SQLiteStore):
+            try:
+                self.file[self.__get_path(builder)]
+                exists_on_disk = True
+            except Exception:
+                exists_on_disk = False
         return exists_on_disk
 
     @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},

@@ -459,9 +459,9 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         """Test that get_builder_exists_on_disk finds the existing builder"""
         dset_builder = DatasetBuilder('test_dataset', 10, attributes={})
         tempIO = ZarrIO(self.store, mode='w')
-        self.assertFalse(tempIO.get_builder_exists_on_disk(dset_builder))  # Make sure False is returned before write
+        self.assertFalse(tempIO.get_builder_exists_on_disk(builder=dset_builder))  # Make sure is False is before write
         tempIO .write_dataset(tempIO.file, dset_builder)
-        self.assertTrue(tempIO.get_builder_exists_on_disk(dset_builder))   # Make sure True is returned after write
+        self.assertTrue(tempIO.get_builder_exists_on_disk(builder=dset_builder))   # Make sure is True after write
         tempIO.close()
 
     def test_get_written(self):
