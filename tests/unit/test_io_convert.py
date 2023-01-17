@@ -60,19 +60,19 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     then be further customized via the following variables:
 
     :ivar IGNORE_NAME: Bool parameter passed to assertContainerEqual (False)
-    :ivar IGNORE_HDMF_ATTRS = Bool parameter passed to assertContainerEqual (False)
-    :ivar IGNORE_STRING_TO_BYTE = Bool parameter passed to assertContainerEqual (False)
-    :ivar WRITE_PATHS = List of paths to which to write files to as part of ``test_export_roundtrip``,
+    :ivar IGNORE_HDMF_ATTRS: Bool parameter passed to assertContainerEqual (False)
+    :ivar IGNORE_STRING_TO_BYTE: Bool parameter passed to assertContainerEqual (False)
+    :ivar WRITE_PATHS:  List of paths to which to write files to as part of ``test_export_roundtrip``,
                         which passes the values to ``roundtripContainer``. The specific definition
-                        of the individual paths depends on the backend used for writing in ``rountripContainer``.
+                        of the individual paths depends on the backend used for writing in ``roundtripContainer``.
                         E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
                         and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
                         supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
                         A value of None as part of list means to use the default filename for write.
                         (Default=[None, ])
-    :ivar EXPORT_PATHS = List of paths to which to export files to as part of ``test_export_roundtrip``,
+    :ivar EXPORT_PATHS: List of paths to which to export files to as part of ``test_export_roundtrip``,
                         which passes the values to ``roundtripContainer``. The specific definition
-                        of the individual paths depends on the backend used for writing in ``rountripContainer``.
+                        of the individual paths depends on the backend used for writing in ``roundtripContainer``.
                         E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
                         and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
                         supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
@@ -134,7 +134,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
         raise NotImplementedError('Cannot run test unless roundtripExportContainer  is implemented')
 
     def test_export_roundtrip(self):
-        """Test that rountripping the container works"""
+        """Test that roundtripping the container works"""
         # determine and save the write and export paths
         for write_path in self.WRITE_PATHS:
             for export_path in self.EXPORT_PATHS:
@@ -151,7 +151,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                     container=container,
                     write_path=write_path,
                     export_path=export_path)
-                # assert that the rountrip worked correctly
+                # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
                 self.assertIsNotNone(str(container), message)  # added as a test to make sure printing works
                 self.assertIsNotNone(str(exported_container), message)

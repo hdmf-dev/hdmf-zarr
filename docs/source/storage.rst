@@ -4,8 +4,8 @@
 Storage Specification
 =====================
 
-hdmf-zarr currently uses the Zarr :zarr-docs:`DirectoryStory <api/storage.html#zarr.storage.DirectoryStore>`,
-which uses directories and files on a standard file system to serialize data. Below we describe how
+hdmf-zarr currently uses the Zarr :zarr-docs:`DirectoryStore <api/storage.html#zarr.storage.DirectoryStore>`,
+which uses directories and files on a standard file system to serialize data.
 
 Format Mapping
 ==============
@@ -148,7 +148,7 @@ added on any Group or Dataset in the file.
                                   See :ref:`sec-zarr-storage-references`
     ============================  ======================================================================================
 
-In addition the, following reserved attributes are added to the root Group of the file only:
+In addition, the following reserved attributes are added to the root Group of the file only:
 
     ============================  ======================================================================================
     Reserved Attribute Name       Usage
