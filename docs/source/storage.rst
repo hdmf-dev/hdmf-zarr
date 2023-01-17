@@ -148,7 +148,7 @@ added on any Group or Dataset in the file.
                                   See :ref:`sec-zarr-storage-references`
     ============================  ======================================================================================
 
-In addition the, following reserved attributes are added to the root Group of the file only:
+In addition, the following reserved attributes are added to the root Group of the file only:
 
     ============================  ======================================================================================
     Reserved Attribute Name       Usage
