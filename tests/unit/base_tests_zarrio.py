@@ -64,7 +64,7 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
 
     :ivar store: The Zarr data store(s) to use.
     :type store: Same as the `path`` parameter of :py:class:`~hdmf_zarr.backend.ZarrIO.__init__ `
-    :ivar store_path: The path to the Zarr file defined by the store
+    :ivar store_path: The path(s) to the Zarr file defined by the store
     """
 
     @abstractmethod
@@ -95,11 +95,11 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
     :ivar store: The Zarr data store to use.
     :type store: Same as the `path`` parameter of :py:class:`~hdmf_zarr.backend.ZarrIO.__init__ `
-    :ivar store_path: The path to the Zarr file defined by the store
+    :ivar store_path: The path(s) to the Zarr file defined by the store
 
     The builder data for the tests is defined by:
 
-    :ivar manager: The build manager to use for writing the bulders
+    :ivar manager: The build manager to use for writing the builders
 
     and the functions ``createGroupBuilder``, ``createReferenceBuilder`` and
     ``createReferenceCompoundBuilder``. Customizing the builder data is in
