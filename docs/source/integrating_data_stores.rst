@@ -5,10 +5,10 @@ Integrating New Zarr Data Stores
 ================================
 
 :py:class:`~hdmf_zarr.backend.ZarrIO` by default uses the Zarr
-:zarr-docs:`DirectoryStory <api/storage.html#zarr.storage.DirectoryStore>` via
-the :py:meth:`zarr.convenience.open`. :py:class:`~hdmf_zarr.backend.ZarrIO` further
-supports all stores listed :py:class:`~hdmf_zarr.backend.SUPPORTED_ZARR_STORES`,
-which users can specify via the ``path`` parameter when creating a new
+:zarr-docs:`DirectoryStore <api/storage.html#zarr.storage.DirectoryStore>` via
+the :py:meth:`zarr.convenience.open` method. :py:class:`~hdmf_zarr.backend.ZarrIO` further
+supports all stores listed in :py:class:`~hdmf_zarr.backend.SUPPORTED_ZARR_STORES`.
+Users can specify a particular store using the ``path`` parameter when creating a new
 :py:class:`~hdmf_zarr.backend.ZarrIO` instance. This document discusses key steps towards
 integrating other data stores available for Zarr with :py:class:`~hdmf_zarr.backend.ZarrIO`.
 
@@ -46,7 +46,7 @@ then we may also need to modify :py:class:`~hdmf_zarr.nwb.NWBZarrIO` accordingly
 Updating Unit Tests
 ===================
 
-Many of the core test harness of ``hdmf_zarr`` is modularized to simplify running existing
+Much of the core test harness of ``hdmf_zarr`` is modularized to simplify running existing
 tests with new storage backends. In this way, we can quickly create a collection of common tests
 for new backends, and new test cases added to the test suite can be run with all backends.
 The relevant test class are located in the `/tests/unit <https://github.com/hdmf-dev/hdmf-zarr/tree/dev/tests/unit>`_
@@ -54,11 +54,12 @@ directory of the hdmf_zarr repository.
 
 test_zarrio.py
 --------------
-``base_tests_zarrio.py`` provides a collection of base-classes that define common
+`base_tests_zarrio.py <https://github.com/hdmf-dev/hdmf-zarr/blob/dev/tests/unit/base_tests_zarrio.py>`_
+provides a collection of base classes that define common
 test cases to test basic functionality of :py:class:`~hdmf_zarr.backend.ZarrIO`. Using these base classes, the
 `test_zarrio.py <https://github.com/hdmf-dev/hdmf-zarr/blob/dev/tests/unit/test_io_zarr.py>`_ module
-then implements concrete tests for various backends. To create tests for a new data store we need to
-add the following main classes (while ``<MyStore>`` in the code below would need to be replaces with the
+then implements concrete tests for various backends. To create tests for a new data store, we need to
+add the following main classes (while ``<MyStore>`` in the code below would need to be replaced with the
 class name of the new data store):
 
 .. code-block:: python
@@ -90,18 +91,18 @@ class name of the new data store):
             self.store_paths = [s.path for s in self.stores]
 
 
-In the case of ``BaseTestZarrWriter`` and ``BaseTestZarrWriteUnit`` the ``self.store`` variable defines
+In the case of ``BaseTestZarrWriter`` and ``BaseTestZarrWriteUnit``, the ``self.store`` variable defines
 the data store to use with :py:class:`~hdmf_zarr.backend.ZarrIO` while running tests.
 ``self.store_path`` is used during ``tearDown`` to clean up files as well as in some cases
-to setup links in test ``Builders`` or if a test case requires opening a file with zarr directly.
+to set up links in test ``Builders`` or if a test case requires opening a file with Zarr directly.
 
 ``BaseTestExportZarrToZarr`` tests exporting between Zarr data stores but requires 4 stores and
 paths to be specified via the ``self.store`` and ``self.store_path`` variable. To test export
 between your new backend, you can simply set up all 4 instances to the new store while using different
 storage paths for the different instances (which are saved in  ``self.store_paths``).
 
-Depending on your data store, some test cases in  ``BaseTestZarrWriter``, ``BaseTestZarrWriteUnit``
-or ``BaseTestExportZarrToZarr`` may need to be updated to correctly work with our data store.
+Depending on your data store, some test cases in ``BaseTestZarrWriter``, ``BaseTestZarrWriteUnit``
+or ``BaseTestExportZarrToZarr`` may need to be updated to work correctly with our data store.
 Simply run the test suite to see if any cases are failing to see whether the ``setUp`` in your
 test classes or any specific test cases may need to be updated.
 
@@ -113,7 +114,7 @@ uses a collection of mixin classes to define custom test classes to test export 
 to another. As such, the test cases here typically first write to one target and then export to another
 target and then compare that the data between the two files is consistent.
 
-To run the tests defined here with your new storage backend we typically mainly need to update the
+To run the tests defined here with your new storage backend, we typically mainly need to update the
 ``MixinTestHDF5ToZarr``, ``MixinTestZarrToZarr``, and ``MixinTestZarrToZarr`` mixin classes to
 add our new backend to the ``WRITE_PATHS`` (if Zarr is the initial write target) and/or ``EXPORT_PATHS``
 (if Zarr is the export target) variables to define our store as a write or export store for
