@@ -57,7 +57,7 @@ Name of the root builder for read/write
 
 SPEC_LOC_ATTR = '.specloc'
 """
-Reserved attribute storing the path to the Group where the schema for the file are chached
+Reserved attribute storing the path to the Group where the schema for the file are cached
 """
 
 DEFAULT_SPEC_LOC_DIR = 'specifications'
@@ -121,7 +121,7 @@ class ZarrIO(HDMFIO):
         """
         The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
         May be None in case open has not been called yet, e.g., if no data has been
-        read or written yet via this instance
+        read or written yet via this instance.
         """
         return self.__file
 
