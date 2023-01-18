@@ -24,8 +24,6 @@
 ### API Changes
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-* Changed ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` from tuple to dictionary 
-  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
 ## 0.2.0 (January 6, 2023)
 

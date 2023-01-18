@@ -13,6 +13,7 @@ import warnings
 
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
+from zarr.storage import SQLiteStore
 from hdmf_zarr.backend import (ZarrIO,
                                SUPPORTED_ZARR_STORES)
 from hdmf_zarr.utils import ZarrDataIO
@@ -53,8 +54,8 @@ def reopen_store(in_store):
     :param in_store: zarr.storage store that needs to be reopened
     """
     re_store = in_store  # most stores we don't need to reopen
-    if isinstance(in_store, SUPPORTED_ZARR_STORES['SQLiteStore']):
-        re_store = SUPPORTED_ZARR_STORES['SQLiteStore'](in_store.path)
+    if isinstance(in_store, SQLiteStore):
+        re_store = SQLiteStore(in_store.path)
     return re_store
 
 

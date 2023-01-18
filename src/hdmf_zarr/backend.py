@@ -68,19 +68,19 @@ DEFAULT_SPEC_LOC_DIR = 'specifications'
 Default name of the group where specifications should be cached
 """
 
-SUPPORTED_ZARR_STORES = {'DirectoryStore': DirectoryStore,
-                         'TempStore': TempStore,
-                         'NestedDirectoryStore': NestedDirectoryStore,
-                         'SQLiteStore': SQLiteStore}
+SUPPORTED_ZARR_STORES = (DirectoryStore,
+                         TempStore,
+                         NestedDirectoryStore,
+                         SQLiteStore)
 """
-Dictionary listing all Zarr storage backends supported by ZarrIO
+Tuple listing all Zarr storage backends supported by ZarrIO
 """
 
 
 class ZarrIO(HDMFIO):
 
     @docval({'name': 'path',
-             'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
+             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
@@ -116,7 +116,7 @@ class ZarrIO(HDMFIO):
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         source_path = self.__path
-        if isinstance(self.__path, tuple(SUPPORTED_ZARR_STORES.values())):
+        if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
         warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
@@ -184,7 +184,7 @@ class ZarrIO(HDMFIO):
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
-             'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
+             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
