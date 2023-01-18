@@ -494,7 +494,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset_builder = DatasetBuilder('test_dataset', 10, attributes={})
         tempIO = ZarrIO(self.store, mode='w')
         self.assertFalse(tempIO.get_builder_exists_on_disk(builder=dset_builder))  # Make sure is False is before write
-        tempIO .write_dataset(tempIO.file, dset_builder)
+        tempIO.write_dataset(tempIO.file, dset_builder)
         self.assertTrue(tempIO.get_builder_exists_on_disk(builder=dset_builder))   # Make sure is True after write
         tempIO.close()
 

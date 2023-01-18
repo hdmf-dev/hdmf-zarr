@@ -298,6 +298,12 @@ class ZarrIO(HDMFIO):
         builder = getargs('builder', kwargs)
         builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
+        if isinstance(self.path, SQLiteStore):
+            try:
+                self.file[self.__get_path(builder)]
+                exists_on_disk = True
+            except Exception:
+                exists_on_disk = False
         return exists_on_disk
 
     @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
