@@ -175,8 +175,8 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           exported_container,
                                           ignore_name=self.IGNORE_NAME,
                                           ignore_hdmf_attrs=self.IGNORE_HDMF_ATTRS,
-                                          ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE)
-                # TODO: Add message to the assertContainerEqual call once the feature is released in HDMF
+                                          ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
+                                          message=message)
                 self.close_files_and_ios()
                 # TODO: May need to add further asserts here
 
