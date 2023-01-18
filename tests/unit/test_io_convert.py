@@ -190,8 +190,10 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           ignore_hdmf_attrs=self.IGNORE_HDMF_ATTRS,
                                           ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
                                           message=message)
-                self.close_files_and_ios()
                 # TODO: May need to add further asserts here
+                # we are essentially running a new test each iteration so tearDown and setUp after each
+                self.tearDown()
+                self.setUp()
 
 
 ##########################################################
