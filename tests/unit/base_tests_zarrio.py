@@ -14,8 +14,7 @@ import warnings
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
 from zarr.storage import SQLiteStore
-from hdmf_zarr.backend import (ZarrIO,
-                               SUPPORTED_ZARR_STORES)
+from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO
 
 # Try to import numcodecs and disable compression tests if it is not available
