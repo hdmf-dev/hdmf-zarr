@@ -23,7 +23,6 @@
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### API Changes
-<<<<<<< HEAD
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` dictionary with supported zarr stores 
