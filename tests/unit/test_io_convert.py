@@ -34,6 +34,7 @@ customize the behavior of the mixin.
 """
 import os
 import shutil
+from sqlite3 import ProgrammingError as SQLiteProgrammingError
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
@@ -119,13 +120,16 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
         self.close_files_and_ios()
 
     def close_files_and_ios(self):
-        for io in self.ios:
-            if io is not None:
-                io.close()
         paths = (self.filenames +
                  [p if isinstance(p, str) else p.path
                   for p in (self.EXPORT_PATHS + self.WRITE_PATHS)
                   if p is not None])
+        for io in (self.ios + self.EXPORT_PATHS + self.WRITE_PATHS):
+            if io is not None: # and isinstance(io, SQLiteStore):
+                try:
+                    io.close()
+                except SQLiteProgrammingError:
+                    pass
         for fn in paths:
             if fn is not None and os.path.exists(fn):
                 if os.path.isdir(fn):
