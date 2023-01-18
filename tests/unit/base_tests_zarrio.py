@@ -10,11 +10,13 @@ import os
 import numpy as np
 import shutil
 import warnings
+from sqlite3 import ProgrammingError as SQLiteProgrammingError
 
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
 from zarr.storage import SQLiteStore
-from hdmf_zarr.backend import ZarrIO
+from hdmf_zarr.backend import (ZarrIO,
+                               SUPPORTED_ZARR_STORES)
 from hdmf_zarr.utils import ZarrDataIO
 
 # Try to import numcodecs and disable compression tests if it is not available
@@ -94,11 +96,11 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
         # close the stores. Needed on Windows to avoid access conflict when deleting files
         stores = self.store if isinstance(self.store, list) else [self.store]
         for sto in stores:
-            try:
-                sto.close()
-            except Exception:
-                pass
-            del sto
+            if sto is not None and isinstance(sto, SUPPORTED_ZARR_STORES):
+                try:
+                    sto.close()
+                except SQLiteProgrammingError:
+                    pass
         # clean up files created as part of the tests
         paths = self.store_path if isinstance(self.store_path, list) else [self.store_path, ]
         for path in paths:
@@ -221,17 +223,15 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
     def test_cache_spec(self):
 
-        tempIO = ZarrIO(self.store, manager=self.manager, mode='w')
+        with ZarrIO(reopen_store(self.store), manager=self.manager, mode='w') as tempIO:
+            # Setup all the data we need
+            foo1 = Foo('foo1', [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+            foo2 = Foo('foo2', [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+            foobucket = FooBucket('test_bucket', [foo1, foo2])
+            foofile = FooFile(buckets=[foobucket])
 
-        # Setup all the data we need
-        foo1 = Foo('foo1', [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
-        foo2 = Foo('foo2', [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
-        foobucket = FooBucket('test_bucket', [foo1, foo2])
-        foofile = FooFile(buckets=[foobucket])
-
-        # Write the first file
-        tempIO.write(foofile, cache_spec=True)
-        tempIO.close()
+            # Write the first file
+            tempIO.write(foofile, cache_spec=True)
 
         # Load the spec and assert that it is valid
         ns_catalog = NamespaceCatalog()
