@@ -61,9 +61,7 @@ for fname in [zarr_filename, hdf_filename]:
 # To convert files between storage backends, we use HMDF's :hdmf-docs:`export <export.html>` functionality.
 # As this is an NWB file, we here use the :py:class:`pynwb.NWBHDF5IO` backend for reading the file from
 # from HDF5 and use the :py:class:`~hdmf_zarr.nwb.NWBZarrIO` backend to export the file to Zarr.
-# Ignore warnings about the development of the ZarrIO backend
 
-# Import PyNWB and hdmf_zarr modules
 from pynwb import NWBHDF5IO
 from hdmf_zarr.nwb import NWBZarrIO
 
