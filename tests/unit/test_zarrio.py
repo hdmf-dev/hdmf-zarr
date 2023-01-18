@@ -14,8 +14,7 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
                                           BaseTestExportZarrToZarr)
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore,
-                          SQLiteStore)
+                          NestedDirectoryStore)
 
 
 ######################################################

@@ -24,6 +24,13 @@ I.e., even though a particular test class may look empty, it is the combination
 of the mixin classes that creates the particular test problem. Many of the Mixin
 classes also define additional class variables to allow child classes to further
 customize the behavior of the mixin.
+
+.. note::
+
+    The mixin classes should not be instantiated or class variables be modified
+    directly as the individual mixin classes only define partial behavior and
+    modifying the behavior in the mixin will affect all downstream tests.
+    Mixin classes should always be used through inheritance.
 """
 import os
 import shutil
@@ -57,34 +64,48 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
 
     To implement a test case using this mixin we need to implement the abstract methods
     ``setUpContainer`` and ``roundtripExportContainer``. The behavior of the mixin can
-    then be further customized via the following variables:
-
-    :ivar IGNORE_NAME: Bool parameter passed to assertContainerEqual (False)
-    :ivar IGNORE_HDMF_ATTRS: Bool parameter passed to assertContainerEqual (False)
-    :ivar IGNORE_STRING_TO_BYTE: Bool parameter passed to assertContainerEqual (False)
-    :ivar WRITE_PATHS:  List of paths to which to write files to as part of ``test_export_roundtrip``,
-                        which passes the values to ``roundtripContainer``. The specific definition
-                        of the individual paths depends on the backend used for writing in ``roundtripContainer``.
-                        E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
-                        and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
-                        supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
-                        A value of None as part of list means to use the default filename for write.
-                        (Default=[None, ])
-    :ivar EXPORT_PATHS: List of paths to which to export files to as part of ``test_export_roundtrip``,
-                        which passes the values to ``roundtripContainer``. The specific definition
-                        of the individual paths depends on the backend used for writing in ``roundtripContainer``.
-                        E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
-                        and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
-                        supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
-                        A value of None as part of list means to use the default filename for export.
-                        (Default=[None, ])
+    then be further customized via the class variables: IGNORE_NAME, IGNORE_HDMF_ATTRS,
+    IGNORE_STRING_TO_BYTE, WRITE_PATHS, EXPORT_PATHS.
 
     """
     IGNORE_NAME = False
+    """
+    Bool parameter passed to assertContainerEqual (False)
+    """
+
     IGNORE_HDMF_ATTRS = False
+    """
+    Bool parameter passed to assertContainerEqual (False)
+    """
+
     IGNORE_STRING_TO_BYTE = False
+    """
+    Bool parameter passed to assertContainerEqual (False)
+    """
+
     WRITE_PATHS = [None, ]
+    """
+    List of paths to which to write files to as part of ``test_export_roundtrip``,
+    which passes the values to ``roundtripContainer``. The specific definition
+    of the individual paths depends on the backend used for writing in ``roundtripContainer``.
+    E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
+    and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
+    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
+    A value of None as part of list means to use the default filename for write.
+    (Default=[None, ])
+    """
+
     EXPORT_PATHS = [None, ]
+    """
+    List of paths to which to export files to as part of ``test_export_roundtrip``,
+    which passes the values to ``roundtripContainer``. The specific definition
+    of the individual paths depends on the backend used for writing in ``roundtripContainer``.
+    E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
+    and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
+    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
+    A value of None as part of list means to use the default filename for export.
+    (Default=[None, ])
+    """
 
     def get_manager(self):
         raise NotImplementedError('Cannot run test unless get_manger  is implemented')
@@ -163,8 +184,8 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           exported_container,
                                           ignore_name=self.IGNORE_NAME,
                                           ignore_hdmf_attrs=self.IGNORE_HDMF_ATTRS,
-                                          ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE)
-                # TODO: Add message to the assertContainerEqual call once the feature is released in HDMF
+                                          ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
+                                          message=message)
                 self.close_files_and_ios()
                 # TODO: May need to add further asserts here
 
