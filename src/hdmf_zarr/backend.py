@@ -114,9 +114,6 @@ class ZarrIO(HDMFIO):
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
-        warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
-                    "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
-        warnings.warn(warn_msg)
 
     @property
     def file(self):
