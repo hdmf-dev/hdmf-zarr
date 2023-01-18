@@ -1,6 +1,28 @@
 # HDMF-ZARR Changelog
 
-## 0.2.0 (Latest)
+## 0.3.0 (Upcoming)
+
+### New Features
+* Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
+  @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Minor enhancements
+* Updated handling of references on read to simplify future integration of file-based Zarr 
+  stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Test suite enhancements
+* Modularized unit tests to simplify running tests for multiple Zarr storage backends
+  @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### Docs
+* Added developer documentation on how to integrate new storage backends with ZarrIO
+  [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+### API Changes
+* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
+## 0.2.0 (January 6, 2023)
 
 ### Bugs
 * Updated the storage of links/references to use paths relative to the current Zarr file to avoid breaking
@@ -22,7 +44,7 @@
 * Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as 
   local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
-## 0.1.0 
+## 0.1.0 (August 23, 2022)
 
 ### New features
 

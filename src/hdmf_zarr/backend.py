@@ -12,6 +12,9 @@ import logging
 import zarr
 from zarr.hierarchy import Group
 from zarr.core import Array
+from zarr.storage import (DirectoryStore,
+                          TempStore,
+                          NestedDirectoryStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -48,12 +51,33 @@ from hdmf.container import Container
 
 # Module variables
 ROOT_NAME = 'root'
+"""
+Name of the root builder for read/write
+"""
+
 SPEC_LOC_ATTR = '.specloc'
+"""
+Reserved attribute storing the path to the Group where the schema for the file are cached
+"""
+
+DEFAULT_SPEC_LOC_DIR = 'specifications'
+"""
+Default name of the group where specifications should be cached
+"""
+
+SUPPORTED_ZARR_STORES = (DirectoryStore,
+                         TempStore,
+                         NestedDirectoryStore)
+"""
+Tuple listing all Zarr storage backends supported by ZarrIO
+"""
 
 
 class ZarrIO(HDMFIO):
 
-    @docval({'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+    @docval({'name': 'path',
+             'type': (str, *SUPPORTED_ZARR_STORES),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
              'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-")'},
@@ -86,7 +110,22 @@ class ZarrIO(HDMFIO):
         self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
-        super().__init__(manager, source=path)
+        source_path = self.__path
+        if isinstance(self.__path, SUPPORTED_ZARR_STORES):
+            source_path = self.__path.path
+        super().__init__(manager, source=source_path)
+        warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
+                    "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
+        warnings.warn(warn_msg)
+
+    @property
+    def file(self):
+        """
+        The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
+        May be None in case open has not been called yet, e.g., if no data has been
+        read or written yet via this instance.
+        """
+        return self.__file
 
     @property
     def path(self):
@@ -96,7 +135,7 @@ class ZarrIO(HDMFIO):
     @property
     def abspath(self):
         """The absolute path to the Zarr file"""
-        return os.path.abspath(self.path)
+        return os.path.abspath(self.source)
 
     @property
     def synchronizer(self):
@@ -109,7 +148,7 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.__path,
+            self.__file = zarr.open(store=self.path,
                                     mode=self.__mode,
                                     synchronizer=self.__synchronizer)
 
@@ -122,7 +161,9 @@ class ZarrIO(HDMFIO):
     @docval({'name': 'namespace_catalog',
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
-            {'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+            {'name': 'path',
+             'type': (str, *SUPPORTED_ZARR_STORES),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
         '''
@@ -165,7 +206,7 @@ class ZarrIO(HDMFIO):
         if ref is not None:
             spec_group = self.__file[ref]
         else:
-            path = 'specifications'  # do something to figure out where the specifications should go
+            path = DEFAULT_SPEC_LOC_DIR  # do something to figure out where the specifications should go
             spec_group = self.__file.require_group(path)
             self.__file.attrs[SPEC_LOC_ATTR] = path
         ns_catalog = self.manager.namespace_catalog
@@ -219,15 +260,16 @@ class ZarrIO(HDMFIO):
         """
         written = self._written_builders.get_written(builder)
         if written and check_on_disk:
-            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.__path)
+            written = written and self.get_builder_exists_on_disk(builder=builder)
         return written
 
-    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
-            {'name': 'filepath', 'type': str,
-             'doc': 'The path to the Zarr file or None for this file', 'default': None})
+    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'})
     def get_builder_exists_on_disk(self, **kwargs):
-        """Convenience function to check whether a given builder exists on disk"""
-        builder_path = self.get_builder_disk_path(**kwargs)
+        """
+        Convenience function to check whether a given builder exists on disk in this Zarr file.
+        """
+        builder = getargs('builder', kwargs)
+        builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
         return exists_on_disk
 
@@ -236,7 +278,7 @@ class ZarrIO(HDMFIO):
              'doc': 'The path to the Zarr file or None for this file', 'default': None})
     def get_builder_disk_path(self, **kwargs):
         builder, filepath = getargs('builder', 'filepath', kwargs)
-        basepath = filepath if filepath is not None else self.__path
+        basepath = filepath if filepath is not None else self.source
         builder_path = os.path.join(basepath, self.__get_path(builder).lstrip("/"))
         return builder_path
 
@@ -458,19 +500,35 @@ class ZarrIO(HDMFIO):
         The function only constructs the links to the targe object, but it does not check if the object exists
 
         :param zarr_ref: Dict with `source` and `path` keys or a `ZarrRefernce` object
-        :return: Full path to the linked object
+        :return: 1) name of the target object
+                 2) the target zarr object within the target file
         """
         # Extract the path as defined in the zarr_ref object
         if zarr_ref.get('source', None) is None:
-            ref_path = str(zarr_ref['path'])
-        elif zarr_ref.get('path', None) is None:
-            ref_path = str(zarr_ref['source'])
+            source_file = str(zarr_ref['path'])
         else:
-            ref_path = os.path.join(zarr_ref['source'], zarr_ref['path'].lstrip("/"))
-        # Make the path relative to the current file
-        ref_path = os.path.abspath(os.path.join(self.path, ref_path))
+            source_file = str(zarr_ref['source'])
+        # Resolve the path relative to the current file
+        source_file = os.path.abspath(os.path.join(self.source, source_file))
+        object_path = zarr_ref.get('path', None)
+        # full_path = None
+        # if os.path.isdir(source_file):
+        #    if object_path is not None:
+        #        full_path = os.path.join(source_file, object_path.lstrip('/'))
+        #    else:
+        #        full_path = source_file
+        if object_path:
+            target_name = os.path.basename(object_path)
+        else:
+            target_name = ROOT_NAME
+        target_zarr_obj = zarr.open(source_file, mode='r')
+        if object_path is not None:
+            try:
+                target_zarr_obj = target_zarr_obj[object_path]
+            except Exception:
+                raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
-        return ref_path
+        return target_name, target_zarr_obj
 
     def __get_ref(self, ref_object):
         """
@@ -502,7 +560,7 @@ class ZarrIO(HDMFIO):
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source
                   if (builder.source is not None and os.path.isdir(builder.source))
-                  else self.__path)
+                  else self.source)
         # Make the source relative to the current file
         source = os.path.relpath(os.path.abspath(source), start=self.abspath)
         # Return the ZarrReference object
@@ -995,7 +1053,7 @@ class ZarrIO(HDMFIO):
 
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
-        ret = GroupBuilder(name=name, source=self.__path, attributes=attributes)
+        ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
         ret.location = self.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
@@ -1028,18 +1086,13 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                l_path = self.__resolve_ref(link)
-                if not os.path.exists(l_path):
-                    raise ValueError("Found bad link %s in %s in file %s to %s" %
-                                     (link_name, self.__get_path(parent), self.__path, l_path))
-                target_name = str(os.path.basename(l_path))
-                target_zarr_obj = zarr.open(l_path, mode='r')
+                target_name, target_zarr_obj = self.__resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
-                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.__path)
+                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
                 parent.set_link(link_builder)
@@ -1056,7 +1109,7 @@ class ZarrIO(HDMFIO):
                   "dtype": zarr_obj.attrs['zarr_dtype'],
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
-                  "source": self.__path}
+                  "source": self.source}
         dtype = kwargs['dtype']
 
         # By default, use the zarr.core.Array as data for lazy data load
@@ -1133,13 +1186,7 @@ class ZarrIO(HDMFIO):
             o = data
             for i in p:
                 o = o[i]
-            path = self.__resolve_ref(o)
-            if not os.path.exists(path):
-                raise ValueError("Found bad link in dataset to %s" % (path))
-
-            target_name = os.path.basename(path)
-            target_zarr_obj = zarr.open(path, mode='r')
-
+            target_name, target_zarr_obj = self.__resolve_ref(o)
             o = data
             for i in range(0, len(p)-1):
                 o = data[p[i]]
@@ -1156,12 +1203,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and 'zarr_dtype' in v:
                     # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        path = self.__resolve_ref(v['value'])
-                        if not os.path.exists(path):
-                            raise ValueError("Found bad link in attribute to %s" % (path))
-
-                        target_name = str(os.path.basename(path))
-                        target_zarr_obj = zarr.open(str(path), mode='r')
+                        target_name, target_zarr_obj = self.__resolve_ref(v['value'])
                         if isinstance(target_zarr_obj, zarr.hierarchy.Group):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:

@@ -34,6 +34,7 @@ Citing hdmf-zarr
    :caption: For Developers:
 
    storage
+   integrating_data_stores
    hdmf_zarr
 
 Indices and tables
