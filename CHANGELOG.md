@@ -22,7 +22,7 @@
 ### API Changes
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
-## 0.2.0 (Latest)
+## 0.2.0 (January 6, 2023)
 
 ### Bugs
 * Updated the storage of links/references to use paths relative to the current Zarr file to avoid breaking
@@ -44,7 +44,7 @@
 * Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as 
   local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
-## 0.1.0 
+## 0.1.0 (August 23, 2022)
 
 ### New features
 
