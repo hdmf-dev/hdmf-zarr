@@ -14,8 +14,7 @@ from zarr.hierarchy import Group
 from zarr.core import Array
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore,
-                          SQLiteStore)
+                          NestedDirectoryStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -68,8 +67,7 @@ Default name of the group where specifications should be cached
 
 SUPPORTED_ZARR_STORES = (DirectoryStore,
                          TempStore,
-                         NestedDirectoryStore,
-                         SQLiteStore)
+                         NestedDirectoryStore)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -273,12 +271,6 @@ class ZarrIO(HDMFIO):
         builder = getargs('builder', kwargs)
         builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
-        if isinstance(self.path, SQLiteStore):
-            try:
-                self.file[self.__get_path(builder)]
-                exists_on_disk = True
-            except Exception:
-                exists_on_disk = False
         return exists_on_disk
 
     @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
@@ -530,13 +522,6 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
         target_zarr_obj = zarr.open(source_file, mode='r')
-        # try:
-        #     target_zarr_obj = zarr.open(source_file, mode='r')
-        # except zarr.errors.FSPathExistNotDir:
-        #     try:
-        #         target_zarr_obj = zarr.open(SQLiteStore(source_file), mode='r')
-        #     except:
-        #         raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
