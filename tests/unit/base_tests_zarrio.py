@@ -111,7 +111,7 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
                     warnings.warn("Could not remove: %s" % path)
                 # except PermissionError:  # This can happen on Windows
                 #     warnings.warn("Could not remove: %s" % path)
-                
+
 
 class BaseTestZarrWriter(BaseZarrWriterTestCase):
     """
@@ -144,7 +144,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             try:
                 self.io.close()
             except Exception:
-                 pass
+                pass
             del self.io
         super().tearDown()
 

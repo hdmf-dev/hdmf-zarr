@@ -185,7 +185,6 @@ class ZarrIO(HDMFIO):
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
              'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
-             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
