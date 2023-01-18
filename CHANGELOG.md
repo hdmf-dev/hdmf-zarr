@@ -9,6 +9,10 @@
 * Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
   @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
+### API Changes
+* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
+  [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+
 ### Minor enhancements
 * Updated handling of references on read to simplify future integration of file-based Zarr 
   stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
@@ -21,9 +25,11 @@
 * Added developer documentation on how to integrate new storage backends with ZarrIO
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
-### API Changes
-* Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
-  [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+### Internal changes
+* Added ``ZarrIO.__opened_stores_references`` to track Zarr stores opened to resolve 
+  references in order to be able to close those stores as part of ``ZarrIO.close()``
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
+
 
 ## 0.2.0 (January 6, 2023)
 
