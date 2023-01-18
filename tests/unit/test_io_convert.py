@@ -125,7 +125,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                   for p in (self.EXPORT_PATHS + self.WRITE_PATHS)
                   if p is not None])
         for io in (self.ios + self.EXPORT_PATHS + self.WRITE_PATHS):
-            if io is not None: # and isinstance(io, SQLiteStore):
+            if io is not None:
                 try:
                     io.close()
                 except SQLiteProgrammingError:
