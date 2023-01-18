@@ -573,11 +573,10 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dataset_1 = DatasetBuilder('dataset_1', data_1)
         tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
-        testgroup = tempIO.file  # For testing we just use our file and create some attributes
         attr = {'attr1': dataset_1}
-        tempIO.write_attributes(testgroup, attr)
+        tempIO.write_attributes(obj=tempIO.file, attributes=attr)
         expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
-        self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
+        self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
         tempIO.close()
 
     def test_write_attributes_write_reference_to_referencebuilder(self):
@@ -586,11 +585,10 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         ref1 = ReferenceBuilder(dataset_1)
         tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
-        testgroup = tempIO.file  # For testing we just use our file and create some attributes
         attr = {'attr1': ref1}
-        tempIO.write_attributes(testgroup, attr)
+        tempIO.write_attributes(obj=tempIO.file, attributes=attr)
         expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
-        self.assertDictEqual(testgroup.attrs.asdict(), expected_value)
+        self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
         tempIO.close()
 
     ##########################################
