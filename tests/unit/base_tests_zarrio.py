@@ -235,11 +235,14 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
         # Load the spec and assert that it is valid
         ns_catalog = NamespaceCatalog()
-        ZarrIO.load_namespaces(ns_catalog, reopen_store(self.store))
+        temp_store = reopen_store(self.store)
+        ZarrIO.load_namespaces(namespace_catalog=ns_catalog, path=temp_store)
         self.assertEqual(ns_catalog.namespaces, ('test_core',))
         source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
         self.assertSetEqual(source_types, read_types)
+        if isinstance(temp_store, SUPPORTED_ZARR_STORES):
+            temp_store.close()
 
     def test_write_int(self, test_data=None):
         data = np.arange(100, 200, 10).reshape(2, 5) if test_data is None else test_data
