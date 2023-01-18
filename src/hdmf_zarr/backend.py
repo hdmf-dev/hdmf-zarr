@@ -188,9 +188,14 @@ class ZarrIO(HDMFIO):
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
-        '''
+        """
         Load cached namespaces from a file.
-        '''
+
+        .. note::
+
+            The function does NOT close the path. E.g., when using a
+            SQLiteStore remember to close the store.
+        """
         f = zarr.open(path, 'r')
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
