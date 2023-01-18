@@ -17,6 +17,7 @@ from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore,
                           SQLiteStore)
+
 import numcodecs
 
 # HDMF-ZARR imports
@@ -122,12 +123,6 @@ class ZarrIO(HDMFIO):
                     "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
         warnings.warn(warn_msg)
 
-    def __exit__(self, type, value, traceback):
-        self.close()
-
-    def __del__(self):
-        self.close()
-
     @property
     def file(self):
         """
@@ -190,6 +185,7 @@ class ZarrIO(HDMFIO):
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
              'type': (str, *list(SUPPORTED_ZARR_STORES.values())),
+             'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):

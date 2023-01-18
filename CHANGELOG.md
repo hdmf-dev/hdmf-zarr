@@ -3,19 +3,18 @@
 ## 0.3.0 (Upcoming)
 
 ### New Features
-* Added support for using ``DirectoryStore``, ``TempStore``, and ``NestedDirectoryStore``, 
-  Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
+* Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
   @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
 ### Minor enhancements
-* Updated handling of references on write/read to simplify integration of file-based Zarr 
+* Updated handling of references on read to simplify future integration of file-based Zarr 
   stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### Test suite enhancements
-* Modularized unit tests to simplify running tests for multiple Zarr storage backends and 
-  added tests for the newly supported Zarr stores.
+* Modularized unit tests to simplify running tests for multiple Zarr storage backends
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### Docs
@@ -25,11 +24,10 @@
 ### API Changes
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-* Added ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` dictionary with supported zarr stores 
+* Changed ``hdmf_zarr.backends.SUPPORTED_ZARR_STORES`` from tuple to dictionary 
   @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
-
-## 0.2.0 (Latest)
+## 0.2.0 (January 6, 2023)
 
 ### Bugs
 * Updated the storage of links/references to use paths relative to the current Zarr file to avoid breaking
@@ -51,7 +49,7 @@
 * Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as 
   local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
-## 0.1.0 
+## 0.1.0 (August 23, 2022)
 
 ### New features
 

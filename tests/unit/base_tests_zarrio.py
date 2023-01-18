@@ -4,6 +4,7 @@ Module defining the base unit test cases for ZarrIO.
 The actual tests are then instantiated with various different backends in the
 test_zarrio.py module.
 """
+
 import unittest
 import os
 import numpy as np
@@ -110,7 +111,7 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
                     warnings.warn("Could not remove: %s" % path)
                 # except PermissionError:  # This can happen on Windows
                 #     warnings.warn("Could not remove: %s" % path)
-
+                
 
 class BaseTestZarrWriter(BaseZarrWriterTestCase):
     """
@@ -136,10 +137,14 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.manager = get_foo_buildmanager()
         self.store = "test_io.zarr"
         self.store_path = self.store
-        self.io = None  # may not to keep an ZarrIO object open, e.g., in read()
+        self.io = None  # may need to keep an ZarrIO object open, e.g., in read()
 
     def tearDown(self):
         if self.io is not None:
+            try:
+                self.io.close()
+            except Exception:
+                 pass
             del self.io
         super().tearDown()
 
@@ -207,6 +212,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.root = reader.read_builder()
         dataset = self.root['test_bucket/foo_holder/foo1/my_data']
         data = dataset['data'][:]
+        del reader  # delete and close the store
         return data
 
     def read(self):
