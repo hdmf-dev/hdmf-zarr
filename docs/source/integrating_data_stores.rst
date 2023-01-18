@@ -62,7 +62,7 @@ test_zarrio.py
 `base_tests_zarrio.py <https://github.com/hdmf-dev/hdmf-zarr/blob/dev/tests/unit/base_tests_zarrio.py>`_
 provides a collection of base classes that define common
 test cases to test basic functionality of :py:class:`~hdmf_zarr.backend.ZarrIO`. Using these base classes, the
-`test_zarrio.py <https://github.com/hdmf-dev/hdmf-zarr/blob/dev/tests/unit/test_io_zarr.py>`_ module
+`test_zarrio.py <https://github.com/hdmf-dev/hdmf-zarr/blob/dev/tests/unit/test_zarrio.py>`_ module
 then implements concrete tests for various backends. To create tests for a new data store, we need to
 add the following main classes (while ``<MyStore>`` in the code below would need to be replaced with the
 class name of the new data store):
