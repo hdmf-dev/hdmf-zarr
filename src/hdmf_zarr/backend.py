@@ -670,6 +670,7 @@ class ZarrIO(HDMFIO):
                 io_settings['dtype'] = cls.__dtypes.get(io_settings['dtype'])
         try:
             dset = parent.create_dataset(name, **io_settings)
+            dset.attrs['zarr_dtype'] = io_settings['dtype']
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
@@ -1099,13 +1100,13 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if hasattr(zarr_obj, 'dtype'):
+        if 'zarr_dtype' not in zarr_obj.attrs:
+            zarr_dtype = zarr_obj.attrs['zarr_dtype']
+        elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
             zarr_dtype = zarr_obj.dtype
+            warnings.warn("Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)) 
         else:
-            if 'zarr_dtype' in zarr_obj.attrs:
-                zarr_dtype = zarr_obj.attrs['zarr_dtype']
-            else:
-                raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
+            raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
         kwargs = {"attributes": self.__read_attrs(zarr_obj),
                   "dtype": zarr_dtype,
