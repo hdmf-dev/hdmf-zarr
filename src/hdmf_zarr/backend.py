@@ -1099,11 +1099,16 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if 'zarr_dtype' not in zarr_obj.attrs:
-            raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
+        if hasattr(zarr_obj, 'dtype'):
+            zarr_dtype = zarr_obj.dtype
+        else:
+            if 'zarr_dtype' in zarr_obj.attrs:
+                zarr_dtype = zarr_obj.attrs['zarr_dtype']
+            else:
+                raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
         kwargs = {"attributes": self.__read_attrs(zarr_obj),
-                  "dtype": zarr_obj.attrs['zarr_dtype'],
+                  "dtype": zarr_dtype,
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
                   "source": self.source}
