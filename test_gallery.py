@@ -1,4 +1,5 @@
 """Test that the Sphinx Gallery files run without warnings or errors.
+
 See tox.ini for usage.
 """
 
@@ -22,7 +23,6 @@ def _import_from_file(script):
     sys.modules[modname] = module
     spec.loader.exec_module(module)
 
-
 _numpy_warning_re = (
     "numpy.ufunc size changed, may indicate binary incompatibility. Expected 216, got 192"
 )
@@ -32,33 +32,8 @@ _distutils_warning_re = (
 )
 
 _experimental_warning_re = (
-    "The ZarrIO backend is experimental. It is under active development. "
-    "The ZarrIO backend may change any time and backward compatibility is not guaranteed."
-)
-
-_user_warning_transpose = (
-    "ElectricalSeries 'ElectricalSeries': The second dimension of data does not match the "
-    "length of electrodes. Your data may be transposed."
-)
-
-_deprication_warning_map = (
-    'Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed '
-    'in HDMF 3.0.'
-)
-
-_deprication_warning_fmt_docval_args = (
-    "fmt_docval_args will be deprecated in a future version of HDMF. Instead of using fmt_docval_args, "
-    "call the function directly with the kwargs. Please note that fmt_docval_args "
-    "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
-    "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
-    "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
-)
-
-_deprication_warning_call_docval_func = (
-    "call the function directly with the kwargs. Please note that call_docval_func "
-    "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
-    "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
-    "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
+    "[a-zA-Z0-9]+ is experimental -- it may be removed in the future "
+    "and is not guaranteed to maintain backward compatibility"
 )
 
 
@@ -78,30 +53,16 @@ def run_gallery_tests():
     warnings.simplefilter("error")
 
     TOTAL += len(gallery_file_names)
-    curr_dir = os.getcwd()
     for script in gallery_file_names:
         logging.info("Executing %s" % script)
-        os.chdir(curr_dir)  # Reset the working directory
-        script_abs = os.path.abspath(script)   # Determine the full path of the script
-        # Set the working dir to be relative to the script to allow the use of relative file paths in the scripts
-        os.chdir(os.path.dirname(script_abs))
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_map, category=DeprecationWarning
-                )
-                warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_fmt_docval_args, category=PendingDeprecationWarning
-                )
-                warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_call_docval_func, category=PendingDeprecationWarning
-                )
-                warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
                 )
-                warnings.filterwarnings(
-                    "ignore", message=_user_warning_transpose, category=UserWarning
-                )
+                # warnings.filterwarnings(
+                #     "ignore", message=_pkg_resources_warning, category=DeprecationWarning
+                # )
                 warnings.filterwarnings(
                     # this warning is triggered from pandas when HDMF is installed with the minimum requirements
                     "ignore", message=_distutils_warning_re, category=DeprecationWarning
@@ -111,13 +72,11 @@ def run_gallery_tests():
                     # against a different version of numpy than the one installed
                     "ignore", message=_numpy_warning_re, category=RuntimeWarning
                 )
-                _import_from_file(script_abs)
+                _import_from_file(script)
         except Exception:
             print(traceback.format_exc())
             FAILURES += 1
             ERRORS += 1
-    # Make sure to reset the working directory at the end
-    os.chdir(curr_dir)
 
 
 def main():
