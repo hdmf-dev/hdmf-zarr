@@ -670,7 +670,7 @@ class ZarrIO(HDMFIO):
                 io_settings['dtype'] = cls.__dtypes.get(io_settings['dtype'])
         try:
             dset = parent.create_dataset(name, **io_settings)
-            dset.attrs['zarr_dtype'] = io_settings['dtype']
+            dset.attrs['zarr_dtype'] = np.dtype(io_settings['dtype']).str
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
