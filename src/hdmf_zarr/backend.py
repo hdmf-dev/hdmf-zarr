@@ -1100,7 +1100,7 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if 'zarr_dtype' not in zarr_obj.attrs:
+        if 'zarr_dtype' in zarr_obj.attrs:
             zarr_dtype = zarr_obj.attrs['zarr_dtype']
         elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
             zarr_dtype = zarr_obj.dtype
