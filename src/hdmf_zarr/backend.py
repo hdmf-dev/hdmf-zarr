@@ -1104,7 +1104,9 @@ class ZarrIO(HDMFIO):
             zarr_dtype = zarr_obj.attrs['zarr_dtype']
         elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
             zarr_dtype = zarr_obj.dtype
-            warnings.warn("Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)) 
+            warnings.warn(
+                "Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)
+            )
         else:
             raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
