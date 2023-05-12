@@ -88,9 +88,9 @@ intersphinx_mapping = {
 
 # Use this for mapping to external links
 extlinks = {
-    'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/', '%s'),
-    'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/', '%s'),
-    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/', '%s')
+    'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/%s', '%s'),
+    'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/%s', '%s'),
+    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/%s', '%s')
 }
 
 # Add any paths that contain templates here, relative to this directory.
