@@ -1,5 +1,5 @@
 # pinned dependencies to reproduce an entire development environment to use HDMF-ZARR
 hdmf==3.5.2
 zarr==2.11.0
-numcodecs==0.11.0
+numcodecs==0.10.0
 pynwb==2.0.1
