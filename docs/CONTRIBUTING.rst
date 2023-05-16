@@ -87,35 +87,19 @@ From your local copy directory, use the following commands.
 Style Guides
 ------------
 
-Python Code Style Guide
-^^^^^^^^^^^^^^^^^^^^^^^
+Python Code Styleguide
+^^^^^^^^^^^^^^^^^^^^^^
 
-Before you create a Pull Request, make sure you are following the PEP8_ style guide. .
-To check whether your code conforms to the HDMF-ZARR style guide, simply run the ruff_ tool in the project's root
-directory. ``ruff`` will also sort imports automatically and check against additional code style rules.
+Before you create a Pull Request, make sure you are following the HDMF-ZARR style guide (PEP8_).
+To check whether your code conforms to the HDMF-ZARR style guide, simply run the flake8_ tool in the project's root
+directory.
 
-We also use ``ruff`` to sort python imports automatically and double-check that the codebase
-conforms to PEP8 standards, while using the codespell_ tool to check spelling.
-
-``ruff`` and ``codespell`` are installed when you follow the developer installation instructions. See
-:ref:`install_developers`.
-
-.. _ruff: https://beta.ruff.rs/docs/
-.. _codespell: https://github.com/codespell-project/codespell
+.. _flake8: https://flake8.pycqa.org/en/latest/
+.. _PEP8: https://peps.python.org/pep-0008/
 
 .. code::
 
-   $ ruff check .
-   $ codespell
-
-Pre-Commit
-^^^^^^^^^^
-
-We encourage developers to use pre-commit_ tool to automatically process the codebase to follow the style guide,
-as well as identify issues before making a commit. See installation and operation instructions in the pre-commit_
-documentation.
-
-.. _pre-commit: https://pre-commit.com/
+   $ flake8
 
 Git Commit Message Styleguide
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
