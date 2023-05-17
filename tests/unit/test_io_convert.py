@@ -203,7 +203,6 @@ class MixinTestHDF5ToZarr():
     def roundtripExportContainer(self, container, write_path, export_path):
         with HDF5IO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path, mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
@@ -233,11 +232,10 @@ class MixinTestZarrToHDF5():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
+            breakpoint()
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
-
         read_io = HDF5IO(export_path, manager=self.get_manager(), mode='r')
         self.ios.append(read_io)
         exportContainer = read_io.read()
