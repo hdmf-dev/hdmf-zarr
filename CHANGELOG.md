@@ -22,6 +22,9 @@
 ### API Changes
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
+### Bug fixes
+* Fixed error in nightly CI. @rly [#93](https://github.com/hdmf-dev/hdmf-zarr/pull/93)
+
 ## 0.2.0 (January 6, 2023)
 
 ### Bugs
