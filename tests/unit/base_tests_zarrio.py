@@ -299,7 +299,6 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
     def test_read_int(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
         self.test_write_int(test_data=test_data)
-
         dataset = self.read_test_dataset()['data'][:]
         self.assertTrue(np.all(test_data == dataset))
 
