@@ -170,6 +170,9 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                                          'ref_dataset': dataset_ref})
         return builder
 
+    def test_cannot_read(self):
+        assert not ZarrIO.can_read("incorrect_path")
+
     def read_test_dataset(self):
         reader = ZarrIO(self.store, manager=self.manager, mode='r')
         self.root = reader.read_builder()
@@ -209,6 +212,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer = ZarrIO(self.store, manager=self.manager, mode='a')
         writer.write_builder(self.builder)
         writer.close()
+        assert ZarrIO.can_read(self.store)
 
     def test_write_compound(self, test_data=None):
         """
@@ -295,6 +299,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
     def test_read_int(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
         self.test_write_int(test_data=test_data)
+
         dataset = self.read_test_dataset()['data'][:]
         self.assertTrue(np.all(test_data == dataset))
 
