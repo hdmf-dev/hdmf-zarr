@@ -75,8 +75,8 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 
 class ZarrIO(HDMFIO):
 
-    @classmethod
-    def can_read(cls, path):
+    @staticmethod
+    def can_read(path):
         try:
             zarr.open(path, mode="r")
             return True
