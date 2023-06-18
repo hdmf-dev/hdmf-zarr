@@ -22,6 +22,7 @@ def _import_from_file(script):
     sys.modules[modname] = module
     spec.loader.exec_module(module)
 
+
 _pkg_resources_warning_re = (
     "pkg_resources is deprecated as an API"
 )
