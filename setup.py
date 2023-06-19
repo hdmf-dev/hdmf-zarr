@@ -17,7 +17,7 @@ print('found these packages:', pkgs)
 
 
 reqs = [
-    'hdmf>=3.6.1',
+    'hdmf==3.5.4',  # temporary
     'zarr>=2.11.0',
     'numpy>=1.22, <1.24; python_version>"3.7"',
     'numcodecs>=0.9.1',
