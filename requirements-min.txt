@@ -1,4 +1,4 @@
-hdmf==3.6.1
+hdmf==3.5.4
 zarr==2.11.0
 numcodecs==0.9.1
 pynwb==2.3.2
