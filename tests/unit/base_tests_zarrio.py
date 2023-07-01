@@ -1434,6 +1434,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         class OtherIO(HDMFIO):
 
+            @staticmethod
+            def can_read(path):
+                pass
+
             def read_builder(self):
                 pass
 
