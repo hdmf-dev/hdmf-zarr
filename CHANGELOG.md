@@ -10,11 +10,12 @@
 ### Minor enhancements
 * Updated handling of references on read to simplify future integration of file-based Zarr 
   stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-* Added can_read classmethod to ZarrIO. @bendichter [#97](https://github.com/hdmf-dev/hdmf-zarr/pull/97)
+* Added ``can_read`` classmethod to ``ZarrIO``. @bendichter [#97](https://github.com/hdmf-dev/hdmf-zarr/pull/97)
 
 ### Test suite enhancements
 * Modularized unit tests to simplify running tests for multiple Zarr storage backends
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+* Updated tests to handle upcoming changes to ``HDMFIO``. @rly [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
 
 ### Docs
 * Added developer documentation on how to integrate new storage backends with ZarrIO
