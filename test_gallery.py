@@ -23,6 +23,14 @@ def _import_from_file(script):
     spec.loader.exec_module(module)
 
 
+_pkg_resources_warning_re = (
+    "pkg_resources is deprecated as an API"
+)
+
+_pkg_resources_declare_warning_re = (
+    r"Deprecated call to `pkg_resources\.declare_namespace.*"
+)
+
 _numpy_warning_re = (
     "numpy.ufunc size changed, may indicate binary incompatibility. Expected 216, got 192"
 )
@@ -110,6 +118,14 @@ def run_gallery_tests():
                     # this warning is triggered when some numpy extension code in an upstream package was compiled
                     # against a different version of numpy than the one installed
                     "ignore", message=_numpy_warning_re, category=RuntimeWarning
+                )
+                warnings.filterwarnings(
+                    # this warning is triggered when downstream code such as pynwb uses pkg_resources>=5.13
+                    "ignore", message=_pkg_resources_warning_re, category=DeprecationWarning
+                )
+                warnings.filterwarnings(
+                    # this warning is triggered when downstream code such as pynwb uses pkg_resources>=5.13
+                    "ignore", message=_pkg_resources_declare_warning_re, category=DeprecationWarning
                 )
                 _import_from_file(script_abs)
         except Exception:

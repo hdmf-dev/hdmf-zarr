@@ -15,7 +15,11 @@
 ### Test suite enhancements
 * Modularized unit tests to simplify running tests for multiple Zarr storage backends.
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-* Updated tests to handle upcoming changes to ``HDMFIO``. @rly [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
+* Fixed CI testing of minimum and optional installation requirement. @rly
+  [#99](https://github.com/hdmf-dev/hdmf-zarr/pull/99)
+* Updated tests to handle upcoming changes to ``HDMFIO``. @rly 
+  [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
+
 
 ### Docs
 * Added developer documentation on how to integrate new storage backends with ZarrIO. @oruebel

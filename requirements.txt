@@ -1,6 +1,6 @@
 # pinned dependencies to reproduce an entire development environment to use HDMF-ZARR
 hdmf==3.7.0
 zarr==2.11.0
-pynwb==2.3.0
+pynwb==2.3.2
 numpy==1.23.5
 numcodecs==0.11.0
