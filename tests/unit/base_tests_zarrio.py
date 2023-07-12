@@ -1470,6 +1470,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             def __init__(self, manager):
                 super().__init__(manager=manager)
 
+            @staticmethod
+            def can_read(path):
+                pass
+
             def read_builder(self):
                 pass
 
