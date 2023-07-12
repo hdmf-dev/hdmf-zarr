@@ -95,11 +95,13 @@ class ZarrIO(HDMFIO):
             {'name': 'object_codec_class', 'type': None,
              'doc': 'Set the numcodec object codec class to be used to encode objects.'
                     'Use numcodecs.pickles.Pickle by default.',
-             'default': None})
+             'default': None},
+            {'name': 'external_resources_path', 'type': str, 'doc': 'The path to the ExternalResources',
+             'default': None},)
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', kwargs)
+        path, manager, mode, synchronizer, object_codec_class, external_resources_path = popargs(
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', 'external_resources_path', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
@@ -121,7 +123,7 @@ class ZarrIO(HDMFIO):
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
-        super().__init__(manager, source=source_path)
+        super().__init__(manager, source=source_path, external_resources_path=external_resources_path)
 
     @property
     def file(self):
