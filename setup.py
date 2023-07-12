@@ -19,7 +19,7 @@ print('found these packages:', pkgs)
 reqs = [
     'hdmf>=3.7.0',
     'zarr>=2.11.0',
-    'numpy>=1.22, <1.24; python_version>"3.7"',
+    'numpy>=1.22,
     'numcodecs>=0.9.1',
     'pynwb>=2.0.0',
     'setuptools',
@@ -42,10 +42,9 @@ setup_args = {
     'packages': pkgs,
     'package_dir': {'': 'src'},
     'package_data': {},
-    'python_requires': '>=3.7',
+    'python_requires': '>=3.8',
     'classifiers': [
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
