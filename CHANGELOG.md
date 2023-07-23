@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## 0.3.1 (Upcoming)
+
+### Bug fixes
+* Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
+
+
 ## 0.3.0 (July 21, 2023)
 
 ### New Features
