@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.3.0 (Upcoming)
+## 0.3.0 (July 21, 2023)
 
 ### New Features
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
