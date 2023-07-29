@@ -65,16 +65,57 @@ def function_wrapper(args):
 
     Recommended fix is to have a global wrapper for the executor.map level.
     """
-    dset, full_zarr_dataset_path, buffer_selection = args
+    zarr_store_path, relative_dataset_path, iterator, buffer_selection = args
     global _worker_context
     global _operation_to_run
     max_threads_per_process = _worker_context["max_threads_per_process"]
     if max_threads_per_process is None:
-        return _operation_to_run(_worker_context, full_zarr_dataset_path, buffer_selection)
+        return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
     else:
         with threadpool_limits(limits=max_threads_per_process):
-            return _operation_to_run(_worker_context, full_zarr_dataset_path, buffer_selection)
+            return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
 
+def _initialize_process_zarr():
+    # create a local dict per worker
+    worker_context = dict()
+
+    #if isinstance(iterator, dict):
+    #    from neuroconv.tools.hdmf import SliceableDataChunkIterator # temporary development
+
+        #worker_context["iterator"] = SliceableDataChunkIterator.from_dict(iterator
+
+    return worker_context
+
+def _write_buffer_zarr(
+    worker_context,
+    zarr_store_path,
+    relative_dataset_path,
+    iterator,
+    buffer_selection,
+#    buffer_index: int
+):
+    # recover variables of the worker
+    #iterator = worker_context["iterator"]
+    #zarr_store_path = worker_context["zarr_store_path"]
+    #zarr_dataset_path = worker_context["zarr_dataset_path"]
+
+    # Perhaps a little inefficient to do this every buffer, but shouldn't be that bad...
+    #print(Path(full_zarr_dataset_path).parents)
+    #print([parent for parent in Path(full_zarr_dataset_path).parents])
+    #zarr_store_path = next(parent for parent in Path(full_zarr_dataset_path).parents if ".nwb" in parent.suffixes)
+    zarr_store = zarr.open(store=zarr_store_path, mode="r+") #storage_options=storage_options) # TODO, figure out propagation of storage options
+    #relative_dataset_path = Path(full_zarr_dataset_path).relative_to(zarr_store_path)
+    zarr_dataset = zarr_store[relative_dataset_path]
+
+    #buffer_selection = iterator.buffer_selections[buffer_index]
+    data = iterator._get_data(selection=buffer_selection)
+    zarr_dataset[buffer_selection] = data
+
+    # An issue detected in cloud usage by the SpikeInterface team
+    # Fix memory leak by forcing garbage collection
+    del data
+    gc.collect()
+        
 class ZarrIODataChunkIteratorQueue(deque):
     """
     Helper class used by ZarrIO to manage the write for DataChunkIterators
@@ -129,45 +170,6 @@ class ZarrIODataChunkIteratorQueue(deque):
         # Chunk written and we need to continue
 
         return True
-
-    def _initialize_process_zarr(self):
-        # create a local dict per worker
-        worker_context = dict()
-
-        #if isinstance(iterator, dict):
-        #    from neuroconv.tools.hdmf import SliceableDataChunkIterator # temporary development
-
-            #worker_context["iterator"] = SliceableDataChunkIterator.from_dict(iterator
-
-        return worker_context
-
-    def _write_buffer_zarr(
-        self,
-        worker_context,
-        full_zarr_dataset_path,
-        iterator,
-        buffer_selection,
-    #    buffer_index: int
-    ):
-        # recover variables of the worker
-        #iterator = worker_context["iterator"]
-        #zarr_store_path = worker_context["zarr_store_path"]
-        #zarr_dataset_path = worker_context["zarr_dataset_path"]
-
-        # Perhaps a little inefficient to do this every buffer, but shouldn't be that bad...
-        zarr_store_path = next(parent for parent in Path(full_zarr_dataset_path).parents if ".nwb" in x.suffixes)
-        zarr_store = zarr.open(path=zarr_store_path, mode="r+") #storage_options=storage_options) # TODO, figure out propagation of storage options
-        relative_dataset_path = Path(full_zarr_dataset_path).relative_to(zarr_store_path)
-        zarr_dataset = zarr_store[relative_dataset_path]
-
-        #buffer_selection = iterator.buffer_selections[buffer_index]
-        data = iterator._get_data(selection=buffer_selection)
-        zarr_dataset[buffer_selection] = data
-
-        # An issue detected in cloud usage by the SpikeInterface team
-        # Fix memory leak by forcing garbage collection
-        del traces
-        gc.collect()
     
     def exhaust_queue(self, number_of_jobs: int = 1, max_threads_per_process: int = 1):
         """
@@ -179,18 +181,15 @@ class ZarrIODataChunkIteratorQueue(deque):
         """
         self.logger.debug("Exhausting DataChunkIterator from queue (length %d)" % len(self))
         if number_of_jobs > 1:
-            print("writing in parallel!")
             buffer_map = list()
             for (zarr_dataset, iterator) in iter(self):
-                print(f"{zarr_dataset.name=}")
                 for buffer_selection in iterator.buffer_selection_generator:
-                    buffer_map_args = (zarr_dataset.path, iterator, buffer_selection)
+                    buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
 
-            operation_to_run = self._write_buffer_zarr
-            process_initialization = self._initialize_process_zarr
+            operation_to_run = _write_buffer_zarr
+            process_initialization = _initialize_process_zarr
             initialization_arguments = ()
-            print(f"{number_of_jobs=}")
             with ProcessPoolExecutor(
                 max_workers=number_of_jobs,
                 initializer=initializer_wrapper,
@@ -199,10 +198,12 @@ class ZarrIODataChunkIteratorQueue(deque):
             ) as executor:
                 results = executor.map(function_wrapper, buffer_map)
                 #results = executor.map(operation_to_run, buffer_map)
+                results = tqdm(results, desc="Writing in parallel with Zarr", total=len(buffer_map))
+                for result in results:
+                    pass
 
                 # TODO: deal with multiprocessing tqdm in separate PR
                 #if self.progress_bar:
-                #results = tqdm(results, total=len(buffer_map))
 
                 # TODO: handle errors in each process
                 #for res in results:
@@ -211,11 +212,9 @@ class ZarrIODataChunkIteratorQueue(deque):
                 #    if self.gather_func is not None:
                 #        self.gather_func(res)
         else:
-            print("writing on single job!")
             # Iterate through our queue and write data chunks in a round-robin fashion until all in-memory iterators are exhausted
             while len(self) > 0:
                 dset, data = self.popleft()
-                print(f"{dset.name=}")
                 if self.__write_chunk__(dset, data):
                     self.append(dataset=dset, data=data)
                 #assert False

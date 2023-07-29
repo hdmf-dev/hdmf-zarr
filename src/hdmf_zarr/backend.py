@@ -853,9 +853,7 @@ class ZarrIO(HDMFIO):
         self._written_builders.set_written(builder)
         # Exhaust the DataChunkIterator if the dataset was given this way. Note this is a no-op
         # if the self.__dci_queue is empty
-        print(f"In write_dataset {exhaust_dci=}")
         if exhaust_dci:
-            print(f"In write_dataset {number_of_jobs=}")
             self.__dci_queue.exhaust_queue(number_of_jobs=number_of_jobs)
         return dset
 
