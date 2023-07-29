@@ -189,14 +189,18 @@ class ZarrIO(HDMFIO):
                 reader = ZarrSpecReader(ns_group)
                 namespace_catalog.load_namespaces('namespace', reader=reader)
 
-    @docval({'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
-            {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True},)
+    @docval(
+        {'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
+        {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
+        {'name': 'link_data', 'type': bool,
+         'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
+        {'name': 'exhaust_dci', 'type': bool,
+         'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
+         'default': True},
+        {'name': 'number_of_jobs', 'type': int,
+         'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
+         'default': 1},)
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification"""
         cache_spec = popargs('cache_spec', kwargs)
@@ -293,22 +297,27 @@ class ZarrIO(HDMFIO):
             {'name': 'exhaust_dci', 'type': bool,
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True})
+             'default': True},
+            {'name': 'number_of_jobs', 'type': int,
+             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
+             'default': 1},)
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
-        f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
+        f_builder, link_data, exhaust_dci, number_of_jobs = getargs('builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
         for name, gbldr in f_builder.groups.items():
             self.write_group(parent=self.__file,
                              builder=gbldr,
                              link_data=link_data,
-                             exhaust_dci=exhaust_dci)
+                             exhaust_dci=exhaust_dci,
+                             number_of_jobs=number_of_jobs)
         for name, dbldr in f_builder.datasets.items():
             self.write_dataset(parent=self.__file,
                                builder=dbldr,
                                link_data=link_data,
-                               exhaust_dci=exhaust_dci)
+                               exhaust_dci=exhaust_dci,
+                               number_of_jobs=number_of_jobs)
         self.write_attributes(self.__file, f_builder.attributes)
-        self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
+        self.__dci_queue.exhaust_queue(number_of_jobs=number_of_jobs)  # Write all DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
@@ -321,10 +330,13 @@ class ZarrIO(HDMFIO):
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
              'default': True},
+            {'name': 'number_of_jobs', 'type': int,
+             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
+             'default': 1},
             returns='the Group that was created', rtype='Group')
     def write_group(self, **kwargs):
         """Write a GroupBuider to file"""
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, number_of_jobs = getargs('parent', 'builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
         if self.get_written(builder):
             group = parent[builder.name]
         else:
@@ -336,7 +348,8 @@ class ZarrIO(HDMFIO):
                 self.write_group(parent=group,
                                  builder=sub_builder,
                                  link_data=link_data,
-                                 exhaust_dci=exhaust_dci)
+                                 exhaust_dci=exhaust_dci,
+                                 number_of_jobs=number_of_jobs)
 
         datasets = builder.datasets
         if datasets:
@@ -344,7 +357,8 @@ class ZarrIO(HDMFIO):
                 self.write_dataset(parent=group,
                                    builder=sub_builder,
                                    link_data=link_data,
-                                   exhaust_dci=exhaust_dci)
+                                   exhaust_dci=exhaust_dci,
+                                   number_of_jobs=number_of_jobs)
 
         # write all links (haven implemented)
         links = builder.links
@@ -693,9 +707,12 @@ class ZarrIO(HDMFIO):
              'default': True},
             {'name': 'force_data', 'type': None,
              'doc': 'Used internally to force the data being used when we have to load the data', 'default': None},
+            {'name': 'number_of_jobs', 'type': int,
+             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
+             'default': 1},
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, number_of_jobs = getargs('parent', 'builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
             return None
@@ -836,8 +853,10 @@ class ZarrIO(HDMFIO):
         self._written_builders.set_written(builder)
         # Exhaust the DataChunkIterator if the dataset was given this way. Note this is a no-op
         # if the self.__dci_queue is empty
+        print(f"In write_dataset {exhaust_dci=}")
         if exhaust_dci:
-            self.__dci_queue.exhaust_queue()
+            print(f"In write_dataset {number_of_jobs=}")
+            self.__dci_queue.exhaust_queue(number_of_jobs=number_of_jobs)
         return dset
 
     __dtypes = {

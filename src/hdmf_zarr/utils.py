@@ -2,20 +2,78 @@
 from zarr.hierarchy import Group
 import zarr
 import numcodecs
+import gc
 import numpy as np
 from collections import deque
 from collections.abc import Iterable
+from typing import Optional, Union
+from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
+from threadpoolctl import threadpool_limits
+
+from tqdm import tqdm
 
 import json
 import logging
 
-from hdmf.data_utils import DataIO
+from hdmf.data_utils import DataIO, DataChunkIterator, DataChunk
+from hdmf.query import HDMFDataset
 from hdmf.utils import (docval,
                         getargs)
 
 from hdmf.spec import (SpecWriter,
                        SpecReader)
 
+
+# Necessary definitions to avoid parallelization bugs
+# Inherited from SpikeInterface experience
+
+# see
+# https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool
+# the tricks is : theses 2 variables are global per worker
+# so they are not share in the same process
+global _worker_context
+global _operation_to_run
+
+
+def initializer_wrapper(
+    operation_to_run: callable,
+    process_initialization: callable,
+    initialization_arguments: Iterable,  # TODO: eventually standardize with typing.Iterable[typing.Any]
+    max_threads_per_process: Optional[int] = None
+): # keyword arguments here are just for readability, ProcessPool only takes a tuple
+    """
+    Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
+
+    Recommended fix is to have global wrappers for the working initializer that limits the
+    threads used per process.
+    """
+    global _worker_context
+    if max_threads_per_process is None:
+        _worker_context = process_initialization(*initialization_arguments)
+    else:
+        with threadpool_limits(limits=max_threads_per_process):
+            _worker_context = process_initialization(*initialization_arguments)
+    _worker_context["max_threads_per_process"] = max_threads_per_process
+    global _operation_to_run
+    _operation_to_run = operation_to_run
+
+
+def function_wrapper(args):
+    """
+    Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
+
+    Recommended fix is to have a global wrapper for the executor.map level.
+    """
+    dset, full_zarr_dataset_path, buffer_selection = args
+    global _worker_context
+    global _operation_to_run
+    max_threads_per_process = _worker_context["max_threads_per_process"]
+    if max_threads_per_process is None:
+        return _operation_to_run(_worker_context, full_zarr_dataset_path, buffer_selection)
+    else:
+        with threadpool_limits(limits=max_threads_per_process):
+            return _operation_to_run(_worker_context, full_zarr_dataset_path, buffer_selection)
 
 class ZarrIODataChunkIteratorQueue(deque):
     """
@@ -28,12 +86,18 @@ class ZarrIODataChunkIteratorQueue(deque):
         super().__init__()
 
     @classmethod
-    def __write_chunk__(cls, dset, data):
+    def __write_chunk__(cls, dset: HDMFDataset, data: DataChunkIterator):
         """
         Internal helper function used to read a chunk from the given DataChunkIterator
         and write it to the given Dataset
         :param dset: The Dataset to write to
+        :type dset: HDMFDataset
         :param data: The DataChunkIterator to read from
+        :type data: DataChunkIterator
+        :param buffer_index: The index of the next chunk within the DataChunkIterator, optional.
+        Only used with multiprocessing for serializing the selections of the iteration.
+        Default is to perform direct iteration on the in-memory DataChunkIterator for the single process.
+        :type buffer_index: integer or None
         :return: True of a chunk was written, False otherwise
         :rtype: bool
         """
@@ -63,18 +127,98 @@ class ZarrIODataChunkIteratorQueue(deque):
         # Write the data
         dset[chunk_i.selection] = chunk_i.data
         # Chunk written and we need to continue
+
         return True
 
-    def exhaust_queue(self):
+    def _initialize_process_zarr(self):
+        # create a local dict per worker
+        worker_context = dict()
+
+        #if isinstance(iterator, dict):
+        #    from neuroconv.tools.hdmf import SliceableDataChunkIterator # temporary development
+
+            #worker_context["iterator"] = SliceableDataChunkIterator.from_dict(iterator
+
+        return worker_context
+
+    def _write_buffer_zarr(
+        self,
+        worker_context,
+        full_zarr_dataset_path,
+        iterator,
+        buffer_selection,
+    #    buffer_index: int
+    ):
+        # recover variables of the worker
+        #iterator = worker_context["iterator"]
+        #zarr_store_path = worker_context["zarr_store_path"]
+        #zarr_dataset_path = worker_context["zarr_dataset_path"]
+
+        # Perhaps a little inefficient to do this every buffer, but shouldn't be that bad...
+        zarr_store_path = next(parent for parent in Path(full_zarr_dataset_path).parents if ".nwb" in x.suffixes)
+        zarr_store = zarr.open(path=zarr_store_path, mode="r+") #storage_options=storage_options) # TODO, figure out propagation of storage options
+        relative_dataset_path = Path(full_zarr_dataset_path).relative_to(zarr_store_path)
+        zarr_dataset = zarr_store[relative_dataset_path]
+
+        #buffer_selection = iterator.buffer_selections[buffer_index]
+        data = iterator._get_data(selection=buffer_selection)
+        zarr_dataset[buffer_selection] = data
+
+        # An issue detected in cloud usage by the SpikeInterface team
+        # Fix memory leak by forcing garbage collection
+        del traces
+        gc.collect()
+    
+    def exhaust_queue(self, number_of_jobs: int = 1, max_threads_per_process: int = 1):
         """
-        Read and write from any queued DataChunkIterators in a round-robin fashion
+        Read and write from any queued DataChunkIterators in a round-robin fashion (single job) or a single dataset at a time (multiple jobs).
+        :param number_of_jobs: The number of jobs used to write the datasets. The default is 1.
+        :type number_of_jobs: integer
+        :param max_threads_per_process: Limits the number of threads used by each process. The default is 1. TODO: propagate to higher builder level.
+        :type max_threads_per_process: integer
         """
-        # Iterate through our queue and write data chunks in a round-robin fashion until all iterators are exhausted
         self.logger.debug("Exhausting DataChunkIterator from queue (length %d)" % len(self))
-        while len(self) > 0:
-            dset, data = self.popleft()
-            if self.__write_chunk__(dset, data):
-                self.append(dataset=dset, data=data)
+        if number_of_jobs > 1:
+            print("writing in parallel!")
+            buffer_map = list()
+            for (zarr_dataset, iterator) in iter(self):
+                print(f"{zarr_dataset.name=}")
+                for buffer_selection in iterator.buffer_selection_generator:
+                    buffer_map_args = (zarr_dataset.path, iterator, buffer_selection)
+                    buffer_map.append(buffer_map_args)
+
+            operation_to_run = self._write_buffer_zarr
+            process_initialization = self._initialize_process_zarr
+            initialization_arguments = ()
+            print(f"{number_of_jobs=}")
+            with ProcessPoolExecutor(
+                max_workers=number_of_jobs,
+                initializer=initializer_wrapper,
+                #mp_context=mp.get_context(self.mp_context),
+                initargs=(operation_to_run, process_initialization, initialization_arguments, max_threads_per_process),
+            ) as executor:
+                results = executor.map(function_wrapper, buffer_map)
+                #results = executor.map(operation_to_run, buffer_map)
+
+                # TODO: deal with multiprocessing tqdm in separate PR
+                #if self.progress_bar:
+                #results = tqdm(results, total=len(buffer_map))
+
+                # TODO: handle errors in each process
+                #for res in results:
+                #    if self.handle_returns:
+                #        returns.append(res)
+                #    if self.gather_func is not None:
+                #        self.gather_func(res)
+        else:
+            print("writing on single job!")
+            # Iterate through our queue and write data chunks in a round-robin fashion until all in-memory iterators are exhausted
+            while len(self) > 0:
+                dset, data = self.popleft()
+                print(f"{dset.name=}")
+                if self.__write_chunk__(dset, data):
+                    self.append(dataset=dset, data=data)
+                #assert False
         self.logger.debug("Exhausted DataChunkIterator from queue (length %d)" % len(self))
 
     def append(self, dataset, data):
