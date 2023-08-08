@@ -4,14 +4,13 @@ import zarr
 import numcodecs
 import gc
 import numpy as np
+import multiprocessing
 from collections import deque
 from collections.abc import Iterable
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
-
-from tqdm import tqdm
 
 import json
 import logging
@@ -75,16 +74,6 @@ def function_wrapper(args):
         with threadpool_limits(limits=max_threads_per_process):
             return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
 
-def _initialize_process_zarr():
-    # create a local dict per worker
-    worker_context = dict()
-
-    #if isinstance(iterator, dict):
-    #    from neuroconv.tools.hdmf import SliceableDataChunkIterator # temporary development
-
-        #worker_context["iterator"] = SliceableDataChunkIterator.from_dict(iterator
-
-    return worker_context
 
 def _write_buffer_zarr(
     worker_context,
@@ -92,22 +81,10 @@ def _write_buffer_zarr(
     relative_dataset_path,
     iterator,
     buffer_selection,
-#    buffer_index: int
 ):
-    # recover variables of the worker
-    #iterator = worker_context["iterator"]
-    #zarr_store_path = worker_context["zarr_store_path"]
-    #zarr_dataset_path = worker_context["zarr_dataset_path"]
-
-    # Perhaps a little inefficient to do this every buffer, but shouldn't be that bad...
-    #print(Path(full_zarr_dataset_path).parents)
-    #print([parent for parent in Path(full_zarr_dataset_path).parents])
-    #zarr_store_path = next(parent for parent in Path(full_zarr_dataset_path).parents if ".nwb" in parent.suffixes)
     zarr_store = zarr.open(store=zarr_store_path, mode="r+") #storage_options=storage_options) # TODO, figure out propagation of storage options
-    #relative_dataset_path = Path(full_zarr_dataset_path).relative_to(zarr_store_path)
     zarr_dataset = zarr_store[relative_dataset_path]
 
-    #buffer_selection = iterator.buffer_selections[buffer_index]
     data = iterator._get_data(selection=buffer_selection)
     zarr_dataset[buffer_selection] = data
 
@@ -115,7 +92,8 @@ def _write_buffer_zarr(
     # Fix memory leak by forcing garbage collection
     del data
     gc.collect()
-        
+
+
 class ZarrIODataChunkIteratorQueue(deque):
     """
     Helper class used by ZarrIO to manage the write for DataChunkIterators
@@ -171,42 +149,55 @@ class ZarrIODataChunkIteratorQueue(deque):
 
         return True
     
-    def exhaust_queue(self, number_of_jobs: int = 1, max_threads_per_process: int = 1):
+    def exhaust_queue(
+        self,
+        number_of_jobs: int = 1,
+        max_threads_per_process: Union[None, int] = None,
+        multiprocessing_context: Union[None, Literal["fork", "spawn"]] = None,
+    ):
         """
         Read and write from any queued DataChunkIterators in a round-robin fashion (single job) or a single dataset at a time (multiple jobs).
         :param number_of_jobs: The number of jobs used to write the datasets. The default is 1.
         :type number_of_jobs: integer
-        :param max_threads_per_process: Limits the number of threads used by each process. The default is 1. TODO: propagate to higher builder level.
-        :type max_threads_per_process: integer
+        :param max_threads_per_process: Limits the number of threads used by each process. The default is None (no limits).
+        :type max_threads_per_process: integer or None
+        :param multiprocessing_context: Context for multiprocessing. It can be None (default), "fork" or "spawn".
+        Note that "fork" is only available on UNIX systems (not Windows).
+        :type multiprocessing_context: string or None
         """
         self.logger.debug("Exhausting DataChunkIterator from queue (length %d)" % len(self))
         if number_of_jobs > 1:
             buffer_map = list()
+
+            display_progress = False
             for (zarr_dataset, iterator) in iter(self):
+                display_progress = display_progress or iterator.display_progress
+                iterator.display_progress = False
+                iterator._base_kwargs.update(display_progress=False)
+
                 for buffer_selection in iterator.buffer_selection_generator:
                     buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
 
             operation_to_run = _write_buffer_zarr
-            process_initialization = _initialize_process_zarr
+            process_initialization = dict
             initialization_arguments = ()
+            
             with ProcessPoolExecutor(
                 max_workers=number_of_jobs,
                 initializer=initializer_wrapper,
-                #mp_context=mp.get_context(self.mp_context),
+                mp_context=multiprocessing.get_context(method=multiprocessing_context),
                 initargs=(operation_to_run, process_initialization, initialization_arguments, max_threads_per_process),
             ) as executor:
                 results = executor.map(function_wrapper, buffer_map)
-                #results = executor.map(operation_to_run, buffer_map)
-                results = tqdm(results, desc="Writing in parallel with Zarr", total=len(buffer_map))
+
+                if display_progress:
+                    from tqdm import tqdm
+
+                    results = tqdm(results, desc="Writing in parallel with Zarr", total=len(buffer_map), position=0)
+
                 for result in results:
                     pass
-
-                # TODO: deal with multiprocessing tqdm in separate PR
-                #if self.progress_bar:
-
-                # TODO: handle errors in each process
-                #for res in results:
                 #    if self.handle_returns:
                 #        returns.append(res)
                 #    if self.gather_func is not None:

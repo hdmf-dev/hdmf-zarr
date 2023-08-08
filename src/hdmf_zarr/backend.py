@@ -198,9 +198,33 @@ class ZarrIO(HDMFIO):
          'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                 'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
          'default': True},
-        {'name': 'number_of_jobs', 'type': int,
-         'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
-         'default': 1},)
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification"""
         cache_spec = popargs('cache_spec', kwargs)
@@ -298,26 +322,77 @@ class ZarrIO(HDMFIO):
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
              'default': True},
-            {'name': 'number_of_jobs', 'type': int,
-             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
-             'default': 1},)
+            {
+                "name": "number_of_jobs",
+                "type": int,
+                "doc": (
+                    "Number of jobs to use in parallel during write "
+                    "(only works with GenericDataChunkIterator-wrapped datasets)."
+                ),
+                "default": 1,
+            },
+            {
+                "name": "max_threads_per_process",
+                "type": int,
+                "doc": (
+                    "Limits the number of threads used by each process. The default is None (no limits)."
+                ),
+                "default": None,
+            },
+            {
+                "name": "multiprocessing_context",
+                "type": str,
+                "doc": (
+                    "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                    "Note that 'fork' is only available on UNIX systems (not Windows)."
+                ),
+                "default": None,
+            },
+    )
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
-        f_builder, link_data, exhaust_dci, number_of_jobs = getargs('builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
+        (
+            f_builder,
+            link_data,
+            exhaust_dci,
+            number_of_jobs,
+            max_threads_per_process,
+            multiprocessing_context,
+        ) = getargs(
+            'builder',
+            'link_data',
+            'exhaust_dci',
+            'number_of_jobs',
+            'max_threads_per_process',
+            'multiprocessing_context',
+            kwargs,
+        )
         for name, gbldr in f_builder.groups.items():
-            self.write_group(parent=self.__file,
-                             builder=gbldr,
-                             link_data=link_data,
-                             exhaust_dci=exhaust_dci,
-                             number_of_jobs=number_of_jobs)
+            self.write_group(
+                parent=self.__file,
+                builder=gbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                number_of_jobs=number_of_jobs,
+                max_threads_per_process=max_threads_per_process,
+                multiprocessing_context=multiprocessing_context,
+            )
         for name, dbldr in f_builder.datasets.items():
-            self.write_dataset(parent=self.__file,
-                               builder=dbldr,
-                               link_data=link_data,
-                               exhaust_dci=exhaust_dci,
-                               number_of_jobs=number_of_jobs)
+            self.write_dataset(
+                parent=self.__file,
+                builder=dbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                number_of_jobs=number_of_jobs,
+                max_threads_per_process=max_threads_per_process,
+                multiprocessing_context=multiprocessing_context,
+            )
         self.write_attributes(self.__file, f_builder.attributes)
-        self.__dci_queue.exhaust_queue(number_of_jobs=number_of_jobs)  # Write all DataChunkIterators that have been queued
+        self.__dci_queue.exhaust_queue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )  # Write any remaining DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
@@ -330,13 +405,53 @@ class ZarrIO(HDMFIO):
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
              'default': True},
-            {'name': 'number_of_jobs', 'type': int,
-             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
-             'default': 1},
+            {
+                "name": "number_of_jobs",
+                "type": int,
+                "doc": (
+                    "Number of jobs to use in parallel during write "
+                    "(only works with GenericDataChunkIterator-wrapped datasets)."
+                ),
+                "default": 1,
+            },
+            {
+                "name": "max_threads_per_process",
+                "type": int,
+                "doc": (
+                    "Limits the number of threads used by each process. The default is None (no limits)."
+                ),
+                "default": None,
+            },
+            {
+                "name": "multiprocessing_context",
+                "type": str,
+                "doc": (
+                    "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                    "Note that 'fork' is only available on UNIX systems (not Windows)."
+                ),
+                "default": None,
+            },
             returns='the Group that was created', rtype='Group')
     def write_group(self, **kwargs):
         """Write a GroupBuider to file"""
-        parent, builder, link_data, exhaust_dci, number_of_jobs = getargs('parent', 'builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
+        (
+            parent,
+            builder,
+            link_data,
+            exhaust_dci,
+            number_of_jobs,
+            max_threads_per_process,
+            multiprocessing_context,
+        ) = getargs(
+            'parent',
+            'builder',
+            'link_data',
+            'exhaust_dci',
+            'number_of_jobs',
+            'max_threads_per_process',
+            'multiprocessing_context',
+            kwargs,
+        )
         if self.get_written(builder):
             group = parent[builder.name]
         else:
@@ -707,12 +822,52 @@ class ZarrIO(HDMFIO):
              'default': True},
             {'name': 'force_data', 'type': None,
              'doc': 'Used internally to force the data being used when we have to load the data', 'default': None},
-            {'name': 'number_of_jobs', 'type': int,
-             'doc': "Number of jobs to use in parallel during write (only operates on GenericDataChunkIterator-wrapped datasets).",
-             'default': 1},
+            {
+                "name": "number_of_jobs",
+                "type": int,
+                "doc": (
+                    "Number of jobs to use in parallel during write "
+                    "(only works with GenericDataChunkIterator-wrapped datasets)."
+                ),
+                "default": 1,
+            },
+            {
+                "name": "max_threads_per_process",
+                "type": int,
+                "doc": (
+                    "Limits the number of threads used by each process. The default is None (no limits)."
+                ),
+                "default": None,
+            },
+            {
+                "name": "multiprocessing_context",
+                "type": str,
+                "doc": (
+                    "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                    "Note that 'fork' is only available on UNIX systems (not Windows)."
+                ),
+                "default": None,
+            },
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        parent, builder, link_data, exhaust_dci, number_of_jobs = getargs('parent', 'builder', 'link_data', 'exhaust_dci', 'number_of_jobs', kwargs)
+        (
+            parent,
+            builder,
+            link_data,
+            exhaust_dci,
+            number_of_jobs,
+            max_threads_per_process,
+            multiprocessing_context,
+        ) = getargs(
+            'parent',
+            'builder',
+            'link_data',
+            'exhaust_dci',
+            'number_of_jobs',
+            'max_threads_per_process',
+            'multiprocessing_context',
+            kwargs,
+        )
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
             return None
