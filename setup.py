@@ -21,6 +21,8 @@ reqs = [
     'zarr>=2.11.0',
     'numpy<1.22; python_version=="3.7"',
     'numcodecs>=0.9.1',
+    'numcodecs==0.10.2; python_version < "3.8"',
+    'numcodecs==0.11.0; python_version >= "3.8"',
     'pynwb>=2.3.2',
     'setuptools',
 ]
