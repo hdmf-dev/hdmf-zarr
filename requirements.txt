@@ -2,5 +2,6 @@
 hdmf==3.5.4
 zarr==2.11.0
 pynwb==2.3.2
-numpy==1.21
+numpy==1.21; python_version<3.8
+numpy>=1.22; python_version>=3.8
 numcodecs==0.11.0
