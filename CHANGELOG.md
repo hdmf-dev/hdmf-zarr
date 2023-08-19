@@ -4,7 +4,7 @@
 
 ### Bug fixes
 * Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
-* fixed build error for ReadtheDocs. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
+* Fixed build error for ReadtheDocs by degrading numpy for python 3.7 support. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
 
 
 ## 0.3.0 (July 21, 2023)
