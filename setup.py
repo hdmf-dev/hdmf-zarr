@@ -19,8 +19,11 @@ print('found these packages:', pkgs)
 reqs = [
     'hdmf==3.5.4',  # temporary
     'zarr>=2.11.0',
-    'numpy>=1.22, <1.24; python_version>"3.7"',
+    'numpy<1.22; python_version < "3.8"',
+    'numpy>=1.22; python_version >= "3.8"',
     'numcodecs>=0.9.1',
+    'numcodecs==0.10.2; python_version < "3.8"',
+    'numcodecs==0.11.0; python_version >= "3.8"',
     'pynwb>=2.3.2',
     'setuptools',
     'threadpoolct>=3.2.0',
