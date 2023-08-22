@@ -33,38 +33,25 @@ class TestDataChunkIterator(GenericDataChunkIterator):
 
     def _to_dict(self) -> Dict:
         dictionary = dict()
-        if isinstance(self.data, np.memmap):
-            dictionary["source_type"] = "memmap"
-            dictionary["base_kwargs"] = self._base_kwargs
-            dictionary["load_kwargs"] = dict(
-                filename=str(self.data.filename),  # TODO: check if can be relative
-                dtype=str(self.data.dtype),
-                shape=tuple(self.data.shape),
-            )
-            # TODO: if relative, need base path as well to make an absolute at time of pickling
-            # (not for persistence or sharing but for sending over ProcessPool)
-        else:
-            raise ValueError(f"Source type ({source_type}) is not yet supported!")
+        # Note this is not a recommended way to pickle contents
+        # ~~ Used for testing purposes only ~~
+        dictionary["data"] = self.data
+        dictionary["base_kwargs"] = self._base_kwargs
 
         return dictionary
 
     @staticmethod
     def _from_dict(dictionary: dict) -> GenericDataChunkIterator:  # TODO: need to investigate the need of base path
-        source_type = dictionary["source_type"]
+        source_type = dictionary["data"]
 
-        if source_type == "memmap":
-            data = np.memmap(**dictionary["load_kwargs"])
-        else:
-            raise ValueError(f"Source type ({source_type}) is not yet supported!")
-
-        iterator = SliceableDataChunkIterator(data=data, **dictionary["base_kwargs"])
+        iterator = TestDataChunkIterator(data=data, **dictionary["base_kwargs"])
         return iterator
 
-number_of_jobs = 2
-column = VectorData(name="TestColumn", description="", data=TestDataChunkIterator(np.array([1., 2., 3.])))
-dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
+def test_parallel_write(tmpdir):
+    number_of_jobs = 2
+    column = VectorData(name="TestColumn", description="", data=TestDataChunkIterator(data=np.array([1., 2., 3.])))
+    dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
 
-tmpdir = Path("home/jovyan/Downloads/")
-zarr_top_level_path = str(tmpdir / f"example_parallel_zarr_{number_of_jobs}.zarr")
-with ZarrIO(path=zarr_top_level_path, mode="w") as io:
-    io.write(dynamic_table, number_of_jobs=number_of_jobs)
+    zarr_top_level_path = str(tmpdir / f"example_parallel_zarr_{number_of_jobs}.zarr")
+    with ZarrIO(path=zarr_top_level_path, mode="w") as io:
+        io.write(dynamic_table, number_of_jobs=number_of_jobs)
