@@ -5,7 +5,7 @@ from typing import Tuple, Dict
 import numpy as np
 from hdmf_zarr import ZarrIO
 from hdmf.common import DynamicTable, VectorData
-from hdmf.data_utils import GenericDataChunkIterator
+from hdmf.data_utils import GenericDataChunkIterator, DataChunkIterator
 
 
 class PickleableDataChunkIterator(GenericDataChunkIterator):
@@ -71,11 +71,20 @@ def test_parallel_write(tmpdir):
     dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
 
     zarr_top_level_path = str(tmpdir / f"example_parallel_zarr_{number_of_jobs}.zarr")
-    with ZarrIO(path=zarr_top_level_path, mode="w") as io:
+    with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         io.write(dynamic_table, number_of_jobs=number_of_jobs)
         
 def test_mixed_iterator_types(tmpdir):
-    pass # TODO: ensure can write a Zarr file with three datasets, one wrapped in a Generic iterator, one wrapped in DataChunkIterator, one not wrapped at all
+    number_of_jobs = 2
+    generic_column = VectorData(name="TestGenericColumn", description="", data=PickleableDataChunkIterator(data=np.array([1., 2., 3.])))
+    classic_column = VectorData(name="TestClassicColumn", description="", data=DataChunkIterator(data=np.array([4., 5., 6.])))
+    unwrapped_column = VectorData(name="TestUnwrappedColumn", description="", data=np.array([7., 8., 9.]))
+    dynamic_table = DynamicTable(name="TestTable", description="", columns=[generic_column, classic_column, unwrapped_column])
+
+    zarr_top_level_path = str(tmpdir / f"example_parallel_zarr_{number_of_jobs}.zarr")
+    with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+    # TODO: ensure can write a Zarr file with three datasets, one wrapped in a Generic iterator, one wrapped in DataChunkIterator, one not wrapped at all
 
 def test_mixed_iterator_pickleability(tmpdir):
     pass # TODO: ensure can write a Zarr file with two datasets, one wrapped in pickleable one wrapped in not-pickleable

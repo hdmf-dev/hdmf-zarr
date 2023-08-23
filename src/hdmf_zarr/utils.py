@@ -3,11 +3,12 @@ from zarr.hierarchy import Group
 import zarr
 import numcodecs
 import gc
+import traceback
 import numpy as np
 import multiprocessing
 from collections import deque
 from collections.abc import Iterable
-from typing import Optional, Union, Literal
+from typing import Optional, Union, Literal, Tuple
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
@@ -15,7 +16,7 @@ from threadpoolctl import threadpool_limits
 import json
 import logging
 
-from hdmf.data_utils import DataIO, DataChunkIterator, DataChunk
+from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, DataChunk, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
 from hdmf.utils import (docval,
                         getargs)
@@ -73,6 +74,33 @@ def function_wrapper(args):
     else:
         with threadpool_limits(limits=max_threads_per_process):
             return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
+
+def _is_pickleable(iterator: AbstractDataChunkIterator) -> Tuple[bool, Optional[str]]:
+    """
+    Determine if the iterator can be pickled.
+
+    Returns both the bool and the reason if False.
+    """
+    try:
+        dictionary = iterator._to_dict()
+        iterator._from_dict(dictionary=test_pickle)
+
+        return True, None
+    except Exception as exception:
+        base_hdmf_not_implemented_messages = (
+            "The `._to_dict()` method for pickling has not been defined for this DataChunkIterator!",
+            "The `._from_dict()` method for pickling has not been defined for this DataChunkIterator!",
+        )
+
+        if isinstance(exception, NotImplementedError) and str(exception) in base_hdmf_not_implemented_messages:
+            reason = "The pickling methods for the iterator have not been defined."
+        else:
+            reason = (
+                f"The pickling methods for the iterator have been defined but throw the error:\n\n"
+                f"{type(exception)}: {str(exception)}\n\nwith traceback\n\n{traceback.format_exc()},"
+            )
+
+        return False, reason
 
 
 def _write_buffer_zarr(
@@ -170,14 +198,32 @@ class ZarrIODataChunkIteratorQueue(deque):
             buffer_map = list()
 
             display_progress = False
+            parallelized_iterators = list()
             for (zarr_dataset, iterator) in iter(self):
+                # Parallel write only works well with GenericDataChunkIterators
+                # Due to perfect alignment between chunks and buffers
+                if not isinstance(iterator, GenericDataChunkIterator):
+                    continue
+
+                # Iterator must be pickleable as well, to be sent across jobs
+                is_iterator_pickleable, reason = _is_pickleable(iterator)
+                if not is_iterator_pickleable:
+                    self.logger.debug(f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}")
+                    continue
+
+                # Add this entry to a running list to remove after initial pass (cannot mutate during iteration)
+                parallelized_iterators.append((zarr_dataset, iterator))
+
                 display_progress = display_progress or iterator.display_progress
                 iterator.display_progress = False
-                iterator._base_kwargs.update(display_progress=False)
 
                 for buffer_selection in iterator.buffer_selection_generator:
                     buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
+
+            # Remove candidates for parallelization from the queue
+            for (zarr_dataset, iterator) in parallelized_iterators:
+                self.remove((zarr_dataset, iterator))
 
             operation_to_run = _write_buffer_zarr
             process_initialization = dict
@@ -202,13 +248,12 @@ class ZarrIODataChunkIteratorQueue(deque):
                 #        returns.append(res)
                 #    if self.gather_func is not None:
                 #        self.gather_func(res)
-        else:
-            # Iterate through our queue and write data chunks in a round-robin fashion until all in-memory iterators are exhausted
-            while len(self) > 0:
-                dset, data = self.popleft()
-                if self.__write_chunk__(dset, data):
-                    self.append(dataset=dset, data=data)
-                #assert False
+        #else:
+        # Iterate through our remaining queue and write DataChunks in a round-robin fashion until all iterators are exhausted
+        while len(self) > 0:
+            zarr_dataset, iterator = self.popleft()
+            if self.__write_chunk__(zarr_dataset, iterator):
+                self.append(dataset=zarr_dataset, data=iterator)
         self.logger.debug("Exhausted DataChunkIterator from queue (length %d)" % len(self))
 
     def append(self, dataset, data):
