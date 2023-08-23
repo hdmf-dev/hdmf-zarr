@@ -1,20 +1,22 @@
-"""Collection of utility I/O classes for the ZarrIO backend store"""
-from zarr.hierarchy import Group
-import zarr
-import numcodecs
+"""Collection of utility I/O classes for the ZarrIO backend store."""
 import gc
 import traceback
-import numpy as np
 import multiprocessing
+import math
+import json
+import logging
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
+from warnings import warn
 
-import json
-import logging
+import numcodecs
+import zarr
+import numpy as np
+from zarr.hierarchy import Group
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, DataChunk, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -83,7 +85,7 @@ def _is_pickleable(iterator: AbstractDataChunkIterator) -> Tuple[bool, Optional[
     """
     try:
         dictionary = iterator._to_dict()
-        iterator._from_dict(dictionary=test_pickle)
+        iterator._from_dict(dictionary=dictionary)
 
         return True, None
     except Exception as exception:
@@ -195,10 +197,19 @@ class ZarrIODataChunkIteratorQueue(deque):
         """
         self.logger.debug("Exhausting DataChunkIterator from queue (length %d)" % len(self))
         if number_of_jobs > 1:
+            parallelizable_iterators = list()
             buffer_map = list()
+            size_in_MB_per_iteration = list()
 
             display_progress = False
-            parallelized_iterators = list()
+            r_bar_in_MB = "| {n_fmt}/{total_fmt} MB [Elapsed: {elapsed}, Remaining: {remaining}, Rate:{rate_fmt}{postfix}]"
+            bar_format = "{l_bar}{bar}" + f"{r_bar_in_MB}"
+            progress_bar_options = dict(
+                desc=f"Writing Zarr datasets with {number_of_jobs} jobs",
+                position=0,
+                bar_format=bar_format,
+                unit="MB",
+            )
             for (zarr_dataset, iterator) in iter(self):
                 # Parallel write only works well with GenericDataChunkIterators
                 # Due to perfect alignment between chunks and buffers
@@ -210,25 +221,35 @@ class ZarrIODataChunkIteratorQueue(deque):
                 if not is_iterator_pickleable:
                     self.logger.debug(f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}")
                     continue
-
+                
                 # Add this entry to a running list to remove after initial pass (cannot mutate during iteration)
-                parallelized_iterators.append((zarr_dataset, iterator))
+                parallelizable_iterators.append((zarr_dataset, iterator))
 
+                # Disable progress at the iterator level and aggregate enable option
                 display_progress = display_progress or iterator.display_progress
                 iterator.display_progress = False
+                per_iterator_progress_options = {
+                    key: value for key, value in iterator.progress_bar_options.items() if key not in ["desc", "total", "file"]
+                }
+                progress_bar_options.update(**per_iterator_progress_options)
 
+                iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
                     buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
+                    buffer_size_in_MB = math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
+                    size_in_MB_per_iteration.append(buffer_size_in_MB)
+            progress_bar_options.update(
+                total=int(sum(size_in_MB_per_iteration)),  # int() to round down to nearest integer for better display
+            )
 
             # Remove candidates for parallelization from the queue
-            for (zarr_dataset, iterator) in parallelized_iterators:
+            for (zarr_dataset, iterator) in parallelizable_iterators:
                 self.remove((zarr_dataset, iterator))
 
             operation_to_run = _write_buffer_zarr
             process_initialization = dict
             initialization_arguments = ()
-            
             with ProcessPoolExecutor(
                 max_workers=number_of_jobs,
                 initializer=initializer_wrapper,
@@ -238,23 +259,30 @@ class ZarrIODataChunkIteratorQueue(deque):
                 results = executor.map(function_wrapper, buffer_map)
 
                 if display_progress:
-                    from tqdm import tqdm
+                    try:
+                        from tqdm import tqdm
 
-                    results = tqdm(results, desc="Writing in parallel with Zarr", total=len(buffer_map), position=0)
+                        results = tqdm(iterable=results, **progress_bar_options)
+                        
+                        # exector map must be iterated to deploy commands over jobs
+                        for size_in_MB, result in zip(size_in_MB_per_iteration, results):
+                            results.update(n=int(size_in_MB))  # int() to round down to nearest integer for better display
+                    except Exception as exception:  # Import warnings are also issued at the level of the iterator instantiation
+                        warn(f"Unable to setup progress bar due to\ntype(exception): str(exception)\n\n{traceback.format_exc()}")
+                        # exector map must be iterated to deploy commands over jobs
+                        for result in results:
+                            pass
+                else:
+                    # exector map must be iterated to deploy commands over jobs
+                    for result in results:
+                        pass
 
-                for result in results:
-                    pass
-                #    if self.handle_returns:
-                #        returns.append(res)
-                #    if self.gather_func is not None:
-                #        self.gather_func(res)
-        #else:
         # Iterate through our remaining queue and write DataChunks in a round-robin fashion until all iterators are exhausted
         while len(self) > 0:
             zarr_dataset, iterator = self.popleft()
             if self.__write_chunk__(zarr_dataset, iterator):
                 self.append(dataset=zarr_dataset, data=iterator)
-        self.logger.debug("Exhausted DataChunkIterator from queue (length %d)" % len(self))
+        self.logger.debug(f"Exhausted DataChunkIterator from queue (length {len(self)})")
 
     def append(self, dataset, data):
         """
