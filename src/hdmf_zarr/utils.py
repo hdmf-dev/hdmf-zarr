@@ -8,7 +8,6 @@ import logging
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple
-from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
 from warnings import warn
@@ -18,7 +17,7 @@ import zarr
 import numpy as np
 from zarr.hierarchy import Group
 
-from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, DataChunk, AbstractDataChunkIterator
+from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
 from hdmf.utils import (docval,
                         getargs)
@@ -43,7 +42,7 @@ def initializer_wrapper(
     process_initialization: callable,
     initialization_arguments: Iterable,  # TODO: eventually standardize with typing.Iterable[typing.Any]
     max_threads_per_process: Optional[int] = None
-): # keyword arguments here are just for readability, ProcessPool only takes a tuple
+):  # keyword arguments here are just for readability, ProcessPool only takes a tuple
     """
     Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
 
@@ -75,7 +74,13 @@ def function_wrapper(args):
         return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
     else:
         with threadpool_limits(limits=max_threads_per_process):
-            return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
+            return _operation_to_run(
+                _worker_context,
+                zarr_store_path,
+                relative_dataset_path,
+                iterator,
+                buffer_selection
+            )
 
 def _is_pickleable(iterator: AbstractDataChunkIterator) -> Tuple[bool, Optional[str]]:
     """
@@ -112,7 +117,8 @@ def _write_buffer_zarr(
     iterator,
     buffer_selection,
 ):
-    zarr_store = zarr.open(store=zarr_store_path, mode="r+") #storage_options=storage_options) # TODO, figure out propagation of storage options
+    # TODO, figure out propagation of storage options
+    zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
     zarr_dataset = zarr_store[relative_dataset_path]
 
     data = iterator._get_data(selection=buffer_selection)
@@ -178,7 +184,7 @@ class ZarrIODataChunkIteratorQueue(deque):
         # Chunk written and we need to continue
 
         return True
-    
+
     def exhaust_queue(
         self,
         number_of_jobs: int = 1,

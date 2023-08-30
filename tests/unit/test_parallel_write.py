@@ -78,51 +78,96 @@ def test_parallel_write(tmpdir):
     number_of_jobs = 2
     data = np.array([1., 2., 3.])
     column = VectorData(name="TestColumn", description="", data=PickleableDataChunkIterator(data=data))
-    dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
+    dynamic_table = DynamicTable(name="TestTable", description="", id=list(range(3)), columns=[column])
 
     zarr_top_level_path = str(tmpdir / "test_parallel_write.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         io.write(dynamic_table, number_of_jobs=number_of_jobs)
 
-    # TODO: roundtrip currently fails due to read error
-    #with ZarrIO(path=zarr_top_level_path, mode="r") as io:
-    #    dynamic_table_roundtrip = io.read()
-    #    data_roundtrip = dynamic_table_roundtrip["TestColumn"].data
-    #    assert_array_equal(data_roundtrip, data)
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
+        dynamic_table_roundtrip = io.read()
+        data_roundtrip = dynamic_table_roundtrip["TestColumn"].data
+        assert_array_equal(data_roundtrip, data)
         
         
 def test_mixed_iterator_types(tmpdir):
     number_of_jobs = 2
-    generic_column = VectorData(name="TestGenericColumn", description="", data=PickleableDataChunkIterator(data=np.array([1., 2., 3.])))
-    classic_column = VectorData(name="TestClassicColumn", description="", data=DataChunkIterator(data=np.array([4., 5., 6.])))
-    unwrapped_column = VectorData(name="TestUnwrappedColumn", description="", data=np.array([7., 8., 9.]))
-    dynamic_table = DynamicTable(name="TestTable", description="", columns=[generic_column, classic_column, unwrapped_column])
+
+    generic_iterator_data = np.array([1., 2., 3.])
+    generic_iterator_column = VectorData(
+        name="TestGenericIteratorColumn",
+        description="",
+        data=PickleableDataChunkIterator(data=generic_iterator_data)
+    )
+    
+    classic_iterator_data = np.array([4., 5., 6.])
+    classic_iterator_column = VectorData(
+        name="TestClassicIteratorColumn",
+        description="",
+        data=DataChunkIterator(data=classic_iterator_data)
+    )
+
+    unwrappped_data = np.array([7., 8., 9.])
+    unwrapped_column = VectorData(name="TestUnwrappedColumn", description="", data=unwrappped_data)
+    dynamic_table = DynamicTable(
+        name="TestTable",
+        description="",
+        id=list(range(3)),
+        columns=[generic_iterator_column, classic_iterator_column, unwrapped_column],
+    )
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_types.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         io.write(dynamic_table, number_of_jobs=number_of_jobs)
         
-    # TODO: roundtrip currently fails 
-    #with ZarrIO(path=zarr_top_level_path, mode="r") as io:
-    #    dynamic_table_roundtrip = io.read()
-    #    data_roundtrip = dynamic_table_roundtrip["TestColumn"].data
-    #    assert_array_equal(data_roundtrip, data)
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
+        dynamic_table_roundtrip = io.read()
+        generic_iterator_data_roundtrip = dynamic_table_roundtrip["TestGenericIteratorColumn"].data
+        assert_array_equal(generic_iterator_data_roundtrip, generic_iterator_data)
+
+        classic_iterator_data_roundtrip = dynamic_table_roundtrip["TestClassicIteratorColumn"].data
+        assert_array_equal(classic_iterator_data_roundtrip, classic_iterator_data)
+
+        generic_iterator_data_roundtrip = dynamic_table_roundtrip["TestUnwrappedColumn"].data
+        assert_array_equal(generic_iterator_data_roundtrip, unwrappped_data)
+
 
 def test_mixed_iterator_pickleability(tmpdir):
     number_of_jobs = 2
-    pickleable_column = VectorData(name="TestGenericColumn", description="", data=PickleableDataChunkIterator(data=np.array([1., 2., 3.])))
-    not_pickleable_column = VectorData(name="TestClassicColumn", description="", data=NotPickleableDataChunkIterator(data=np.array([4., 5., 6.])))
-    dynamic_table = DynamicTable(name="TestTable", description="", columns=[pickleable_column, not_pickleable_column])
+
+    pickleable_iterator_data = np.array([1., 2., 3.])
+    pickleable_iterator_column = VectorData(
+        name="TestGenericIteratorColumn",
+        description="",
+        data=PickleableDataChunkIterator(data=pickleable_iterator_data)
+    )
+
+    not_pickleable_iterator_data = np.array([4., 5., 6.])
+    not_pickleable_iterator_column = VectorData(
+        name="TestClassicIteratorColumn",
+        description="",
+        data=NotPickleableDataChunkIterator(data=not_pickleable_iterator_data)
+    )
+
+    dynamic_table = DynamicTable(
+        name="TestTable",
+        description="",
+        id=list(range(3)),
+        columns=[pickleable_iterator_column, not_pickleable_iterator_column],
+    )
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_pickleability.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         io.write(dynamic_table, number_of_jobs=number_of_jobs)
 
-    # TODO: roundtrip currently fails due to read error
-    #with ZarrIO(path=zarr_top_level_path, mode="r") as io:
-    #    dynamic_table_roundtrip = io.read()
-    #    data_roundtrip = dynamic_table_roundtrip["TestColumn"].data
-    #    assert_array_equal(data_roundtrip, data)
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
+        dynamic_table_roundtrip = io.read()
+
+        pickleable_iterator_data_roundtrip = dynamic_table_roundtrip["TestGenericIteratorColumn"].data
+        assert_array_equal(pickleable_iterator_data_roundtrip, pickleable_iterator_data)
+
+        not_pickleable_iterator_data_roundtrip = dynamic_table_roundtrip["TestClassicIteratorColumn"].data
+        assert_array_equal(not_pickleable_iterator_data_roundtrip, not_pickleable_iterator_data)
 
 
 @unittest.skipIf(not TQDM_INSTALLED, "optional tqdm module is not installed")
@@ -131,14 +176,16 @@ def test_simple_tqdm(tmpdir):
     expected_desc = f"Writing Zarr datasets with {number_of_jobs} jobs"
 
     zarr_top_level_path = str(tmpdir / "test_simple_tqdm.zarr")
-    with patch("sys.stderr", new=StringIO()) as tqdm_out, ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+    with (
+        patch("sys.stderr", new=StringIO()) as tqdm_out,
+        ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io
+    ):
         column = VectorData(
             name="TestColumn",
             description="",
             data=PickleableDataChunkIterator(
                 data=np.array([1., 2., 3.]),
                 display_progress=True,
-                #progress_bar_options=dict(file=tqdm_out),
             )
         )
         dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
