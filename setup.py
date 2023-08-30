@@ -17,12 +17,15 @@ print('found these packages:', pkgs)
 
 
 reqs = [
-    'hdmf>=3.5.0',
+    'hdmf==3.5.4',  # temporary
     'zarr>=2.11.0',
+    'numpy<1.22; python_version < "3.8"',
+    'numpy>=1.22; python_version >= "3.8"',
     'numcodecs>=0.9.1',
-    'pynwb>=2.0.0',
+    'numcodecs==0.10.2; python_version < "3.8"',
+    'numcodecs==0.11.0; python_version >= "3.8"',
+    'pynwb>=2.3.2',
     'setuptools',
-    'numpy>=1.22, <1.24; python_version>"3.7"'
 ]
 
 print(reqs)
@@ -49,6 +52,7 @@ setup_args = {
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: BSD License",
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

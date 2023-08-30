@@ -1,10 +1,17 @@
 # HDMF-ZARR Changelog
 
-## 0.3.0 (Upcoming)
+## 0.3.1 (Upcoming)
+
+### Bug fixes
+* Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
+* Fixed build error for ReadtheDocs by degrading numpy for python 3.7 support. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
+
+
+## 0.3.0 (July 21, 2023)
 
 ### New Features
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
-  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO`` 
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``. 
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
   @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
@@ -15,14 +22,20 @@
 
 ### Minor enhancements
 * Updated handling of references on read to simplify future integration of file-based Zarr 
-  stores (e.g., ZipStore or database stores) @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+  stores (e.g., ZipStore or database stores). @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+* Added ``can_read`` classmethod to ``ZarrIO``. @bendichter [#97](https://github.com/hdmf-dev/hdmf-zarr/pull/97)
 
 ### Test suite enhancements
-* Modularized unit tests to simplify running tests for multiple Zarr storage backends
+* Modularized unit tests to simplify running tests for multiple Zarr storage backends.
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
+* Fixed CI testing of minimum and optional installation requirement. @rly
+  [#99](https://github.com/hdmf-dev/hdmf-zarr/pull/99)
+* Updated tests to handle upcoming changes to ``HDMFIO``. @rly 
+  [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
+
 
 ### Docs
-* Added developer documentation on how to integrate new storage backends with ZarrIO
+* Added developer documentation on how to integrate new storage backends with ZarrIO. @oruebel
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### Internal changes
@@ -30,6 +43,9 @@
   references in order to be able to close those stores as part of ``ZarrIO.close()``
   @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
+
+### Bug fixes
+* Fixed error in nightly CI. @rly [#93](https://github.com/hdmf-dev/hdmf-zarr/pull/93)
 
 ## 0.2.0 (January 6, 2023)
 

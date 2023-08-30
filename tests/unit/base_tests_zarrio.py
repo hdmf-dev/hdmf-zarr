@@ -209,6 +209,9 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                                          'ref_dataset': dataset_ref})
         return builder
 
+    def test_cannot_read(self):
+        assert not ZarrIO.can_read("incorrect_path")
+
     def read_test_dataset(self):
         reader = ZarrIO(reopen_store(self.store), manager=self.manager, mode='r')
         self.root = reader.read_builder()
@@ -251,6 +254,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer = ZarrIO(self.store, manager=self.manager, mode='a')
         writer.write_builder(self.builder)
         writer.close()
+        assert ZarrIO.can_read(self.store)
 
     def test_write_compound(self, test_data=None):
         """
@@ -1488,6 +1492,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         class OtherIO(HDMFIO):
 
+            @staticmethod
+            def can_read(path):
+                pass
+
             def read_builder(self):
                 pass
 
@@ -1519,6 +1527,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
             def __init__(self, manager):
                 super().__init__(manager=manager)
+
+            @staticmethod
+            def can_read(path):
+                pass
 
             def read_builder(self):
                 pass

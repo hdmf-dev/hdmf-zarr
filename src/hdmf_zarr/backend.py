@@ -79,6 +79,14 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 
 class ZarrIO(HDMFIO):
 
+    @staticmethod
+    def can_read(path):
+        try:
+            zarr.open(path, mode="r")
+            return True
+        except Exception:
+            return False
+
     @docval({'name': 'path',
              'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
@@ -723,6 +731,7 @@ class ZarrIO(HDMFIO):
                 io_settings['dtype'] = cls.__dtypes.get(io_settings['dtype'])
         try:
             dset = parent.create_dataset(name, **io_settings)
+            dset.attrs['zarr_dtype'] = np.dtype(io_settings['dtype']).str
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
@@ -1152,11 +1161,18 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if 'zarr_dtype' not in zarr_obj.attrs:
+        if 'zarr_dtype' in zarr_obj.attrs:
+            zarr_dtype = zarr_obj.attrs['zarr_dtype']
+        elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
+            zarr_dtype = zarr_obj.dtype
+            warnings.warn(
+                "Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)
+            )
+        else:
             raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
         kwargs = {"attributes": self.__read_attrs(zarr_obj),
-                  "dtype": zarr_obj.attrs['zarr_dtype'],
+                  "dtype": zarr_dtype,
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
                   "source": self.source}
