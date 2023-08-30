@@ -7,7 +7,7 @@ import json
 import logging
 from collections import deque
 from collections.abc import Iterable
-from typing import Optional, Union, Literal, Tuple
+from typing import Optional, Union, Literal, Tuple, Dict, Any
 from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
 from warnings import warn
@@ -35,99 +35,6 @@ from hdmf.spec import (SpecWriter,
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
-
-
-def initializer_wrapper(
-    operation_to_run: callable,
-    process_initialization: callable,
-    initialization_arguments: Iterable,  # TODO: eventually standardize with typing.Iterable[typing.Any]
-    max_threads_per_process: Optional[int] = None
-):  # keyword arguments here are just for readability, ProcessPool only takes a tuple
-    """
-    Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
-
-    Recommended fix is to have global wrappers for the working initializer that limits the
-    threads used per process.
-    """
-    global _worker_context
-    if max_threads_per_process is None:
-        _worker_context = process_initialization(*initialization_arguments)
-    else:
-        with threadpool_limits(limits=max_threads_per_process):
-            _worker_context = process_initialization(*initialization_arguments)
-    _worker_context["max_threads_per_process"] = max_threads_per_process
-    global _operation_to_run
-    _operation_to_run = operation_to_run
-
-
-def function_wrapper(args):
-    """
-    Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
-
-    Recommended fix is to have a global wrapper for the executor.map level.
-    """
-    zarr_store_path, relative_dataset_path, iterator, buffer_selection = args
-    global _worker_context
-    global _operation_to_run
-    max_threads_per_process = _worker_context["max_threads_per_process"]
-    if max_threads_per_process is None:
-        return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
-    else:
-        with threadpool_limits(limits=max_threads_per_process):
-            return _operation_to_run(
-                _worker_context,
-                zarr_store_path,
-                relative_dataset_path,
-                iterator,
-                buffer_selection
-            )
-
-def _is_pickleable(iterator: AbstractDataChunkIterator) -> Tuple[bool, Optional[str]]:
-    """
-    Determine if the iterator can be pickled.
-
-    Returns both the bool and the reason if False.
-    """
-    try:
-        dictionary = iterator._to_dict()
-        iterator._from_dict(dictionary=dictionary)
-
-        return True, None
-    except Exception as exception:
-        base_hdmf_not_implemented_messages = (
-            "The `._to_dict()` method for pickling has not been defined for this DataChunkIterator!",
-            "The `._from_dict()` method for pickling has not been defined for this DataChunkIterator!",
-        )
-
-        if isinstance(exception, NotImplementedError) and str(exception) in base_hdmf_not_implemented_messages:
-            reason = "The pickling methods for the iterator have not been defined."
-        else:
-            reason = (
-                f"The pickling methods for the iterator have been defined but throw the error:\n\n"
-                f"{type(exception)}: {str(exception)}\n\nwith traceback\n\n{traceback.format_exc()},"
-            )
-
-        return False, reason
-
-
-def _write_buffer_zarr(
-    worker_context,
-    zarr_store_path,
-    relative_dataset_path,
-    iterator,
-    buffer_selection,
-):
-    # TODO, figure out propagation of storage options
-    zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
-    zarr_dataset = zarr_store[relative_dataset_path]
-
-    data = iterator._get_data(selection=buffer_selection)
-    zarr_dataset[buffer_selection] = data
-
-    # An issue detected in cloud usage by the SpikeInterface team
-    # Fix memory leak by forcing garbage collection
-    del data
-    gc.collect()
 
 
 class ZarrIODataChunkIteratorQueue(deque):
@@ -224,7 +131,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                     continue
 
                 # Iterator must be pickleable as well, to be sent across jobs
-                is_iterator_pickleable, reason = _is_pickleable(iterator)
+                is_iterator_pickleable, reason = self._is_pickleable(iterator=iterator)
                 if not is_iterator_pickleable:
                     self.logger.debug(f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}")
                     continue
@@ -254,16 +161,16 @@ class ZarrIODataChunkIteratorQueue(deque):
             for (zarr_dataset, iterator) in parallelizable_iterators:
                 self.remove((zarr_dataset, iterator))
 
-            operation_to_run = _write_buffer_zarr
+            operation_to_run = self._write_buffer_zarr
             process_initialization = dict
             initialization_arguments = ()
             with ProcessPoolExecutor(
                 max_workers=number_of_jobs,
-                initializer=initializer_wrapper,
+                initializer=self.initializer_wrapper,
                 mp_context=multiprocessing.get_context(method=multiprocessing_context),
                 initargs=(operation_to_run, process_initialization, initialization_arguments, max_threads_per_process),
             ) as executor:
-                results = executor.map(function_wrapper, buffer_map)
+                results = executor.map(self.function_wrapper, buffer_map)
 
                 if display_progress:
                     try:
@@ -301,6 +208,102 @@ class ZarrIODataChunkIteratorQueue(deque):
         :type data: AbstractDataChunkIterator
         """
         super().append((dataset, data))
+
+    @staticmethod
+    def _is_pickleable(iterator: AbstractDataChunkIterator) -> Tuple[bool, Optional[str]]:
+        """
+        Determine if the iterator can be pickled.
+
+        Returns both the bool and the reason if False.
+        """
+        try:
+            dictionary = iterator._to_dict()
+            iterator._from_dict(dictionary=dictionary)
+
+            return True, None
+        except Exception as exception:
+            base_hdmf_not_implemented_messages = (
+                "The `._to_dict()` method for pickling has not been defined for this DataChunkIterator!",
+                "The `._from_dict()` method for pickling has not been defined for this DataChunkIterator!",
+            )
+
+            if isinstance(exception, NotImplementedError) and str(exception) in base_hdmf_not_implemented_messages:
+                reason = "The pickling methods for the iterator have not been defined."
+            else:
+                reason = (
+                    f"The pickling methods for the iterator have been defined but throw the error:\n\n"
+                    f"{type(exception)}: {str(exception)}\n\nwith traceback\n\n{traceback.format_exc()},"
+                )
+
+            return False, reason
+
+    @staticmethod
+    def initializer_wrapper(
+        operation_to_run: callable,
+        process_initialization: callable,
+        initialization_arguments: Iterable,  # TODO: eventually standardize with typing.Iterable[typing.Any]
+        max_threads_per_process: Optional[int] = None
+    ):  # keyword arguments here are just for readability, ProcessPool only takes a tuple
+        """
+        Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
+
+        Recommended fix is to have global wrappers for the working initializer that limits the
+        threads used per process.
+        """
+        global _worker_context
+        global _operation_to_run
+
+        if max_threads_per_process is None:
+            _worker_context = process_initialization(*initialization_arguments)
+        else:
+            with threadpool_limits(limits=max_threads_per_process):
+                _worker_context = process_initialization(*initialization_arguments)
+        _worker_context["max_threads_per_process"] = max_threads_per_process
+        _operation_to_run = operation_to_run
+
+    @staticmethod
+    def _write_buffer_zarr(
+        worker_context: Dict[str, Any],
+        zarr_store_path: str,
+        relative_dataset_path: str,
+        iterator: AbstractDataChunkIterator,
+        buffer_selection: Tuple[slice, ...],
+    ):
+        # TODO, figure out propagation of storage options
+        zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
+        zarr_dataset = zarr_store[relative_dataset_path]
+
+        data = iterator._get_data(selection=buffer_selection)
+        zarr_dataset[buffer_selection] = data
+
+        # An issue detected in cloud usage by the SpikeInterface team
+        # Fix memory leak by forcing garbage collection
+        del data
+        gc.collect()
+
+    @staticmethod
+    def function_wrapper(args: Tuple[str, str, AbstractDataChunkIterator, Tuple[slice, ...]]):
+        """
+        Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
+
+        Recommended fix is to have a global wrapper for the executor.map level.
+        """
+        zarr_store_path, relative_dataset_path, iterator, buffer_selection = args
+        global _worker_context
+        global _operation_to_run
+
+        max_threads_per_process = _worker_context["max_threads_per_process"]
+        if max_threads_per_process is None:
+            return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
+        else:
+            with threadpool_limits(limits=max_threads_per_process):
+                return _operation_to_run(
+                    _worker_context,
+                    zarr_store_path,
+                    relative_dataset_path,
+                    iterator,
+                    buffer_selection,
+                )
 
 
 class ZarrSpecWriter(SpecWriter):
