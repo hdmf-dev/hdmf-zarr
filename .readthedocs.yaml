@@ -21,6 +21,7 @@ python:
   install:
     - requirements: requirements-doc.txt
     - requirements: requirements.txt
+    - requirements: requirements-opt.txt
 
 # Optionally include all submodules
 submodules:
