@@ -201,7 +201,8 @@ class ZarrIODataChunkIteratorQueue(deque):
         Note that "fork" is only available on UNIX systems (not Windows).
         :type multiprocessing_context: string or None
         """
-        self.logger.debug("Exhausting DataChunkIterator from queue (length %d)" % len(self))
+        self.logger.debug(f"Exhausting DataChunkIterator from queue (length {len(self)})")
+
         if number_of_jobs > 1:
             parallelizable_iterators = list()
             buffer_map = list()
@@ -288,6 +289,7 @@ class ZarrIODataChunkIteratorQueue(deque):
             zarr_dataset, iterator = self.popleft()
             if self.__write_chunk__(zarr_dataset, iterator):
                 self.append(dataset=zarr_dataset, data=iterator)
+
         self.logger.debug(f"Exhausted DataChunkIterator from queue (length {len(self)})")
 
     def append(self, dataset, data):
