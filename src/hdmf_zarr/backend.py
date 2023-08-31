@@ -263,8 +263,40 @@ class ZarrIO(HDMFIO):
             writer = ZarrSpecWriter(ns_group)
             ns_builder.export('namespace', writer=writer)
 
-    @docval(*get_docval(HDMFIO.export),
-            {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True})
+    @docval(
+        *get_docval(HDMFIO.export),
+        {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True},
+        {'name': 'exhaust_dci', 'type': bool,
+         'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
+         'default': True},
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
         See :py:meth:`hdmf.backends.io.HDMFIO.export` for more details.
@@ -275,6 +307,15 @@ class ZarrIO(HDMFIO):
 
         src_io = getargs('src_io', kwargs)
         write_args, cache_spec = popargs('write_args', 'cache_spec', kwargs)
+        number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
+            "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
+        )
+
+        self.__dci_queue = ZarrIODataChunkIteratorQueue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
             raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
