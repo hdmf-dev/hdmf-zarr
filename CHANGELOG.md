@@ -6,6 +6,9 @@
 * Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
 * Fixed build error for ReadtheDocs by degrading numpy for python 3.7 support. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
 
+### New Features
+* Added parallel write support for the ``ZarrIO``. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118)
+
 
 ## 0.3.0 (July 21, 2023)
 
