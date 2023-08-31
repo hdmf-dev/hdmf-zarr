@@ -56,10 +56,6 @@ class ZarrIODataChunkIteratorQueue(deque):
         :type dset: HDMFDataset
         :param data: The DataChunkIterator to read from
         :type data: DataChunkIterator
-        :param buffer_index: The index of the next chunk within the DataChunkIterator, optional.
-        Only used with multiprocessing for serializing the selections of the iteration.
-        Default is to perform direct iteration on the in-memory DataChunkIterator for the single process.
-        :type buffer_index: integer or None
         :return: True of a chunk was written, False otherwise
         :rtype: bool
         """
