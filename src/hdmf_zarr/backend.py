@@ -266,10 +266,6 @@ class ZarrIO(HDMFIO):
     @docval(
         *get_docval(HDMFIO.export),
         {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True},
-        {'name': 'exhaust_dci', 'type': bool,
-         'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-         'default': True},
         {
             "name": "number_of_jobs",
             "type": int,
