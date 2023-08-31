@@ -6,3 +6,4 @@ numpy==1.21; python_version < "3.8"
 numpy==1.23; python_version >= "3.8"
 numcodecs==0.10.2; python_version < "3.8"
 numcodecs==0.11.0; python_version >= "3.8"
+threadpoolctl==3.2.0
