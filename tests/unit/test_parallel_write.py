@@ -1,5 +1,6 @@
 """Module for testing the parallel write feature for the ZarrIO."""
 import unittest
+import platform
 from pathlib import Path
 from typing import Tuple, Dict
 from io import StringIO
@@ -73,7 +74,8 @@ class NotPickleableDataChunkIterator(GenericDataChunkIterator):
 
     def _get_data(self, selection: Tuple[slice]) -> np.ndarray:
         return self.data[selection]
-    
+
+
 def test_parallel_write(tmpdir):
     number_of_jobs = 2
     data = np.array([1., 2., 3.])
@@ -82,7 +84,7 @@ def test_parallel_write(tmpdir):
 
     zarr_top_level_path = str(tmpdir / "test_parallel_write.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
-        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
         dynamic_table_roundtrip = io.read()
@@ -118,7 +120,7 @@ def test_mixed_iterator_types(tmpdir):
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_types.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
-        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
         
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
         dynamic_table_roundtrip = io.read()
@@ -158,7 +160,7 @@ def test_mixed_iterator_pickleability(tmpdir):
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_pickleability.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
-        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
         dynamic_table_roundtrip = io.read()
@@ -189,7 +191,7 @@ def test_simple_tqdm(tmpdir):
             )
         )
         dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
-        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     assert expected_desc in tqdm_out.getvalue()
 
@@ -203,7 +205,7 @@ def test_compound_tqdm(tmpdir):
     zarr_top_level_path = str(tmpdir / "test_compound_tqdm.zarr")
     with patch("sys.stderr", new=StringIO()) as tqdm_out, ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         pickleable_column = VectorData(
-            name="TestGenericColumn",
+            name="TestPickleableIteratorColumn",
             description="",
             data=PickleableDataChunkIterator(
                 data=np.array([1., 2., 3.]),
@@ -211,7 +213,7 @@ def test_compound_tqdm(tmpdir):
             )
         )
         not_pickleable_column = VectorData(
-            name="TestClassicColumn",
+            name="TestNotPickleableColumn",
             description="",
             data=NotPickleableDataChunkIterator(
                 data=np.array([4., 5., 6.]),
@@ -220,13 +222,44 @@ def test_compound_tqdm(tmpdir):
             )
         )
         dynamic_table = DynamicTable(name="TestTable", description="", columns=[pickleable_column, not_pickleable_column])
-        io.write(dynamic_table, number_of_jobs=number_of_jobs)
+        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     tqdm_out_value = tqdm_out.getvalue()
     assert expected_desc_pickleable in tqdm_out_value
     assert expected_desc_not_pickleable in tqdm_out_value
 
 
-def test_extra_args(tmpdir):
-    pass # TODO? Should we test if the other arguments like thread count can be passed?
-    # I mean, anything _can_ be passed due to dynamic **kwargs, but how to test if it was actually used? Seems difficult...
+def test_extra_keyword_argument_propagation(tmpdir):
+    number_of_jobs = 2
+
+    column = VectorData(name="TestColumn", description="", data=np.array([1., 2., 3.]))
+    dynamic_table = DynamicTable(name="TestTable", description="", id=list(range(3)), columns=[column])
+
+    zarr_top_level_path = str(tmpdir / "test_extra_parallel_write_keyword_arguments.zarr")
+
+    test_keyword_argument_pairs = [
+        dict(max_threads_per_process=2, multiprocessing_context=None),
+        dict(max_threads_per_process=None, multiprocessing_context="spawn"),
+        dict(max_threads_per_process=2, multiprocessing_context="spawn"),
+    ]
+    if platform.system() != "Windows":
+        test_keyword_argument_pairs.extend(
+            [
+                dict(max_threads_per_process=None, multiprocessing_context="spawn"),
+                dict(max_threads_per_process=2, multiprocessing_context="spawn"),
+            ]
+        )
+
+    for test_keyword_argument_pair in test_keyword_argument_pairs:
+        test_max_threads_per_process = test_keyword_argument_pair["max_threads_per_process"]
+        test_multiprocessing_context = test_keyword_argument_pair["multiprocessing_context"]
+        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+            io.write(
+                container=dynamic_table,
+                number_of_jobs=number_of_jobs,
+                max_threads_per_process=test_max_threads_per_process,
+                multiprocessing_context=test_multiprocessing_context
+            )
+
+            assert io._ZarrIO__dci_queue.max_threads_per_process == test_max_threads_per_process
+            assert io._ZarrIO__dci_queue.multiprocessing_context == test_multiprocessing_context
