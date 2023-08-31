@@ -187,7 +187,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                         for result in results:
                             pass
                 else:
-                    # exector map must be iterated to deploy commands over jobs
+                    # executor map must be iterated to deploy commands over jobs
                     for result in results:
                         pass
 
