@@ -324,13 +324,21 @@ class ZarrIO(HDMFIO):
         builder_path = os.path.join(basepath, self.__get_path(builder).lstrip("/"))
         return builder_path
 
-    @docval({'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True},
+    @docval(
+        {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
+        {
+            'name': 'link_data', 'type': bool,
+            'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets',
+            'default': True
+        },
+        {
+            'name': 'exhaust_dci', 'type': bool,
+            'doc': (
+                'Exhaust DataChunkIterators one at a time. If False, add '
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end'
+            ),
+            'default': True,
+        },
     )
     def write_builder(self, **kwargs):
         """Write a builder to disk."""

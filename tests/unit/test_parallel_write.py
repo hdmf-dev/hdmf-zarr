@@ -1,7 +1,6 @@
 """Module for testing the parallel write feature for the ZarrIO."""
 import unittest
 import platform
-from pathlib import Path
 from typing import Tuple, Dict
 from io import StringIO
 from unittest.mock import patch
@@ -17,6 +16,7 @@ try:
     TQDM_INSTALLED = True
 except ImportError:
     TQDM_INSTALLED = False
+
 
 class PickleableDataChunkIterator(GenericDataChunkIterator):
     """Generic data chunk iterator used for specific testing purposes."""
@@ -57,6 +57,7 @@ class PickleableDataChunkIterator(GenericDataChunkIterator):
         iterator = PickleableDataChunkIterator(data=data, **dictionary["base_kwargs"])
         return iterator
 
+
 class NotPickleableDataChunkIterator(GenericDataChunkIterator):
     """Generic data chunk iterator used for specific testing purposes."""
 
@@ -90,8 +91,8 @@ def test_parallel_write(tmpdir):
         dynamic_table_roundtrip = io.read()
         data_roundtrip = dynamic_table_roundtrip["TestColumn"].data
         assert_array_equal(data_roundtrip, data)
-        
-        
+
+
 def test_mixed_iterator_types(tmpdir):
     number_of_jobs = 2
 
@@ -101,7 +102,7 @@ def test_mixed_iterator_types(tmpdir):
         description="",
         data=PickleableDataChunkIterator(data=generic_iterator_data)
     )
-    
+
     classic_iterator_data = np.array([4., 5., 6.])
     classic_iterator_column = VectorData(
         name="TestClassicIteratorColumn",
@@ -121,7 +122,7 @@ def test_mixed_iterator_types(tmpdir):
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_types.zarr")
     with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
         io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
-        
+
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
         dynamic_table_roundtrip = io.read()
         generic_iterator_data_roundtrip = dynamic_table_roundtrip["TestGenericIteratorColumn"].data
@@ -203,7 +204,10 @@ def test_compound_tqdm(tmpdir):
     expected_desc_not_pickleable = "Writing non-parallel dataset..."
 
     zarr_top_level_path = str(tmpdir / "test_compound_tqdm.zarr")
-    with patch("sys.stderr", new=StringIO()) as tqdm_out, ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+    with (
+        patch("sys.stderr", new=StringIO()) as tqdm_out,
+        ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io
+    ):
         pickleable_column = VectorData(
             name="TestPickleableIteratorColumn",
             description="",
@@ -221,7 +225,9 @@ def test_compound_tqdm(tmpdir):
                 progress_bar_options=dict(desc=expected_desc_not_pickleable, position=1)
             )
         )
-        dynamic_table = DynamicTable(name="TestTable", description="", columns=[pickleable_column, not_pickleable_column])
+        dynamic_table = DynamicTable(
+            name="TestTable", description="", columns=[pickleable_column, not_pickleable_column]
+        )
         io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     tqdm_out_value = tqdm_out.getvalue()

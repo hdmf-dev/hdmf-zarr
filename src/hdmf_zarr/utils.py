@@ -103,7 +103,10 @@ class ZarrIODataChunkIteratorQueue(deque):
 
     def exhaust_queue(self):
         """
-        Read and write from any queued DataChunkIterators in a round-robin fashion (single job) or a single dataset at a time (multiple jobs).
+        Read and write from any queued DataChunkIterators.
+
+        Operates in a round-robin fashion for a single job.
+        Operates on a single dataset at a time with multiple jobs.
         """
         self.logger.debug(f"Exhausting DataChunkIterator from queue (length {len(self)})")
 
@@ -113,7 +116,10 @@ class ZarrIODataChunkIteratorQueue(deque):
             size_in_MB_per_iteration = list()
 
             display_progress = False
-            r_bar_in_MB = "| {n_fmt}/{total_fmt} MB [Elapsed: {elapsed}, Remaining: {remaining}, Rate:{rate_fmt}{postfix}]"
+            r_bar_in_MB = (
+                "| {n_fmt}/{total_fmt} MB [Elapsed: {elapsed}, "
+                "Remaining: {remaining}, Rate:{rate_fmt}{postfix}]"
+            )
             bar_format = "{l_bar}{bar}" + f"{r_bar_in_MB}"
             progress_bar_options = dict(
                 desc=f"Writing Zarr datasets with {self.number_of_jobs} jobs",
@@ -130,9 +136,11 @@ class ZarrIODataChunkIteratorQueue(deque):
                 # Iterator must be pickleable as well, to be sent across jobs
                 is_iterator_pickleable, reason = self._is_pickleable(iterator=iterator)
                 if not is_iterator_pickleable:
-                    self.logger.debug(f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}")
+                    self.logger.debug(
+                        f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}"
+                    )
                     continue
-                
+
                 # Add this entry to a running list to remove after initial pass (cannot mutate during iteration)
                 parallelizable_iterators.append((zarr_dataset, iterator))
 
@@ -140,7 +148,8 @@ class ZarrIODataChunkIteratorQueue(deque):
                 display_progress = display_progress or iterator.display_progress
                 iterator.display_progress = False
                 per_iterator_progress_options = {
-                    key: value for key, value in iterator.progress_bar_options.items() if key not in ["desc", "total", "file"]
+                    key: value for key, value in iterator.progress_bar_options.items()
+                    if key not in ["desc", "total", "file"]
                 }
                 progress_bar_options.update(**per_iterator_progress_options)
 
@@ -148,7 +157,9 @@ class ZarrIODataChunkIteratorQueue(deque):
                 for buffer_selection in iterator.buffer_selection_generator:
                     buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
-                    buffer_size_in_MB = math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
+                    buffer_size_in_MB = math.prod(
+                        [slice_.stop - slice_.start for slice_ in buffer_selection]
+                    ) * iterator_itemsize / 1e6
                     size_in_MB_per_iteration.append(buffer_size_in_MB)
             progress_bar_options.update(
                 total=int(sum(size_in_MB_per_iteration)),  # int() to round down to nearest integer for better display
@@ -166,22 +177,30 @@ class ZarrIODataChunkIteratorQueue(deque):
                     max_workers=self.number_of_jobs,
                     initializer=self.initializer_wrapper,
                     mp_context=multiprocessing.get_context(method=self.multiprocessing_context),
-                    initargs=(operation_to_run, process_initialization, initialization_arguments, self.max_threads_per_process),
+                    initargs=(
+                        operation_to_run,
+                        process_initialization,
+                        initialization_arguments,
+                        self.max_threads_per_process
+                    ),
                 ) as executor:
                     results = executor.map(self.function_wrapper, buffer_map)
 
                     if display_progress:
-                        try: # Import warnings are also issued at the level of the iterator instantiation
+                        try:  # Import warnings are also issued at the level of the iterator instantiation
                             from tqdm import tqdm
 
                             results = tqdm(iterable=results, **progress_bar_options)
 
                             # exector map must be iterated to deploy commands over jobs
                             for size_in_MB, result in zip(size_in_MB_per_iteration, results):
-                                results.update(n=int(size_in_MB))  # int() to round down to nearest integer for better display
+                                results.update(n=int(size_in_MB))  # int() to round down for better display
                         except Exception as exception:  # pragma: no cover
                             warn(
-                                f"Unable to setup progress bar due to\ntype(exception): str(exception)\n\n{traceback.format_exc()}",
+                                message=(
+                                    "Unable to setup progress bar due to"
+                                    f"\n{type(exception)}: {str(exception)}\n\n{traceback.format_exc()}"
+                                ),
                                 stacklevel=2,
                             )
                             # exector map must be iterated to deploy commands over jobs
@@ -192,7 +211,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                         for result in results:
                             pass
 
-        # Iterate through our remaining queue and write DataChunks in a round-robin fashion until all iterators are exhausted
+        # Iterate through remaining queue and write DataChunks in a round-robin fashion until exhausted
         while len(self) > 0:
             zarr_dataset, iterator = self.popleft()
             if self.__write_chunk__(zarr_dataset, iterator):
@@ -295,7 +314,13 @@ class ZarrIODataChunkIteratorQueue(deque):
 
         max_threads_per_process = _worker_context["max_threads_per_process"]
         if max_threads_per_process is None:
-            return _operation_to_run(_worker_context, zarr_store_path, relative_dataset_path, iterator, buffer_selection)
+            return _operation_to_run(
+                _worker_context,
+                zarr_store_path,
+                relative_dataset_path,
+                iterator,
+                buffer_selection
+            )
         else:
             with threadpool_limits(limits=max_threads_per_process):
                 return _operation_to_run(
