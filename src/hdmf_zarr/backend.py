@@ -790,6 +790,10 @@ class ZarrIO(HDMFIO):
             'parent', 'builder', 'link_data', 'exhaust_dci', kwargs
         )
         force_data = getargs('force_data', kwargs)
+
+        if exhaust_dci and self.__dci_queue is None:
+            self.__dci_queue = ZarrIODataChunkIteratorQueue()
+
         if self.get_written(builder):
             return None
         name = builder.name
