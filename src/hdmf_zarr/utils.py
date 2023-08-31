@@ -183,7 +183,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                             results.update(n=int(size_in_MB))  # int() to round down to nearest integer for better display
                     except Exception as exception:  # Import warnings are also issued at the level of the iterator instantiation
                         warn(f"Unable to setup progress bar due to\ntype(exception): str(exception)\n\n{traceback.format_exc()}")
-                        # exector map must be iterated to deploy commands over jobs
+                        # executor map must be iterated to deploy commands over jobs
                         for result in results:
                             pass
                 else:
