@@ -26,7 +26,7 @@ reqs = [
     'numcodecs==0.11.0; python_version >= "3.8"',
     'pynwb>=2.3.2',
     'setuptools',
-    'threadpoolctl>=3.2.0',
+    'threadpoolctl>=3.1.0',
 ]
 
 print(reqs)
