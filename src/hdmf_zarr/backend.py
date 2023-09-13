@@ -23,6 +23,7 @@ from .utils import (ZarrDataIO,
                     ZarrSpecWriter,
                     ZarrSpecReader,
                     ZarrIODataChunkIteratorQueue)
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 # HDMF imports
 from hdmf.backends.io import HDMFIO
@@ -122,6 +123,8 @@ class ZarrIO(HDMFIO):
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
+
+    # variable set for from DatasetBuilder.OBJECT_REF_TYPE
 
     @property
     def file(self):
@@ -498,13 +501,13 @@ class ZarrIO(HDMFIO):
         else:
             return dtype == DatasetBuilder.OBJECT_REF_TYPE or dtype == DatasetBuilder.REGION_REF_TYPE
 
-    def __resolve_ref(self, zarr_ref):
+    def resolve_ref(self, zarr_ref):
         """
         Get the full path to the object linked to by the zarr reference
 
         The function only constructs the links to the targe object, but it does not check if the object exists
 
-        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrRefernce` object
+        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrReference` object
         :return: 1) name of the target object
                  2) the target zarr object within the target file
         """
@@ -1037,6 +1040,21 @@ class ZarrIO(HDMFIO):
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
 
+    @docval({'name': 'zarr_obj', 'type': (Array, Group),
+             'doc': 'the Zarr object to the corresponding Builder object for'})
+    def get_builder(self, **kwargs): # move this to HDMFIO (define skeleton in there at least)
+        """
+        Get the builder for the corresponding h5py Group or Dataset
+
+        :raises ValueError: When no builder has been constructed yet for the given h5py object
+        """
+        zarr_obj = kwargs['zarr_obj']
+        builder = self.__get_built(zarr_obj)
+        if builder is None:
+            msg = '%s has not been built' % (zarr_obj.name)
+            raise ValueError(msg)
+        return builder
+
     def __get_built(self, zarr_obj):
         """
         Look up a builder for the given zarr object
@@ -1066,9 +1084,10 @@ class ZarrIO(HDMFIO):
         for sub_name, sub_group in zarr_obj.groups():
             sub_builder = self.__read_group(sub_group, sub_name)
             ret.set_group(sub_builder)
-
+        # breakpoint()
         # read sub datasets
         for sub_name, sub_array in zarr_obj.arrays():
+            # breakpoint()
             sub_builder = self.__read_dataset(sub_array, sub_name)
             ret.set_dataset(sub_builder)
 
@@ -1092,7 +1111,7 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                target_name, target_zarr_obj = self.__resolve_ref(link)
+                target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
                     builder = self.__read_group(target_zarr_obj, target_name)
@@ -1104,6 +1123,7 @@ class ZarrIO(HDMFIO):
                 parent.set_link(link_builder)
 
     def __read_dataset(self, zarr_obj, name):
+        # breakpoint()
         ret = self.__get_built(zarr_obj)
         if ret is not None:
             return ret
@@ -1136,33 +1156,48 @@ class ZarrIO(HDMFIO):
         reg_refs = False
         has_reference = False
         if isinstance(dtype, list):
+            breakpoint()
             # compound data type
             obj_refs = list()
             reg_refs = list()
             for i, dts in enumerate(dtype):
-                if dts['dtype'] == DatasetBuilder.OBJECT_REF_TYPE:
+                if dts['dtype'] == 'object': # wrap with table ref
+                    """
+                    This is a compound dataset where one of the subsets contains references (one or more)
+                    """
+                    # breakpoint()
+                    data = BuilderZarrTableDataset(zarr_obj, self, [dts['dtype']])
                     obj_refs.append(i)
                     has_reference = True
-                elif dts['dtype'] == DatasetBuilder.REGION_REF_TYPE:
+                elif dts['dtype'] == 'region':
                     reg_refs.append(i)
                     has_reference = True
-
+            retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
+            data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
+            # d = BuilderH5TableDataset(zarr_obj, self, dtype)
         elif self.__is_ref(dtype):
             # reference array
             has_reference = True
-            if dtype == DatasetBuilder.OBJECT_REF_TYPE:
-                obj_refs = True
-            elif dtype == DatasetBuilder.REGION_REF_TYPE:
+            if dtype == 'object': # wrap with dataset ref
+                # obj_refs = True
+                data = BuilderZarrReferenceDataset(data, self)
+            elif dtype == 'region':
                 reg_refs = True
 
-        if has_reference:
-            try:
-                # TODO Should implement a lazy way to evaluate references for Zarr
-                data = deepcopy(data[:])
-                self.__parse_ref(kwargs['maxshape'], obj_refs, reg_refs, data)
-            except ValueError as e:
-                raise ValueError(str(e) + "  zarr-name=" + str(zarr_obj.name) + " name=" + str(name))
-
+        # if has_reference:
+        #     try:
+        #         # TODO Should implement a lazy way to evaluate references for Zarr
+        #         data = deepcopy(data[:])
+        #         breakpoint()
+        #         """We don't deal with region references yet"""
+        #         # d = BuilderH5ReferenceDataset(h5obj, self)
+        #         data = BuilderZarrReferenceDataset(data, self)
+        #         # breakpoint()
+        #         # self.__parse_ref(kwargs['maxshape'], obj_refs, reg_refs, data)
+        #         # breakpoint()
+        #     except ValueError as e:
+        #         raise ValueError(str(e) + "  zarr-name=" + str(zarr_obj.name) + " name=" + str(name))
+        # breakpoint()
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
@@ -1173,40 +1208,55 @@ class ZarrIO(HDMFIO):
         return ret
 
     def __parse_ref(self, shape, obj_refs, reg_refs, data):
+        breakpoint()
         corr = []
         obj_pos = []
         reg_pos = []
         for s in shape:
             corr.append(range(s))
         corr = tuple(corr)
-        for c in itertools.product(*corr):
+        for index in itertools.product(*corr):
+            """
+            Returns a Cartesian Product against itself. Why?
+            """
             if isinstance(obj_refs, list):
                 for i in obj_refs:
-                    t = list(c)
+                    t = list(index)
                     t.append(i)
                     obj_pos.append(t)
             elif obj_refs:
-                obj_pos.append(list(c))
+                """
+                If obj_refs is True, make every position an object reference
+                """
+                obj_pos.append(list(index))
             if isinstance(reg_refs, list):
                 for i in reg_refs:
-                    t = list(c)
+                    t = list(index)
                     t.append(i)
                     reg_pos.append(t)
             elif reg_refs:
-                reg_pos.append(list(c))
+                reg_pos.append(list(index))
 
         for p in obj_pos:
             o = data
             for i in p:
-                o = o[i]
-            target_name, target_zarr_obj = self.__resolve_ref(o)
-            o = data
+                o = o[i] # this just gets the index in a dumb way, e.g [0] becomes 0. Why have it in [] in the first place.
+            target_name, target_zarr_obj = self.resolve_ref(o)
+            """
+            o -> {'source': '.', 'path': '/general/extracellular_ephys/ADunit_32'}
+            target_name = ADunit_32
+            target_zarr_obj = <zarr.hierarchy.Group '/general/extracellular_ephys/ADunit_32' read-only>
+            """
+            # o = data
             for i in range(0, len(p)-1):
                 o = data[p[i]]
+            # breakpoint()
             if isinstance(target_zarr_obj, zarr.hierarchy.Group):
                 o[p[-1]] = self.__read_group(target_zarr_obj, target_name)
+                # breakpoint()
             else:
-                o[p[-1]] = self.__read_dataset(target_zarr_obj, target_name)
+                o[p[-1]] = self.__read_dataset(target_zarr_obj, target_name) # gives you builder of the actual referenced dataset
+                # breakpoint()
 
     def __read_attrs(self, zarr_obj):
         ret = dict()
@@ -1216,7 +1266,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and 'zarr_dtype' in v:
                     # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        target_name, target_zarr_obj = self.__resolve_ref(v['value'])
+                        target_name, target_zarr_obj = self.resolve_ref(v['value'])
                         if isinstance(target_zarr_obj, zarr.hierarchy.Group):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:
@@ -1229,3 +1279,16 @@ class ZarrIO(HDMFIO):
                 else:
                     ret[k] = v
         return ret
+
+    @docval({'name': 'zarr_obj', 'type': (Array, Group),
+             'doc': 'the Zarr object to the corresponding Container/Data object for'})
+    def get_container(self, **kwargs):
+        """
+        Get the container for the corresponding Zarr Group or Dataset
+
+        :raises ValueError: When no builder has been constructed yet for the given h5py object
+        """
+        zarr_obj = getargs('zarr_obj', kwargs)
+        builder = self.get_builder(zarr_obj)
+        container = self.manager.construct(builder)
+        return container # This method should be moved to HDMFIO
