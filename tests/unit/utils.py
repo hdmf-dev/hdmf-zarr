@@ -306,8 +306,9 @@ class BazCpdData(Data):
 
 
 class BazBucket(Container):
+    ROOT_NAME = 'root'
 
-    @docval({'name': 'name', 'type': str, 'doc': 'the name of this bucket'},
+    @docval({'name': 'name', 'type': str, 'doc': 'the name of this bucket', 'default': 'root'},
             {'name': 'bazs', 'type': list, 'doc': 'the Baz objects in this bucket'},
             {'name': 'baz_data', 'type': BazData, 'doc': 'dataset of Baz references', 'default': None},
             {'name': 'baz_cpd_data', 'type': BazCpdData, 'doc': 'dataset of Baz references', 'default': None})

@@ -30,15 +30,32 @@ for fname in [zarr_filename, hdf_filename]:
 from pynwb import NWBHDF5IO
 from hdmf_zarr.nwb import NWBZarrIO
 
-with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:
-    file = read_io.read()
+# with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:
+#     file = read_io.read()
 #
 with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:  # Create HDF5 IO object for read
     with NWBZarrIO(zarr_filename, mode='w') as export_io:         # Create Zarr IO object for write
         export_io.export(src_io=read_io, write_args=dict(link_data=False))   # Export from HDF5 to Zarr
+#
+# with NWBZarrIO(path=zarr_filename, mode="r") as io:
+#     infile = io.read()
 
-with NWBZarrIO(path=zarr_filename, mode="r") as io:
-    infile = io.read()
+# group = infile.electrodes.group.data[0]
+# breakpoint()
+#########
+with NWBZarrIO(zarr_filename, mode='r') as read_io:  # Create Zarr IO object for read
+    with NWBHDF5IO(hdf_filename, 'w') as export_io:  # Create HDF5 IO object for write
+        export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from Zarr to HDF5
 
-group = infile.electrodes.group.data[0]
+###############################################################################
+# Read the new HDF5 file back
+# ---------------------------
+#
+# Now our file has been converted from HDF5 to Zarr and back again to HDF5.
+# Here we check that we can still read that file.
+
+with NWBHDF5IO(hdf_filename, 'r') as hr:
+    hf = hr.read()
+    breakpoint()
+    hf.electrodes.group.data
 breakpoint()

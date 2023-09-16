@@ -105,8 +105,13 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     (Default=[None, ])
     """
 
+    REFERENCES = False
+    """
+    Bool parameter passed to check for references.
+    """
+
     def get_manager(self):
-        raise NotImplementedError('Cannot run test unless get_manger  is implemented')
+        raise NotImplementedError('Cannot run test unless get_manger is implemented')
 
     def setUp(self):
         self.__manager = self.get_manager()
@@ -160,11 +165,21 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                 self.filenames.append(write_path if isinstance(write_path, str) else write_path.path)
                 self.filenames.append(export_path if isinstance(export_path, str) else export_path.path)
                 # roundtrip the container
+                # breakpoint()
                 exported_container = self.roundtripExportContainer(
                     container=container,
                     write_path=write_path,
                     export_path=export_path)
-                breakpoint()
+                # breakpoint()
+                if self.REFERENCES:
+                    num_bazs = 10
+                    for i in range(num_bazs):
+                        baz_name = 'baz%d' % i
+                        # self.assertEqual(exported_container.baz_cpd_data.data[i][0], i)
+                        # self.assertIs(exported_container.baz_cpd_data.data[i][1], exported_container.bazs[baz_name])
+                        self.assertEqual(exported_container.baz_data.data.__class__.__name__, 'ContainerH5ReferenceDataset')
+                        self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+                    # breakpoint()
                 # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
                 self.assertIsNotNone(str(container), message)  # added as a test to make sure printing works
@@ -205,15 +220,16 @@ class MixinTestHDF5ToZarr():
     def roundtripExportContainer(self, container, write_path, export_path):
         with HDF5IO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-
+        # breakpoint()
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path, mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        self.ios.append(read_io)
-        exportContainer = read_io.read()
-        return exportContainer
+        breakpoint()
+        # self.ios.append(read_io)
+        # exportContainer = read_io.read()
+        # return exportContainer
 
 
 class MixinTestZarrToHDF5():
@@ -229,18 +245,19 @@ class MixinTestZarrToHDF5():
                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
     EXPORT_PATHS = [None, ]
 
-    def get_manager(self):
-        return get_hdmfcommon_manager()
+    # def get_manager(self):
+    #     return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
-            write_io.write(container, cache_spec=True)
-
+            write_io.write(container)
+        # breakpoint()
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = HDF5IO(export_path, manager=self.get_manager(), mode='r')
+        # breakpoint()
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -268,15 +285,16 @@ class MixinTestZarrToZarr():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-
+        # breakpoint()
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        self.ios.append(read_io)
-        exportContainer = read_io.read()
-        return exportContainer
+        breakpoint()
+        # self.ios.append(read_io)
+        # exportContainer = read_io.read()
+        # return exportContainer
 
 
 ############################################
@@ -379,6 +397,123 @@ class MixinTestFoo():
             return foofile
         else:
             raise NotImplementedError("FOO_TYPE %i not implemented in test" % self.FOO_TYPE)
+
+########################################
+# HDMF Baz test container of references
+########################################
+class MixinTestBaz1():
+    """
+
+    """
+    def get_manager(self):
+        return get_baz_buildmanager()
+
+    def setUpContainer(self):
+        num_bazs = 10
+
+        # set up dataset of references
+        bazs = []
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data1', data=bazs)
+
+
+        # # set up compound dataset of references
+        # baz_pairs = []
+        # for i in range(num_bazs):
+        #     b = Baz(name='baz%d' % i)
+        #     bazs.append(b)
+        #     baz_pairs.append((i, b))
+        # baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+
+        bucket = BazBucket(bazs=bazs, baz_data=baz_data)
+
+        return bucket
+
+########################################
+# HDMF Baz test container of references
+########################################
+
+
+    # def test_export_dset_refs(self):
+    #     """Test that exporting a written container with a dataset of references works."""
+    #     self.path = [get_temp_filepath() for i in range(2)]
+    #     breakpoint()
+    #     bazs = []
+    #     num_bazs = 10
+    #     for i in range(num_bazs):
+    #         bazs.append(Baz(name='baz%d' % i))
+    #     baz_data = BazData(name='baz_data1', data=bazs)
+    #     bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_data=baz_data)
+    #     # breakpoint()
+    #     with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+    #         write_io.write(bucket)
+    #
+    #     with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket1 = read_io.read()
+    #         # NOTE: reference IDs might be the same between two identical files
+    #         # adding a Baz with a smaller name should change the reference IDs on export
+    #         new_baz = Baz(name='baz000')
+    #         read_bucket1.add_baz(new_baz)
+    #
+    #         with ZarrIO(self.path[1], mode='w') as export_io:
+    #             export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+    #
+    #     with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket2 = read_io.read()
+    #
+    #         # remove and check the appended child, then compare the read container with the original
+    #         read_new_baz = read_bucket2.remove_baz('baz000')
+    #
+    #         self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+    #
+    #         self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+    #         # assert the builders were resolved
+    #         for i in range(num_bazs):
+    #             baz_name = 'baz%d' % i
+    #             self.assertEqual(read_bucket2.baz_data.data.__class__.__name__, 'ContainerZarrReferenceDataset')
+    #             self.assertIs(read_bucket2.baz_data.data[i], read_bucket2.bazs[baz_name])
+
+    # def test_export_cpd_dset_refs(self):
+    #     self.path = [get_temp_filepath() for i in range(2)]
+    #     """Test that exporting a written container with a compound dataset with references works."""
+    #     bazs = []
+    #     baz_pairs = []
+    #     num_bazs = 10
+    #     for i in range(num_bazs):
+    #         b = Baz(name='baz%d' % i)
+    #         bazs.append(b)
+    #         baz_pairs.append((i, b))
+    #     baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+    #     bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+    #
+    #     with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+    #         write_io.write(bucket)
+    #
+    #     with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket1 = read_io.read()
+    #
+    #         # NOTE: reference IDs might be the same between two identical files
+    #         # adding a Baz with a smaller name should change the reference IDs on export
+    #         new_baz = Baz(name='baz000')
+    #         read_bucket1.add_baz(new_baz)
+    #
+    #         with ZarrIO(self.path[1], mode='w') as export_io:
+    #             export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+    #
+    #     with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket2 = read_io.read()
+    #
+    #         # remove and check the appended child, then compare the read container with the original
+    #         read_new_baz = read_bucket2.remove_baz(new_baz.name)
+    #         self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+    #
+    #         self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+    #         for i in range(num_bazs):
+    #             baz_name = 'baz%d' % i
+    #             self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+    #             self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+    #
 
 
 ########################################
@@ -590,6 +725,42 @@ class TestHDF5toZarrFooCase2(MixinTestFoo,
     IGNORE_STRING_TO_BYTE = True
     FOO_TYPE = MixinTestFoo.FOO_TYPES['link_data']
 
+class TestZarrToHDF5Baz(MixinTestBaz1,
+                        MixinTestZarrToHDF5,
+                        MixinTestCaseConvert,
+                        TestCase):
+    """
+    Test the conversion of a simple Foo container with two buckets of datasets from Zarr to HDF5
+    See MixinTestFoo.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
+
+class TestHDF5toZarrBaz(MixinTestBaz1,
+                        MixinTestHDF5ToZarr,
+                        MixinTestCaseConvert,
+                        TestCase):
+    """
+
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
+
+class TestZarrtoZarrBaz(MixinTestBaz1,
+                        MixinTestZarrToZarr,
+                        MixinTestCaseConvert,
+                        TestCase):
+    """
+
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source
 """
@@ -668,83 +839,3 @@ class TestFooExternalLinkZarrToHDF5(MixinTestCaseConvert, TestCase):
         exportContainer = read_io.read()
         return exportContainer
 """
-from hdmf_zarr.backend import ZarrIO
-
-class Test_Export_Dataset_of_References(TestCase):
-    def test_export_dset_refs(self):
-        """Test that exporting a written container with a dataset of references works."""
-        self.path = [get_temp_filepath() for i in range(2)]
-        bazs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            bazs.append(Baz(name='baz%d' % i))
-        baz_data = BazData(name='baz_data1', data=bazs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_data=baz_data)
-        # breakpoint()
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
-            write_io.write(bucket)
-
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-
-            with ZarrIO(self.path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
-
-        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz('baz000')
-
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            # assert the builders were resolved
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_data.data.__class__.__name__, 'ContainerZarrReferenceDataset')
-                self.assertIs(read_bucket2.baz_data.data[i], read_bucket2.bazs[baz_name])
-
-    def test_export_cpd_dset_refs(self):
-        self.path = [get_temp_filepath() for i in range(2)]
-        """Test that exporting a written container with a compound dataset with references works."""
-        bazs = []
-        baz_pairs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            b = Baz(name='baz%d' % i)
-            bazs.append(b)
-            baz_pairs.append((i, b))
-        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
-
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
-            write_io.write(bucket)
-
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-
-            with ZarrIO(self.path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
-
-        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz(new_baz.name)
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])

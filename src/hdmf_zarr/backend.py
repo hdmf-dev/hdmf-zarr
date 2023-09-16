@@ -300,6 +300,7 @@ class ZarrIO(HDMFIO):
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
         f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
+        breakpoint()
         for name, gbldr in f_builder.groups.items():
             self.write_group(parent=self.__file,
                              builder=gbldr,
@@ -530,10 +531,14 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
         target_zarr_obj = zarr.open(source_file, mode='r')
+        # if target_name=='baz0':
+        #     breakpoint()
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
+                # breakpoint()
+
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -699,6 +704,7 @@ class ZarrIO(HDMFIO):
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
         parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        # breakpoint()
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
             return None
@@ -1086,8 +1092,8 @@ class ZarrIO(HDMFIO):
             ret.set_group(sub_builder)
         # breakpoint()
         # read sub datasets
+        # breakpoint()
         for sub_name, sub_array in zarr_obj.arrays():
-            # breakpoint()
             sub_builder = self.__read_dataset(sub_array, sub_name)
             ret.set_dataset(sub_builder)
 
@@ -1125,6 +1131,7 @@ class ZarrIO(HDMFIO):
     def __read_dataset(self, zarr_obj, name):
         # breakpoint()
         ret = self.__get_built(zarr_obj)
+        # breakpoint()
         if ret is not None:
             return ret
 
@@ -1156,7 +1163,6 @@ class ZarrIO(HDMFIO):
         reg_refs = False
         has_reference = False
         if isinstance(dtype, list):
-            breakpoint()
             # compound data type
             obj_refs = list()
             reg_refs = list()
@@ -1176,10 +1182,12 @@ class ZarrIO(HDMFIO):
             data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
             # d = BuilderH5TableDataset(zarr_obj, self, dtype)
         elif self.__is_ref(dtype):
+            # breakpoint()
             # reference array
-            has_reference = True
+            has_reference = True #TODO: REMOVE
             if dtype == 'object': # wrap with dataset ref
                 # obj_refs = True
+                breakpoint()
                 data = BuilderZarrReferenceDataset(data, self)
             elif dtype == 'region':
                 reg_refs = True
