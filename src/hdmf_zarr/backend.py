@@ -300,7 +300,6 @@ class ZarrIO(HDMFIO):
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
         f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
-        breakpoint()
         for name, gbldr in f_builder.groups.items():
             self.write_group(parent=self.__file,
                              builder=gbldr,
@@ -531,14 +530,10 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
         target_zarr_obj = zarr.open(source_file, mode='r')
-        # if target_name=='baz0':
-        #     breakpoint()
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                # breakpoint()
-
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -1164,107 +1159,34 @@ class ZarrIO(HDMFIO):
         has_reference = False
         if isinstance(dtype, list):
             # compound data type
-            obj_refs = list()
-            reg_refs = list()
             for i, dts in enumerate(dtype):
-                if dts['dtype'] == 'object': # wrap with table ref
+                if dts['dtype'] == 'object': # check items for object reference
                     """
                     This is a compound dataset where one of the subsets contains references (one or more)
                     """
-                    # breakpoint()
-                    data = BuilderZarrTableDataset(zarr_obj, self, [dts['dtype']])
-                    obj_refs.append(i)
                     has_reference = True
+                    break
                 elif dts['dtype'] == 'region':
-                    reg_refs.append(i)
                     has_reference = True
+                    break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
             data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
-            # d = BuilderH5TableDataset(zarr_obj, self, dtype)
         elif self.__is_ref(dtype):
-            # breakpoint()
             # reference array
             has_reference = True #TODO: REMOVE
             if dtype == 'object': # wrap with dataset ref
-                # obj_refs = True
-                breakpoint()
                 data = BuilderZarrReferenceDataset(data, self)
             elif dtype == 'region':
-                reg_refs = True
+                reg_refs = True #TODO: Region reference not wrapped yet
 
-        # if has_reference:
-        #     try:
-        #         # TODO Should implement a lazy way to evaluate references for Zarr
-        #         data = deepcopy(data[:])
-        #         breakpoint()
-        #         """We don't deal with region references yet"""
-        #         # d = BuilderH5ReferenceDataset(h5obj, self)
-        #         data = BuilderZarrReferenceDataset(data, self)
-        #         # breakpoint()
-        #         # self.__parse_ref(kwargs['maxshape'], obj_refs, reg_refs, data)
-        #         # breakpoint()
-        #     except ValueError as e:
-        #         raise ValueError(str(e) + "  zarr-name=" + str(zarr_obj.name) + " name=" + str(name))
-        # breakpoint()
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
-        ret = DatasetBuilder(name, **kwargs)
+        ret = DatasetBuilder(name, **kwargs) # create builder object for dataset
         ret.location = self.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
         self.__set_built(zarr_obj, ret)
         return ret
-
-    def __parse_ref(self, shape, obj_refs, reg_refs, data):
-        breakpoint()
-        corr = []
-        obj_pos = []
-        reg_pos = []
-        for s in shape:
-            corr.append(range(s))
-        corr = tuple(corr)
-        for index in itertools.product(*corr):
-            """
-            Returns a Cartesian Product against itself. Why?
-            """
-            if isinstance(obj_refs, list):
-                for i in obj_refs:
-                    t = list(index)
-                    t.append(i)
-                    obj_pos.append(t)
-            elif obj_refs:
-                """
-                If obj_refs is True, make every position an object reference
-                """
-                obj_pos.append(list(index))
-            if isinstance(reg_refs, list):
-                for i in reg_refs:
-                    t = list(index)
-                    t.append(i)
-                    reg_pos.append(t)
-            elif reg_refs:
-                reg_pos.append(list(index))
-
-        for p in obj_pos:
-            o = data
-            for i in p:
-                o = o[i] # this just gets the index in a dumb way, e.g [0] becomes 0. Why have it in [] in the first place.
-            target_name, target_zarr_obj = self.resolve_ref(o)
-            """
-            o -> {'source': '.', 'path': '/general/extracellular_ephys/ADunit_32'}
-            target_name = ADunit_32
-            target_zarr_obj = <zarr.hierarchy.Group '/general/extracellular_ephys/ADunit_32' read-only>
-            """
-            # o = data
-            for i in range(0, len(p)-1):
-                o = data[p[i]]
-            # breakpoint()
-            if isinstance(target_zarr_obj, zarr.hierarchy.Group):
-                o[p[-1]] = self.__read_group(target_zarr_obj, target_name)
-                # breakpoint()
-            else:
-                o[p[-1]] = self.__read_dataset(target_zarr_obj, target_name) # gives you builder of the actual referenced dataset
-                # breakpoint()
 
     def __read_attrs(self, zarr_obj):
         ret = dict()

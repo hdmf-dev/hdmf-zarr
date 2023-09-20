@@ -110,6 +110,11 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     Bool parameter passed to check for references.
     """
 
+    TARGET_FORMAT = "H5"
+    """
+    Export format type used for checking references.
+    """
+
     def get_manager(self):
         raise NotImplementedError('Cannot run test unless get_manger is implemented')
 
@@ -172,13 +177,19 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                     export_path=export_path)
                 # breakpoint()
                 if self.REFERENCES:
-                    num_bazs = 10
-                    for i in range(num_bazs):
-                        baz_name = 'baz%d' % i
-                        # self.assertEqual(exported_container.baz_cpd_data.data[i][0], i)
-                        # self.assertIs(exported_container.baz_cpd_data.data[i][1], exported_container.bazs[baz_name])
-                        self.assertEqual(exported_container.baz_data.data.__class__.__name__, 'ContainerH5ReferenceDataset')
-                        self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+                    if self.TARGET_FORMAT == "H5":
+                        num_bazs = 10
+                        for i in range(num_bazs):
+                            baz_name = 'baz%d' % i
+                            self.assertEqual(exported_container.baz_data.data.__class__.__name__, 'ContainerH5ReferenceDataset')
+                            self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+                    elif self.TARGET_FORMAT == "ZARR":
+                        num_bazs = 10
+                        for i in range(num_bazs):
+                            baz_name = 'baz%d' % i
+                            # breakpoint()
+                            self.assertEqual(exported_container.baz_data.data.__class__.__name__, 'ContainerZarrReferenceDataset')
+                            self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
                     # breakpoint()
                 # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
@@ -226,10 +237,10 @@ class MixinTestHDF5ToZarr():
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        breakpoint()
-        # self.ios.append(read_io)
-        # exportContainer = read_io.read()
-        # return exportContainer
+        # breakpoint()
+        self.ios.append(read_io)
+        exportContainer = read_io.read()
+        return exportContainer
 
 
 class MixinTestZarrToHDF5():
@@ -291,10 +302,10 @@ class MixinTestZarrToZarr():
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        breakpoint()
-        # self.ios.append(read_io)
-        # exportContainer = read_io.read()
-        # return exportContainer
+        # breakpoint()
+        self.ios.append(read_io)
+        exportContainer = read_io.read()
+        return exportContainer
 
 
 ############################################
@@ -737,6 +748,7 @@ class TestZarrToHDF5Baz(MixinTestBaz1,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = True
     REFERENCES = True
+    TARGET_FORMAT = "H5"
 
 class TestHDF5toZarrBaz(MixinTestBaz1,
                         MixinTestHDF5ToZarr,
@@ -749,6 +761,7 @@ class TestHDF5toZarrBaz(MixinTestBaz1,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = True
     REFERENCES = True
+    TARGET_FORMAT = "Zarr"
 
 class TestZarrtoZarrBaz(MixinTestBaz1,
                         MixinTestZarrToZarr,
@@ -761,6 +774,7 @@ class TestZarrtoZarrBaz(MixinTestBaz1,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = True
     REFERENCES = True
+    TARGET_FORMAT = "Zarr"
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source
 """
