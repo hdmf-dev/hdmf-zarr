@@ -110,11 +110,6 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     Bool parameter passed to check for references.
     """
 
-    TARGET_FORMAT = "H5"
-    """
-    Export format type used for checking references.
-    """
-
     def get_manager(self):
         raise NotImplementedError('Cannot run test unless get_manger is implemented')
 
@@ -224,6 +219,7 @@ class MixinTestHDF5ToZarr():
                     DirectoryStore('test_export_DirectoryStore.zarr'),
                     TempStore(),
                     NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
+    TARGET_FORMAT = "Zarr"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -255,6 +251,7 @@ class MixinTestZarrToHDF5():
                    TempStore(),
                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
     EXPORT_PATHS = [None, ]
+    TARGET_FORMAT = "H5"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -289,6 +286,8 @@ class MixinTestZarrToZarr():
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
                     TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
                     NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
+    TARGET_FORMAT = "Zarr"
+
 
     def get_manager(self):
         return get_hdmfcommon_manager()
