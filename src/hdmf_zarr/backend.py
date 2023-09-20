@@ -699,7 +699,6 @@ class ZarrIO(HDMFIO):
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
         parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
-        # breakpoint()
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
             return None
@@ -1085,9 +1084,7 @@ class ZarrIO(HDMFIO):
         for sub_name, sub_group in zarr_obj.groups():
             sub_builder = self.__read_group(sub_group, sub_name)
             ret.set_group(sub_builder)
-        # breakpoint()
         # read sub datasets
-        # breakpoint()
         for sub_name, sub_array in zarr_obj.arrays():
             sub_builder = self.__read_dataset(sub_array, sub_name)
             ret.set_dataset(sub_builder)
@@ -1124,9 +1121,7 @@ class ZarrIO(HDMFIO):
                 parent.set_link(link_builder)
 
     def __read_dataset(self, zarr_obj, name):
-        # breakpoint()
         ret = self.__get_built(zarr_obj)
-        # breakpoint()
         if ret is not None:
             return ret
 
@@ -1154,30 +1149,27 @@ class ZarrIO(HDMFIO):
         if dtype == 'scalar':
             data = zarr_obj[0]
 
-        obj_refs = False
-        reg_refs = False
-        has_reference = False
         if isinstance(dtype, list):
-            # compound data type
+            # Check compound dataset where one of the subsets contains references
+            has_reference = False
             for i, dts in enumerate(dtype):
                 if dts['dtype'] == 'object': # check items for object reference
-                    """
-                    This is a compound dataset where one of the subsets contains references (one or more)
-                    """
                     has_reference = True
                     break
-                elif dts['dtype'] == 'region':
-                    has_reference = True
-                    break
+                # TODO: Region reference not supported
+                # elif dts['dtype'] == 'region':
+                #     has_reference = True
+                #     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
-            data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
+            if has_reference:
+                data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
             # reference array
-            has_reference = True #TODO: REMOVE
             if dtype == 'object': # wrap with dataset ref
                 data = BuilderZarrReferenceDataset(data, self)
-            elif dtype == 'region':
-                reg_refs = True #TODO: Region reference not wrapped yet
+            # TODO: Region reference not wrapped yet
+            # elif dtype == 'region':
+            #     reg_refs = True
 
         kwargs['data'] = data
         if name is None:
@@ -1194,7 +1186,6 @@ class ZarrIO(HDMFIO):
             if k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
                 if isinstance(v, dict) and 'zarr_dtype' in v:
-                    # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
                         target_name, target_zarr_obj = self.resolve_ref(v['value'])
                         if isinstance(target_zarr_obj, zarr.hierarchy.Group):

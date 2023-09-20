@@ -165,12 +165,10 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                 self.filenames.append(write_path if isinstance(write_path, str) else write_path.path)
                 self.filenames.append(export_path if isinstance(export_path, str) else export_path.path)
                 # roundtrip the container
-                # breakpoint()
                 exported_container = self.roundtripExportContainer(
                     container=container,
                     write_path=write_path,
                     export_path=export_path)
-                # breakpoint()
                 if self.REFERENCES:
                     if self.TARGET_FORMAT == "H5":
                         num_bazs = 10
@@ -182,10 +180,8 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                         num_bazs = 10
                         for i in range(num_bazs):
                             baz_name = 'baz%d' % i
-                            # breakpoint()
                             self.assertEqual(exported_container.baz_data.data.__class__.__name__, 'ContainerZarrReferenceDataset')
                             self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
-                    # breakpoint()
                 # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
                 self.assertIsNotNone(str(container), message)  # added as a test to make sure printing works
@@ -227,13 +223,11 @@ class MixinTestHDF5ToZarr():
     def roundtripExportContainer(self, container, write_path, export_path):
         with HDF5IO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-        # breakpoint()
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path, mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        # breakpoint()
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -259,13 +253,11 @@ class MixinTestZarrToHDF5():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container)
-        # breakpoint()
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = HDF5IO(export_path, manager=self.get_manager(), mode='r')
-        # breakpoint()
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -295,13 +287,11 @@ class MixinTestZarrToZarr():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
-        # breakpoint()
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
         read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
-        # breakpoint()
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
