@@ -256,8 +256,8 @@ class MixinTestZarrToHDF5():
                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
     EXPORT_PATHS = [None, ]
 
-    # def get_manager(self):
-    #     return get_hdmfcommon_manager()
+    def get_manager(self):
+        return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
