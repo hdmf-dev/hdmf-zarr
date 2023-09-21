@@ -25,7 +25,6 @@ formats: all
 python:
   install:
     - requirements: requirements-doc.txt
-    - requirements: requirements-opt.txt
     - requirements: requirements.txt
     - path: .
 
