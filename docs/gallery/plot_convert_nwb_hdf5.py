@@ -1,13 +1,30 @@
 """
-Converting NWB HDF5 files to/from Zarr
-======================================
+Zarr Dataset I/O
+================
 
-This tutorial illustrates how to convert data between HDF5 and Zarr using
-a Neurodata Without Borders (NWB) file from the DANDI data archive as an example.
-In this tutorial we will convert our example file from HDF5 to Zarr and then
-back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and uses the
-:py:class:`~ hdmf.backends.hdf5.h5tools.HDF5IO`  HDF5 backend from HDMF for storage.
+To customize data write settings on a per-dataset basis, HDMF supports
+wrapping of data arrays using :py:class:`~hdmf.data_utils.DataIO`. To
+support defining settings specific to Zarr ``hdmf-zarr`` provides
+the corresponding :py:class:`~hdmf_zarr.utils.ZarrDataIO` class.
+
+Create an example DynamicTable Container
+----------------------------------------
+
+As a simple example, we first create a ``DynamicTable`` container
+to store some arbitrary data columns.
 """
+
+
+# """
+# Converting NWB HDF5 files to/from Zarr
+# ======================================
+#
+# This tutorial illustrates how to convert data between HDF5 and Zarr using
+# a Neurodata Without Borders (NWB) file from the DANDI data archive as an example.
+# In this tutorial we will convert our example file from HDF5 to Zarr and then
+# back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and uses the
+# :py:class:`~ hdmf.backends.hdf5.h5tools.HDF5IO`  HDF5 backend from HDMF for storage.
+# """
 
 
 ###############################################################################

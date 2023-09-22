@@ -547,6 +547,9 @@
 #             write_io.write(bucket)
 #         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
 #             read_bucket1 = read_io.read()
+#
+#             hh = read_bucket1.baz_cpd_data.data
+#             breakpoint()
 #             # NOTE: reference IDs might be the same between two identical files
 #             # adding a Baz with a smaller name should change the reference IDs on export
 #             new_baz = Baz(name='baz000')
@@ -558,7 +561,7 @@
 #         with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
 #             read_bucket2 = read_io.read()
 #             gg=read_bucket2.baz_cpd_data.data[0]
-#         #
+#             breakpoint()
 #             # remove and check the appended child, then compare the read container with the original
 #             read_new_baz = read_bucket2.remove_baz(new_baz.name)
 #             self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)

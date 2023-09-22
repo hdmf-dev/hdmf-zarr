@@ -546,7 +546,7 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-            #     breakpoint()
+                # breakpoint()
                 try:
                     import pathlib
                     object_path = pathlib.Path(object_path)
@@ -1266,6 +1266,7 @@ class ZarrIO(HDMFIO):
         :raises ValueError: When no builder has been constructed yet for the given h5py object
         """
         zarr_obj = getargs('zarr_obj', kwargs)
+        # breakpoint()
         builder = self.get_builder(zarr_obj)
         container = self.manager.construct(builder)
         return container # This method should be moved to HDMFIO
