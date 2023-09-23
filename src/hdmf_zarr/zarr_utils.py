@@ -1,7 +1,8 @@
 """
-Utilities for the HDF5 I/O backend,
-e.g., for wrapping HDF5 datasets on read, wrapping arrays for configuring write, or
-writing the spec among others"""
+Utilities for the Zarr I/O backend,
+e.g., for wrapping Zarr arrays on read, wrapping arrays for configuring write, or
+writing the spec among others
+"""
 
 from collections import deque
 from abc import ABCMeta, abstractmethod
