@@ -1179,9 +1179,9 @@ class ZarrIO(HDMFIO):
             # reference array
             if dtype == 'object': # wrap with dataset ref
                 data = BuilderZarrReferenceDataset(data, self)
-            # TODO: Region reference not wrapped yet
-            # elif dtype == 'region':
-            #     reg_refs = True
+            # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
+            elif dtype == 'region':
+                data = BuilderZarrRegionDataset(data, self)
 
         kwargs['data'] = data
         if name is None:
