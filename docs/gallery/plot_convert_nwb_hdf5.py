@@ -8,8 +8,31 @@ In this tutorial we will convert our example file from HDF5 to Zarr and then
 back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and uses the
 :py:class:`~ hdmf.backends.hdf5.h5tools.HDF5IO`  HDF5 backend from HDMF for storage.
 """
-# sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_convert_nwb.png'
 
+###############################################################################
+# Setup
+# -----
+#
+# Here we use a small NWB file from the DANDI neurophysiology data archive from
+# `DANDIset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_ as an example.
+# To download the file directly from DANDI we can use:
+#
+# .. code-block:: python
+#    :linenos:
+#
+#    from dandi.dandiapi import DandiAPIClient
+#    dandiset_id = "000009"
+#    filepath = "sub-anm00239123/sub-anm00239123_ses-20170627T093549_ecephys+ogen.nwb"   # ~0.5MB file
+#    with DandiAPIClient() as client:
+#        asset = client.get_dandiset(dandiset_id, 'draft').get_asset_by_path(filepath)
+#        s3_path = asset.get_content_url(follow_redirects=1, strip_query=True)
+#        filename = os.path.basename(asset.path)
+#    asset.download(filename)
+#
+# We here use a local copy of a small file from this DANDIset as an example:
+
+
+# sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_convert_nwb.png'
 import os
 import shutil
 from pynwb import NWBHDF5IO
