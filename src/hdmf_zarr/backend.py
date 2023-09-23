@@ -1173,6 +1173,7 @@ class ZarrIO(HDMFIO):
                     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
             if has_reference:
+                # TODO:  BuilderZarrTableDataset does not yet support region reference
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
             # reference array
