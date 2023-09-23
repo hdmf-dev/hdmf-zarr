@@ -1168,7 +1168,7 @@ class ZarrIO(HDMFIO):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):
-                if dts['dtype'] == 'object': # check items for object reference
+                if dts['dtype'] in ['object', 'region']: # check items for object reference
                     has_reference = True
                     break
                 # TODO: Region reference not supported
