@@ -1171,10 +1171,6 @@ class ZarrIO(HDMFIO):
                 if dts['dtype'] in ['object', 'region']: # check items for object reference
                     has_reference = True
                     break
-                # TODO: Region reference not supported
-                # elif dts['dtype'] == 'region':
-                #     has_reference = True
-                #     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
             if has_reference:
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
