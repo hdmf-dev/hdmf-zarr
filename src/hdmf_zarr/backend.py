@@ -524,13 +524,8 @@ class ZarrIO(HDMFIO):
         else:
             source_file = str(zarr_ref['source'])
         # Resolve the path relative to the current file
-        # breakpoint()
         source_file = os.path.abspath(os.path.join(self.source, source_file))
         object_path = zarr_ref.get('path', None)
-        # if object_path == "/bucket1/bazs/baz0":
-        #     object_path = "/root/bazs/baz0"
-        # if object_path == "/bazs/baz0":
-
         # full_path = None
         # if os.path.isdir(source_file):
         #    if object_path is not None:
@@ -546,14 +541,12 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                # breakpoint()
                 try:
                     import pathlib
                     object_path = pathlib.Path(object_path)
                     rel_obj_path = object_path.relative_to(*object_path.parts[:2])
                     target_zarr_obj = target_zarr_obj[rel_obj_path]
                 except Exception:
-                    # breakpoint()
                     raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -586,11 +579,13 @@ class ZarrIO(HDMFIO):
 
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
-        source = (builder.source
-                  if (builder.source is not None and os.path.isdir(builder.source))
-                  else self.source)
-        # Make the source relative to the current file
-        source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+        # source = (builder.source
+        #           if (builder.source is not None and os.path.isdir(builder.source))
+        #           else self.source)
+        #
+        # # Make the source relative to the current file
+        # source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+        source = '.'
         # Return the ZarrReference object
         return ZarrReference(source, path)
 
@@ -718,7 +713,6 @@ class ZarrIO(HDMFIO):
              'doc': 'Used internally to force the data being used when we have to load the data', 'default': None},
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        # breakpoint()
         parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
@@ -751,7 +745,6 @@ class ZarrIO(HDMFIO):
                 dset = parent[name]
         # When converting data between backends we may see an HDMFDataset, e.g., a H55ReferenceDataset, with references
         elif isinstance(data, HDMFDataset):
-            # breakpoint()
             # If we have a dataset of containers we need to make the references to the containers
             if len(data) > 0 and isinstance(data[0], Container):
                 ref_data = [self.__get_ref(data[i]) for i in range(len(data))]
@@ -764,7 +757,6 @@ class ZarrIO(HDMFIO):
                                               **options['io_settings'])
                 dset.attrs['zarr_dtype'] = type_str
                 dset[:] = ref_data
-                # breakpoint()
                 self._written_builders.set_written(builder)  # record that the builder has been written
             # If we have a regular dataset, then load the data and write the builder after load
             else:
@@ -775,8 +767,6 @@ class ZarrIO(HDMFIO):
                 # We can/should not update the data in the builder itself so we load the data here and instead
                 # force write_dataset when we call it recursively to use the data we loaded, rather than the
                 # dataset that is set on the builder
-                # breakpoint()
-
                 dset = self.write_dataset(parent=parent,
                                           builder=builder,
                                           link_data=link_data,
@@ -799,7 +789,6 @@ class ZarrIO(HDMFIO):
                     i = list([dts, ])
                     t = self.__resolve_dtype_helper__(i)
                     type_str.append(self.__serial_dtype__(t)[0])
-            # breakpoint()
 
             if len(refs) > 0:
                 dset = parent.require_dataset(name,
@@ -1076,23 +1065,7 @@ class ZarrIO(HDMFIO):
         """
         zarr_obj = kwargs['zarr_obj']
         builder = self.__get_built(zarr_obj)
-        # ff = self.__built
-        # breakpoint()
-        # if zarr_obj.name == '/bazs/baz0':
-        #     breakpoint()
         if builder is None:
-        #
-        #     breakpoint()
-            # builder = self.__temp_get_built(zarr_obj)
-            path = list(self.__built.keys())[0]
-            builder_source_path = path.replace(zarr_obj.path,'')
-
-            zarr_obj_path = zarr_obj.path
-            path = os.path.join(builder_source_path, path)
-            # breakpoint()
-            builder = self.__built.get(path, None)
-        if builder is None:
-            # breakpoint()
             msg = '%s has not been built' % (zarr_obj.name)
             raise ValueError(msg)
         return builder
@@ -1106,22 +1079,8 @@ class ZarrIO(HDMFIO):
         """
         fpath = zarr_obj.store.path
         path = zarr_obj.path
-        ff = self.__built
-        # breakpoint()
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
-
-    def __temp_get_built(self, zarr_obj):
-        fpath = zarr_obj.store.path
-        path = zarr_obj.path
-        path = os.path.join('bucket1', path)
-        # breakpoint()
-        path = os.path.join(fpath, path)
-        # breakpoint()
-
-        builder_source_path = list(self.__built.keys())[0]
-        return self.__built.get(path, None)
-
 
     def __read_group(self, zarr_obj, name=None):
         ret = self.__get_built(zarr_obj)
@@ -1266,7 +1225,6 @@ class ZarrIO(HDMFIO):
         :raises ValueError: When no builder has been constructed yet for the given h5py object
         """
         zarr_obj = getargs('zarr_obj', kwargs)
-        # breakpoint()
         builder = self.get_builder(zarr_obj)
         container = self.manager.construct(builder)
         return container # This method should be moved to HDMFIO

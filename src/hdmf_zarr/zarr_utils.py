@@ -77,7 +77,6 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
 
     def _get_ref(self, ref):
         # return self.get_object(self.dataset.file[ref])
-        # breakpoint()
         name, zarr_obj = self.io.resolve_ref(ref) # ref is a json dict containing the path to the object
         return self.get_object(zarr_obj)
 
@@ -129,7 +128,6 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
             # if t is RegionReference: # not yet supported
             #     self.__refgetters[i] = self.__get_regref
             if t == DatasetBuilder.OBJECT_REF_TYPE:
-                # breakpoint()
                 self.__refgetters[i] = self._get_ref
             elif t is str:
                 # we need this for when we read compound data types
