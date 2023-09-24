@@ -34,6 +34,9 @@ from hdmf.utils import docval, getargs, popargs, get_docval
 
 
 class ZarrDataset(HDMFDataset):
+    """
+    Extension of HDMFDataset to add Zarr compatibility
+    """
     @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'})
     def __init__(self, **kwargs):
@@ -104,7 +107,7 @@ class BuilderResolverMixin(BuilderResolver):# refactor to backend/utils.py
 
 class ContainerResolverMixin(ContainerResolver): # refactor to backend/utils.py
     """
-    A mixin for adding to Zarr reference-resolving types
+    A mixin for adding to Zarr reference-resolvinAbstractZarrReferenceDatasetg types
     the get_object method that returns Containers
     """
 
@@ -116,7 +119,10 @@ class ContainerResolverMixin(ContainerResolver): # refactor to backend/utils.py
 
 
 class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound dataset
-
+    """
+    Extension of DatasetOfReferences to serve as the base class for resolving Zarr
+    references in compound datasets to either Builders and Containers.
+    """
     @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'},
             {'name': 'types', 'type': (list, tuple),
@@ -150,8 +156,9 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
                     t = sub.metadata['ref']
                     if t is Reference:
                         tmp.append('object')
-                    elif t is RegionReference:
-                        tmp.append('region')
+                    # elif t is RegionReference:
+                    #     tmp.append('region')
+                    # TODO: Region References are not yet supported
             else:
                 tmp.append(sub.type.__name__)
         self.__dtype = tmp
@@ -197,7 +204,10 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
 
 
 class AbstractZarrReferenceDataset(DatasetOfReferences):
-
+    """
+    Extension of DatasetOfReferences to serve as the base class for resolving Zarr
+    references in datasets to either Builders and Containers.
+    """
     def __getitem__(self, arg):
         ref = super().__getitem__(arg)
         if isinstance(ref, np.ndarray):
@@ -211,7 +221,12 @@ class AbstractZarrReferenceDataset(DatasetOfReferences):
 
 
 class AbstractZarrRegionDataset(AbstractZarrReferenceDataset):
+    """
+    Extension of DatasetOfReferences to serve as the base class for resolving Zarr
+    references in datasets to either Builders and Containers.
 
+    Note: Region References are not yet supported.
+    """
     def __getitem__(self, arg):
         obj = super().__getitem__(arg)
         ref = self.dataset[arg]
@@ -270,6 +285,8 @@ class ContainerZarrRegionDataset(ContainerResolverMixin, AbstractZarrRegionDatas
     """
     A reference-resolving dataset for resolving region references that returns
     resolved references as Containers
+
+    Note: Region References are not yet supported.
     """
 
     @classmethod
@@ -280,7 +297,9 @@ class ContainerZarrRegionDataset(ContainerResolverMixin, AbstractZarrRegionDatas
 class BuilderZarrRegionDataset(BuilderResolverMixin, AbstractZarrRegionDataset):
     """
     A reference-resolving dataset for resolving region references that returns
-    resolved references as Builders
+    resolved references as Builders.
+
+    Note: Region References are not yet supported.
     """
 
     @classmethod
