@@ -1,8 +1,6 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 # Python imports
 import os
-import itertools
-from copy import deepcopy
 import warnings
 import numpy as np
 import tempfile
@@ -245,11 +243,6 @@ class ZarrIO(HDMFIO):
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
             raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
                                        "link_data=True." % src_io.__class__.__name__)
-
-        # write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
-        # write_args['export_source'] = os.path.abspath(src_io.source) if src_io.source is not None else None
-
-
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
         super().export(**ckwargs)
@@ -317,7 +310,7 @@ class ZarrIO(HDMFIO):
                                exhaust_dci=exhaust_dci)
         # for name, lbldr in f_builder.links.items():
         #     self.write_link(self.__file, lbldr, export_source=kwargs.get("export_source"))
-        self.write_attributes(self.__file, f_builder.attributes) # the same as set_attributes in HDMF
+        self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
         self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
@@ -1057,7 +1050,7 @@ class ZarrIO(HDMFIO):
 
     @docval({'name': 'zarr_obj', 'type': (Array, Group),
              'doc': 'the Zarr object to the corresponding Builder object for'})
-    def get_builder(self, **kwargs): # move this to HDMFIO (define skeleton in there at least)
+    def get_builder(self, **kwargs):  # move this to HDMFIO (define skeleton in there at least)
         """
         Get the builder for the corresponding h5py Group or Dataset
 
@@ -1168,7 +1161,7 @@ class ZarrIO(HDMFIO):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):
-                if dts['dtype'] in ['object', 'region']: # check items for object reference
+                if dts['dtype'] in ['object', 'region']:  # check items for object reference
                     has_reference = True
                     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
@@ -1177,16 +1170,16 @@ class ZarrIO(HDMFIO):
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
             # reference array
-            if dtype == 'object': # wrap with dataset ref
+            if dtype == 'object':  # wrap with dataset ref
                 data = BuilderZarrReferenceDataset(data, self)
             # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
-            elif dtype == 'region':
-                data = BuilderZarrRegionDataset(data, self)
+            # elif dtype == 'region':
+            #     data = BuilderZarrRegionDataset(data, self)
 
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
-        ret = DatasetBuilder(name, **kwargs) # create builder object for dataset
+        ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
         ret.location = self.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
         self.__set_built(zarr_obj, ret)
@@ -1224,4 +1217,4 @@ class ZarrIO(HDMFIO):
         zarr_obj = getargs('zarr_obj', kwargs)
         builder = self.get_builder(zarr_obj)
         container = self.manager.construct(builder)
-        return container # This method should be moved to HDMFIO
+        return container  # TODO: This method should be moved to HDMFIO

@@ -104,7 +104,8 @@ zr.close()
 # ----------------------------------
 #
 # Using the same approach as above, we can now convert our Zarr file back to HDF5.
-with suppress(Exception): # TODO: This is a temporary ignore on the convert_dtype exception.
+
+with suppress(Exception):  # TODO: This is a temporary ignore on the convert_dtype exception.
     with NWBZarrIO(zarr_filename, mode='r') as read_io:  # Create Zarr IO object for read
         with NWBHDF5IO(hdf_filename, 'w') as export_io:  # Create HDF5 IO object for write
             export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from Zarr to HDF5
@@ -115,6 +116,7 @@ with suppress(Exception): # TODO: This is a temporary ignore on the convert_dtyp
 #
 # Now our file has been converted from HDF5 to Zarr and back again to HDF5.
 # Here we check that we can still read that file.
-with suppress(Exception): # TODO: This is a temporary ignore on the convert_dtype exception.
+
+with suppress(Exception):  # TODO: This is a temporary ignore on the convert_dtype exception.
     with NWBHDF5IO(hdf_filename, 'r') as hr:
         hf = hr.read()

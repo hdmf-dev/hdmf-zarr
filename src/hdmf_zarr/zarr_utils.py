@@ -3,34 +3,18 @@ Utilities for the Zarr I/O backend,
 e.g., for wrapping Zarr arrays on read, wrapping arrays for configuring write, or
 writing the spec among others
 """
-
-from collections import deque
 from abc import ABCMeta, abstractmethod
-from collections.abc import Iterable
 from copy import copy
-
-from hdmf.build import (Builder,
-                        GroupBuilder,
-                        DatasetBuilder,
-                        LinkBuilder,
-                        BuildManager,
-                        RegionBuilder,
-                        ReferenceBuilder,
-                        TypeMap)
-
-import json
 import numpy as np
-import warnings
-import os
-import logging
 
-#from Zarrpy import Group, Dataset, RegionReference, Reference, special_dtype
-#from Zarrpy import filters as Zarrpy_filter
+# from Zarrpy import Group, Dataset, RegionReference, Reference, special_dtype
+# from Zarrpy import filters as Zarrpy_filter
 from zarr import Array as ZarrArray
 
+from hdmf.build import DatasetBuilder
 from hdmf.array import Array
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
-from hdmf.utils import docval, getargs, popargs, get_docval
+from hdmf.utils import docval, popargs, get_docval
 
 
 class ZarrDataset(HDMFDataset):
@@ -80,8 +64,7 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self.__inverted
 
     def _get_ref(self, ref):
-        # return self.get_object(self.dataset.file[ref])
-        name, zarr_obj = self.io.resolve_ref(ref) # ref is a json dict containing the path to the object
+        name, zarr_obj = self.io.resolve_ref(ref)  # ref is a json dict containing the path to the object
         return self.get_object(zarr_obj)
 
     def __iter__(self):
@@ -92,7 +75,7 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self._get_ref(super().__next__())
 
 
-class BuilderResolverMixin(BuilderResolver):# refactor to backend/utils.py
+class BuilderResolverMixin(BuilderResolver):  # refactor to backend/utils.py
     """
     A mixin for adding to Zarr reference-resolving types
     the get_object method that returns Builders
@@ -105,7 +88,7 @@ class BuilderResolverMixin(BuilderResolver):# refactor to backend/utils.py
         return self.io.get_builder(zarr_obj)
 
 
-class ContainerResolverMixin(ContainerResolver): # refactor to backend/utils.py
+class ContainerResolverMixin(ContainerResolver):  # refactor to backend/utils.py
     """
     A mixin for adding to Zarr reference-resolvinAbstractZarrReferenceDatasetg types
     the get_object method that returns Containers
@@ -118,7 +101,7 @@ class ContainerResolverMixin(ContainerResolver): # refactor to backend/utils.py
         return self.io.get_container(zarr_obj)
 
 
-class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound dataset
+class AbstractZarrTableDataset(DatasetOfReferences):
     """
     Extension of DatasetOfReferences to serve as the base class for resolving Zarr
     references in compound datasets to either Builders and Containers.
@@ -132,7 +115,7 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            # if t is RegionReference: # not yet supported
+            # if t is RegionReference:  # not yet supported
             #     self.__refgetters[i] = self.__get_regref
             if t == DatasetBuilder.OBJECT_REF_TYPE:
                 self.__refgetters[i] = self._get_ref
@@ -145,6 +128,9 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
         tmp = list()
         for i in range(len(self.dataset.dtype)):
             sub = self.dataset.dtype[i]
+            if np.issubdtype(sub, np.dtype('O')):
+                tmp.append('object')
+                # TODO: Region References are not yet supported
             if sub.metadata:
                 if 'vlen' in sub.metadata:
                     t = sub.metadata['vlen']
@@ -152,13 +138,6 @@ class AbstractZarrTableDataset(DatasetOfReferences): # Table refers to compound 
                         tmp.append('utf')
                     elif t is bytes:
                         tmp.append('ascii')
-                elif 'ref' in sub.metadata:
-                    t = sub.metadata['ref']
-                    if t is Reference:
-                        tmp.append('object')
-                    # elif t is RegionReference:
-                    #     tmp.append('region')
-                    # TODO: Region References are not yet supported
             else:
                 tmp.append(sub.type.__name__)
         self.__dtype = tmp
@@ -270,7 +249,7 @@ class ContainerZarrReferenceDataset(ContainerResolverMixin, AbstractZarrReferenc
         return BuilderZarrReferenceDataset
 
 
-class BuilderZarrReferenceDataset(BuilderResolverMixin, AbstractZarrReferenceDataset): # BuilderH5ReferenceDataset
+class BuilderZarrReferenceDataset(BuilderResolverMixin, AbstractZarrReferenceDataset):
     """
     A reference-resolving dataset for resolving object references that returns
     resolved references as Builders
