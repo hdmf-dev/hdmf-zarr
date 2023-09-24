@@ -7,8 +7,6 @@ from abc import ABCMeta, abstractmethod
 from copy import copy
 import numpy as np
 
-# from Zarrpy import Group, Dataset, RegionReference, Reference, special_dtype
-# from Zarrpy import filters as Zarrpy_filter
 from zarr import Array as ZarrArray
 
 from hdmf.build import DatasetBuilder

@@ -5,6 +5,7 @@ import warnings
 import numpy as np
 import tempfile
 import logging
+import pathlib
 
 # Zarr imports
 import zarr
@@ -121,8 +122,6 @@ class ZarrIO(HDMFIO):
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
         super().__init__(manager, source=source_path)
-
-    # variable set for from DatasetBuilder.OBJECT_REF_TYPE
 
     @property
     def file(self):
@@ -296,8 +295,6 @@ class ZarrIO(HDMFIO):
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
         f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
-        # f_builder = popargs('builder', kwargs)
-        # link_data, exhaust_dci, export_source = getargs('link_data', 'exhaust_dci', 'export_source', kwargs)
         for name, gbldr in f_builder.groups.items():
             self.write_group(parent=self.__file,
                              builder=gbldr,
@@ -308,8 +305,6 @@ class ZarrIO(HDMFIO):
                                builder=dbldr,
                                link_data=link_data,
                                exhaust_dci=exhaust_dci)
-        # for name, lbldr in f_builder.links.items():
-        #     self.write_link(self.__file, lbldr, export_source=kwargs.get("export_source"))
         self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
         self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
@@ -535,7 +530,6 @@ class ZarrIO(HDMFIO):
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
                 try:
-                    import pathlib
                     object_path = pathlib.Path(object_path)
                     rel_obj_path = object_path.relative_to(*object_path.parts[:2])
                     target_zarr_obj = target_zarr_obj[rel_obj_path]
@@ -570,14 +564,6 @@ class ZarrIO(HDMFIO):
         # if isinstance(ref_object, RegionBuilder):
         #    region = ref_object.region
 
-        # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
-        # between backends a user should always use export which takes care of creating a clean set of builders.
-        # source = (builder.source
-        #           if (builder.source is not None and os.path.isdir(builder.source))
-        #           else self.source)
-        #
-        # # Make the source relative to the current file
-        # source = os.path.relpath(os.path.abspath(source), start=self.abspath)
         source = '.'
         # Return the ZarrReference object
         return ZarrReference(source, path)
@@ -1050,11 +1036,11 @@ class ZarrIO(HDMFIO):
 
     @docval({'name': 'zarr_obj', 'type': (Array, Group),
              'doc': 'the Zarr object to the corresponding Builder object for'})
-    def get_builder(self, **kwargs):  # move this to HDMFIO (define skeleton in there at least)
+    def get_builder(self, **kwargs):  # TODO: move this to HDMFIO (define skeleton in there at least)
         """
-        Get the builder for the corresponding h5py Group or Dataset
+        Get the builder for the corresponding Group or Dataset
 
-        :raises ValueError: When no builder has been constructed yet for the given h5py object
+        :raises ValueError: When no builder has been constructed
         """
         zarr_obj = kwargs['zarr_obj']
         builder = self.__get_built(zarr_obj)
@@ -1169,8 +1155,8 @@ class ZarrIO(HDMFIO):
                 # TODO:  BuilderZarrTableDataset does not yet support region reference
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
-            # reference array
-            if dtype == 'object':  # wrap with dataset ref
+            # Array of references
+            if dtype == 'object':
                 data = BuilderZarrReferenceDataset(data, self)
             # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
             # elif dtype == 'region':
