@@ -529,6 +529,8 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
+                # TODO: Find why the reference includes the root object.
+                # This is a fix to allow the target object to be found
                 try:
                     object_path = pathlib.Path(object_path)
                     rel_obj_path = object_path.relative_to(*object_path.parts[:2])
@@ -1078,6 +1080,7 @@ class ZarrIO(HDMFIO):
         for sub_name, sub_group in zarr_obj.groups():
             sub_builder = self.__read_group(sub_group, sub_name)
             ret.set_group(sub_builder)
+
         # read sub datasets
         for sub_name, sub_array in zarr_obj.arrays():
             sub_builder = self.__read_dataset(sub_array, sub_name)

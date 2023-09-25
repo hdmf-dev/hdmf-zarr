@@ -184,6 +184,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                             self.assertEqual(exported_container.baz_data.data.__class__.__name__,
                                              'ContainerZarrReferenceDataset')
                             self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+
                 # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
                 self.assertIsNotNone(str(container), message)  # added as a test to make sure printing works
@@ -199,7 +200,6 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
                                           message=message)
                 self.close_files_and_ios()
-                # TODO: May need to add further asserts here
 
 
 ##########################################################
@@ -225,6 +225,7 @@ class MixinTestHDF5ToZarr():
     def roundtripExportContainer(self, container, write_path, export_path):
         with HDF5IO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
+
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path, mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
@@ -255,6 +256,7 @@ class MixinTestZarrToHDF5():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container)
+
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
@@ -288,6 +290,7 @@ class MixinTestZarrToZarr():
     def roundtripExportContainer(self, container,  write_path, export_path):
         with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
+
         with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
             with ZarrIO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
@@ -646,8 +649,8 @@ class TestZarrToHDF5Baz1(MixinTestBaz1,
                          MixinTestCaseConvert,
                          TestCase):
     """
-    Test the conversion of a simple Foo container with two buckets of datasets from Zarr to HDF5
-    See MixinTestFoo.setUpContainer for the container spec used.
+    Test the conversion of a BazBucket containing a dataset of references from Zarr to HDF5
+    See MixinTestBaz1.setUpContainer for the container spec used.
     """
     IGNORE_NAME = True
     IGNORE_HDMF_ATTRS = True
@@ -660,7 +663,8 @@ class TestHDF5toZarrBaz1(MixinTestBaz1,
                          MixinTestCaseConvert,
                          TestCase):
     """
-
+    Test the conversion of a BazBucket containing a dataset of references from HDF5 to Zarr
+    See MixinTestBaz1.setUpContainer for the container spec used.
     """
     IGNORE_NAME = True
     IGNORE_HDMF_ATTRS = True
@@ -673,7 +677,8 @@ class TestZarrtoZarrBaz1(MixinTestBaz1,
                          MixinTestCaseConvert,
                          TestCase):
     """
-
+    Test the conversion of a BazBucket containing a dataset of references from Zarr to Zarr
+    See MixinTestBaz1.setUpContainer for the container spec used.
     """
     IGNORE_NAME = True
     IGNORE_HDMF_ATTRS = True
