@@ -2,6 +2,9 @@
 
 ## 0.3.1 (Upcoming)
 
+### Enhancements
+* Reworked ZarrIO to resolve object references in the same manner as HDMF, updated HDMF and PyNWB version to the most recent release, removed python 3.7 as the minimum. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+
 ### Bug fixes
 * Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
 * Fixed build error for ReadtheDocs by degrading numpy for python 3.7 support. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
