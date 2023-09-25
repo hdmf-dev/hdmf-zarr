@@ -19,6 +19,7 @@ class ZarrDataset(HDMFDataset):
     """
     Extension of HDMFDataset to add Zarr compatibility
     """
+
     @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'})
     def __init__(self, **kwargs):
@@ -104,6 +105,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     Extension of DatasetOfReferences to serve as the base class for resolving Zarr
     references in compound datasets to either Builders and Containers.
     """
+
     @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'},
             {'name': 'types', 'type': (list, tuple),
@@ -113,7 +115,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            # if t is RegionReference:  # not yet supported
+            # if t is RegionReference:  # TODO: Region References not yet supported
             #     self.__refgetters[i] = self.__get_regref
             if t == DatasetBuilder.OBJECT_REF_TYPE:
                 self.__refgetters[i] = self._get_ref
@@ -185,6 +187,7 @@ class AbstractZarrReferenceDataset(DatasetOfReferences):
     Extension of DatasetOfReferences to serve as the base class for resolving Zarr
     references in datasets to either Builders and Containers.
     """
+
     def __getitem__(self, arg):
         ref = super().__getitem__(arg)
         if isinstance(ref, np.ndarray):
@@ -204,6 +207,7 @@ class AbstractZarrRegionDataset(AbstractZarrReferenceDataset):
 
     Note: Region References are not yet supported.
     """
+
     def __getitem__(self, arg):
         obj = super().__getitem__(arg)
         ref = self.dataset[arg]
