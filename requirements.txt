@@ -2,5 +2,5 @@
 hdmf==3.9.0
 zarr==2.11.0
 pynwb==2.5.0
-numpy==1.23
+numpy==1.24
 numcodecs==0.11.0

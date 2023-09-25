@@ -19,7 +19,7 @@ print('found these packages:', pkgs)
 reqs = [
     'hdmf>=3.9.0',
     'zarr>=2.11.0',
-    'numpy>=1.22',
+    'numpy>=1.24',
     'numcodecs>=0.9.1',
     'numcodecs==0.11.0',
     'pynwb>=2.5.0',
