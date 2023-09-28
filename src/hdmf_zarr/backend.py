@@ -592,7 +592,7 @@ class ZarrIO(HDMFIO):
 
         # Make the source relative to the current file
         source = os.path.relpath(os.path.abspath(source), start=self.abspath)
-
+        # TODO: This check assumes that all links are internal links on export. Need to deal with external links on export.
         if export_source is not None:
             source = '.'
         # Return the ZarrReference object
