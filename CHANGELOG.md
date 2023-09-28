@@ -3,7 +3,11 @@
 ## 0.3.1 (Upcoming)
 
 ### Enhancements
-* Reworked ZarrIO to resolve object references in the same manner as HDMF, updated HDMF and PyNWB version to the most recent release, removed python 3.7 as the minimum. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+* Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+
+### Dependencies
+* Updated HDMF and PyNWB version to the most recent release @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+* Updated minimum Python version from 3.7 to 3.8 @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
 
 ### Bug fixes
 * Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
