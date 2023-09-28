@@ -5,7 +5,6 @@ import warnings
 import numpy as np
 import tempfile
 import logging
-import pathlib
 
 # Zarr imports
 import zarr
@@ -550,14 +549,7 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                # TODO: Find why the reference includes the root object.
-                # This is a fix to allow the target object to be found
-                try:
-                    object_path = pathlib.Path(object_path)
-                    rel_obj_path = object_path.relative_to(*object_path.parts[:2])
-                    target_zarr_obj = target_zarr_obj[rel_obj_path]
-                except Exception:
-                    raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
+                raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
 

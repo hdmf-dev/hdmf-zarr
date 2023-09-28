@@ -706,7 +706,7 @@ class TestHDF5ToZarrCPD(TestCase):
             bazs.append(b)
             baz_pairs.append((i, b))
         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
 
         with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
             write_io.write(bucket)
@@ -751,7 +751,7 @@ class TestZarrToHDF5CPD(TestCase):
             bazs.append(b)
             baz_pairs.append((i, b))
         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
 
         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
             write_io.write(bucket)
@@ -797,12 +797,13 @@ class TestZarrToZarrCPD(TestCase):
             bazs.append(b)
             baz_pairs.append((i, b))
         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
 
         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
             write_io.write(bucket)
         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
             read_bucket1 = read_io.read()
+            read_bucket1.baz_cpd_data.data[0][0]
             # NOTE: reference IDs might be the same between two identical files
             # adding a Baz with a smaller name should change the reference IDs on export
             new_baz = Baz(name='baz000')
