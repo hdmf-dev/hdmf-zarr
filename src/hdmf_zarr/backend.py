@@ -590,6 +590,8 @@ class ZarrIO(HDMFIO):
         # TODO: This check assumes that all links are internal links on export.
         # Need to deal with external links on export.
         if export_source is not None:
+            # Make sure the source of the reference is now towards the new file
+            # and not the original source when exporting.
             source = '.'
         # Return the ZarrReference object
         return ZarrReference(source, path)
