@@ -376,12 +376,14 @@ class ZarrIO(HDMFIO):
     @docval({'name': 'obj', 'type': (Group, Array), 'doc': 'the Zarr object to add attributes to'},
             {'name': 'attributes',
              'type': dict,
-             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'})
+             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None})
     def write_attributes(self, **kwargs):
         """
         Set (i.e., write) the attributes on a given Zarr Group or Array
         """
-        obj, attributes = getargs('obj', 'attributes', kwargs)
+        obj, attributes, export_source = getargs('obj', 'attributes', 'export_source', kwargs)
         for key, value in attributes.items():
             # Case 1: list, set, tuple type attributes
             if isinstance(value, (set, list, tuple)) or (isinstance(value, np.ndarray) and np.ndim(value) != 0):
@@ -407,15 +409,16 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
-                if isinstance(value, RegionBuilder):
-                    type_str = 'region'
-                    refs = self.__get_ref(value.builder)
-                elif isinstance(value, (ReferenceBuilder, Container, Builder)):
+                # TODO: Region References are not yet supported
+                # if isinstance(value, RegionBuilder):
+                #     type_str = 'region'
+                #     refs = self.__get_ref(value.builder)
+                if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     if isinstance(value, Builder):
-                        refs = self.__get_ref(value)
+                        refs = self.__get_ref(value, export_source)
                     else:
-                        refs = self.__get_ref(value.builder)
+                        refs = self.__get_ref(value.builder, export_source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -592,7 +595,8 @@ class ZarrIO(HDMFIO):
 
         # Make the source relative to the current file
         source = os.path.relpath(os.path.abspath(source), start=self.abspath)
-        # TODO: This check assumes that all links are internal links on export. Need to deal with external links on export.
+        # TODO: This check assumes that all links are internal links on export.
+        # Need to deal with external links on export.
         if export_source is not None:
             source = '.'
         # Return the ZarrReference object
@@ -627,7 +631,7 @@ class ZarrIO(HDMFIO):
         name = builder.name
         target_builder = builder.builder
         # Get the reference
-        zarr_ref = self.__get_ref(target_builder, )
+        zarr_ref = self.__get_ref(target_builder)
         # EXPORT WITH LINKS: Fix link source
         # if the target and source are both the same, then we need to ALWAYS use ourselves as a source
         # When exporting from one source to another, the LinkBuilders.source are not updated, i.e,. the
