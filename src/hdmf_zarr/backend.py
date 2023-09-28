@@ -242,6 +242,8 @@ class ZarrIO(HDMFIO):
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
             raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
                                        "link_data=True." % src_io.__class__.__name__)
+
+        write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
         super().export(**ckwargs)
@@ -291,20 +293,28 @@ class ZarrIO(HDMFIO):
             {'name': 'exhaust_dci', 'type': bool,
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True})
+             'default': True},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None})
     def write_builder(self, **kwargs):
         """Write a builder to disk"""
-        f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
+        f_builder, link_data, exhaust_dci, export_source = getargs('builder',
+                                                                   'link_data',
+                                                                   'exhaust_dci',
+                                                                   'export_source',
+                                                                   kwargs)
         for name, gbldr in f_builder.groups.items():
             self.write_group(parent=self.__file,
                              builder=gbldr,
                              link_data=link_data,
-                             exhaust_dci=exhaust_dci)
+                             exhaust_dci=exhaust_dci,
+                             export_source=export_source)
         for name, dbldr in f_builder.datasets.items():
             self.write_dataset(parent=self.__file,
                                builder=dbldr,
                                link_data=link_data,
-                               exhaust_dci=exhaust_dci)
+                               exhaust_dci=exhaust_dci,
+                               export_source=export_source)
         self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
         self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
@@ -319,10 +329,17 @@ class ZarrIO(HDMFIO):
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
              'default': True},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None},
             returns='the Group that was created', rtype='Group')
     def write_group(self, **kwargs):
         """Write a GroupBuider to file"""
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs('parent',
+                                                                         'builder',
+                                                                         'link_data',
+                                                                         'exhaust_dci',
+                                                                         'export_source',
+                                                                         kwargs)
         if self.get_written(builder):
             group = parent[builder.name]
         else:
@@ -342,7 +359,8 @@ class ZarrIO(HDMFIO):
                 self.write_dataset(parent=group,
                                    builder=sub_builder,
                                    link_data=link_data,
-                                   exhaust_dci=exhaust_dci)
+                                   exhaust_dci=exhaust_dci,
+                                   export_source=export_source)
 
         # write all links (haven implemented)
         links = builder.links
@@ -540,7 +558,7 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object):
+    def __get_ref(self, ref_object, export_source):
         """
         Create a ZarrReference object that points to the given container
 
@@ -566,7 +584,17 @@ class ZarrIO(HDMFIO):
         # if isinstance(ref_object, RegionBuilder):
         #    region = ref_object.region
 
-        source = '.'
+        # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
+        # between backends a user should always use export which takes care of creating a clean set of builders.
+        source = (builder.source
+                  if (builder.source is not None and os.path.isdir(builder.source))
+                  else self.source)
+
+        # Make the source relative to the current file
+        source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+
+        if export_source is not None:
+            source = '.'
         # Return the ZarrReference object
         return ZarrReference(source, path)
 
@@ -692,9 +720,16 @@ class ZarrIO(HDMFIO):
              'default': True},
             {'name': 'force_data', 'type': None,
              'doc': 'Used internally to force the data being used when we have to load the data', 'default': None},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None},
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs('parent',
+                                                                         'builder',
+                                                                         'link_data',
+                                                                         'exhaust_dci',
+                                                                         'export_source',
+                                                                         kwargs)
         force_data = getargs('force_data', kwargs)
         if self.get_written(builder):
             return None
@@ -728,7 +763,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(data, HDMFDataset):
             # If we have a dataset of containers we need to make the references to the containers
             if len(data) > 0 and isinstance(data[0], Container):
-                ref_data = [self.__get_ref(data[i]) for i in range(len(data))]
+                ref_data = [self.__get_ref(data[i], export_source=export_source) for i in range(len(data))]
                 shape = (len(data), )
                 type_str = 'object'
                 dset = parent.require_dataset(name,
@@ -751,7 +786,8 @@ class ZarrIO(HDMFIO):
                 dset = self.write_dataset(parent=parent,
                                           builder=builder,
                                           link_data=link_data,
-                                          force_data=data[:])
+                                          force_data=data[:],
+                                          export_source=export_source)
                 self._written_builders.set_written(builder)  # record that the builder has been written
         # Write a compound dataset
         elif isinstance(options['dtype'], list):
@@ -760,7 +796,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self.__get_ref(data[0][i])
+                    ref_tmp = self.__get_ref(data[0][i], export_source=export_source)
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
@@ -782,29 +818,31 @@ class ZarrIO(HDMFIO):
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
-                        new_item[i] = self.__get_ref(item[i])
+                        new_item[i] = self.__get_ref(item[i], export_source=export_source)
                     dset[j] = new_item
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
-            if isinstance(data, RegionBuilder):
-                shape = (1,)
-                type_str = 'region'
-                refs = self.__get_ref(data.builder, data.region)
-            elif isinstance(data, ReferenceBuilder):
+            # TODO: Region References are not yet supported
+            # if isinstance(data, RegionBuilder):
+            #     shape = (1,)
+            #     type_str = 'region'
+            #     refs = self.__get_ref(data.builder, data.region)
+            if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
-                refs = self.__get_ref(data.builder)
-            elif options['dtype'] == 'region':
-                shape = (len(data), )
-                type_str = 'region'
-                refs = [self.__get_ref(item.builder, item.region) for item in data]
+                refs = self.__get_ref(data.builder, export_source=export_source)
+            # TODO: Region References are not yet supported
+            # elif options['dtype'] == 'region':
+            #     shape = (len(data), )
+            #     type_str = 'region'
+            #     refs = [self.__get_ref(item.builder, item.region) for item in data]
             else:
                 shape = (len(data), )
                 type_str = 'object'
-                refs = [self.__get_ref(item) for item in data]
+                refs = [self.__get_ref(item, export_source=export_source) for item in data]
 
             dset = parent.require_dataset(name,
                                           shape=shape,

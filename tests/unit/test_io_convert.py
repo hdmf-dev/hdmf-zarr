@@ -786,6 +786,7 @@ class TestZarrToZarrCPD(TestCase):
     datasets that have references from Zarr to Zarr.
     """
     def test_export_cpd_dset_refs(self):
+        breakpoint()
         self.path = [get_temp_filepath() for i in range(2)]
 
         """Test that exporting a written container with a compound dataset with references works."""
