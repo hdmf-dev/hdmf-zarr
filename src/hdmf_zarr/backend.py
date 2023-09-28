@@ -558,7 +558,7 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object, export_source):
+    def __get_ref(self, ref_object, export_source=None):
         """
         Create a ZarrReference object that points to the given container
 
@@ -627,7 +627,7 @@ class ZarrIO(HDMFIO):
         name = builder.name
         target_builder = builder.builder
         # Get the reference
-        zarr_ref = self.__get_ref(target_builder)
+        zarr_ref = self.__get_ref(target_builder, )
         # EXPORT WITH LINKS: Fix link source
         # if the target and source are both the same, then we need to ALWAYS use ourselves as a source
         # When exporting from one source to another, the LinkBuilders.source are not updated, i.e,. the
