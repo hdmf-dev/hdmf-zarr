@@ -282,6 +282,8 @@ region references link to subsets of another Dataset. To identify region referen
 to the ``source`` and ``path``, the  py:class:`~hdmf_zarr.utils.ZarrReference` object will also need to
 store the definition of the ``region`` that is being referenced, e.g., a slice or list on point indices.
 
+In the future, the reference resolver classes will need to be updated to implement region references
+
 .. warning::
 
     Region references are not yet fully implemented in :py:class:`~hdmf_zarr.backend.ZarrIO`.
