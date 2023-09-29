@@ -158,8 +158,7 @@ jobs:
         run: |
           conda config --set always_yes yes --set changeps1 no
           conda info
-          # the conda dependency resolution for tox under python 3.8 can install the wrong importlib_metadata
-          conda install -c conda-forge tox "importlib_metadata>4"
+          conda install -c conda-forge tox
 
       - name: Conda reporting
         run: |
