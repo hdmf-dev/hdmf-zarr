@@ -39,7 +39,9 @@ from abc import ABCMeta, abstractmethod
 
 from hdmf_zarr.backend import (ZarrIO,
                                ROOT_NAME)
+from hdmf_zarr.zarr_utils import ContainerZarrReferenceDataset
 
+from hdmf.backends.hdf5.h5_utils import ContainerH5ReferenceDataset
 from hdmf.backends.hdf5 import HDF5IO
 from hdmf.common import get_manager as get_hdmfcommon_manager
 from hdmf.testing import TestCase
@@ -174,15 +176,13 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                         num_bazs = 10
                         for i in range(num_bazs):
                             baz_name = 'baz%d' % i
-                            self.assertEqual(exported_container.baz_data.data.__class__.__name__,
-                                             'ContainerH5ReferenceDataset')
+                            self.assertIsInstance(exported_container.baz_data.data, ContainerH5ReferenceDataset)
                             self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
                     elif self.TARGET_FORMAT == "ZARR":
                         num_bazs = 10
                         for i in range(num_bazs):
                             baz_name = 'baz%d' % i
-                            self.assertEqual(exported_container.baz_data.data.__class__.__name__,
-                                             'ContainerZarrReferenceDataset')
+                            self.assertIsInstance(exported_container.baz_data.data, ContainerZarrReferenceDataset)
                             self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
 
                 # assert that the roundtrip worked correctly
