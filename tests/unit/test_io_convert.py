@@ -217,7 +217,7 @@ class MixinTestHDF5ToZarr():
                     DirectoryStore('test_export_DirectoryStore.zarr'),
                     TempStore(),
                     NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
-    TARGET_FORMAT = "Zarr"
+    TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -282,7 +282,7 @@ class MixinTestZarrToZarr():
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
                     TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
                     NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
-    TARGET_FORMAT = "Zarr"
+    TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
