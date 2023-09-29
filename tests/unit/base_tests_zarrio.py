@@ -228,7 +228,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                      {'name': 'name', 'dtype': str}]
         self.__dataset_builder = DatasetBuilder('my_data', data, dtype=data_type)
         self.createGroupBuilder()
-        writer = ZarrIO(self.store, manager=self.manager, mode='a')
+        writer = ZarrIO(self.store, manager=self.manager, mode='w')
         writer.write_builder(self.builder)
         writer.close()
 
