@@ -824,6 +824,11 @@ class ZarrIO(HDMFIO):
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
+            # TODO Region references are not yet support, but here how the code should look
+            #  if isinstance(data, RegionBuilder):
+            #      shape = (1,)
+            #      type_str = 'region'
+            #      refs = self.__get_ref(data.builder, data.region)
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
