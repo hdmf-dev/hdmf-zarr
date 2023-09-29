@@ -9,9 +9,9 @@ from hdmf.spec import (GroupSpec, DatasetSpec, AttributeSpec, LinkSpec,
                        SpecNamespace, NamespaceBuilder)
 from hdmf.spec.spec import (ZERO_OR_MANY, ONE_OR_MANY, ZERO_OR_ONE)
 from hdmf.utils import (docval, getargs, get_docval)
+from hdmf_zarr.backend import ROOT_NAME
 
 CORE_NAMESPACE = 'test_core'
-from hdmf_zarr.backend import ROOT_NAME
 
 
 class CacheSpecTestHelper(object):
