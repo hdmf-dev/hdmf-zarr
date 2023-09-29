@@ -11,6 +11,7 @@ from hdmf.spec.spec import (ZERO_OR_MANY, ONE_OR_MANY, ZERO_OR_ONE)
 from hdmf.utils import (docval, getargs, get_docval)
 
 CORE_NAMESPACE = 'test_core'
+ROOT_NAME = 'root'
 
 
 class CacheSpecTestHelper(object):
@@ -113,8 +114,6 @@ class FooFile(Container):
           and should be reset to 'root' when use is finished to avoid potential cross-talk between tests.
     """
 
-    ROOT_NAME = 'root'  # For HDF5 and Zarr this is the root. It should be set before use if different for the backend.
-
     @docval({'name': 'buckets', 'type': list, 'doc': 'the FooBuckets in this file', 'default': list()},
             {'name': 'foo_link', 'type': Foo, 'doc': 'an optional linked Foo', 'default': None},
             {'name': 'foofile_data', 'type': 'array_data', 'doc': 'an optional dataset', 'default': None},
@@ -123,7 +122,7 @@ class FooFile(Container):
     def __init__(self, **kwargs):
         buckets, foo_link, foofile_data, foo_ref_attr = getargs('buckets', 'foo_link', 'foofile_data',
                                                                 'foo_ref_attr', kwargs)
-        super().__init__(name=self.ROOT_NAME)  # name is not used - FooFile should be the root container
+        super().__init__(name=ROOT_NAME)  # name is not used - FooFile should be the root container
         self.__buckets = {b.name: b for b in buckets}  # note: collections of groups are unordered in HDF5
         for f in buckets:
             f.parent = self
@@ -306,9 +305,7 @@ class BazCpdData(Data):
 
 
 class BazBucket(Container):
-    ROOT_NAME = 'root'
-
-    @docval({'name': 'name', 'type': str, 'doc': 'the name of this bucket', 'default': 'root'},
+    @docval({'name': 'name', 'type': str, 'doc': 'the name of this bucket', 'default': ROOT_NAME},
             {'name': 'bazs', 'type': list, 'doc': 'the Baz objects in this bucket'},
             {'name': 'baz_data', 'type': BazData, 'doc': 'dataset of Baz references', 'default': None},
             {'name': 'baz_cpd_data', 'type': BazCpdData, 'doc': 'dataset of Baz references', 'default': None})

@@ -1069,6 +1069,19 @@ class ZarrIO(HDMFIO):
         self.__built.setdefault(path, builder)
 
     @docval({'name': 'zarr_obj', 'type': (Array, Group),
+             'doc': 'the Zarr object to the corresponding Container/Data object for'})
+    def get_container(self, **kwargs):
+        """
+        Get the container for the corresponding Zarr Group or Dataset
+
+        :raises ValueError: When no builder has been constructed yet for the given h5py object
+        """
+        zarr_obj = getargs('zarr_obj', kwargs)
+        builder = self.get_builder(zarr_obj)
+        container = self.manager.construct(builder)
+        return container  # TODO: This method should be moved to HDMFIO
+
+    @docval({'name': 'zarr_obj', 'type': (Array, Group),
              'doc': 'the Zarr object to the corresponding Builder object for'})
     def get_builder(self, **kwargs):  # TODO: move this to HDMFIO (define skeleton in there at least)
         """
@@ -1226,16 +1239,3 @@ class ZarrIO(HDMFIO):
                 else:
                     ret[k] = v
         return ret
-
-    @docval({'name': 'zarr_obj', 'type': (Array, Group),
-             'doc': 'the Zarr object to the corresponding Container/Data object for'})
-    def get_container(self, **kwargs):
-        """
-        Get the container for the corresponding Zarr Group or Dataset
-
-        :raises ValueError: When no builder has been constructed yet for the given h5py object
-        """
-        zarr_obj = getargs('zarr_obj', kwargs)
-        builder = self.get_builder(zarr_obj)
-        container = self.manager.construct(builder)
-        return container  # TODO: This method should be moved to HDMFIO
