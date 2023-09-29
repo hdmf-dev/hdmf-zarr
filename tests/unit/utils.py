@@ -11,7 +11,7 @@ from hdmf.spec.spec import (ZERO_OR_MANY, ONE_OR_MANY, ZERO_OR_ONE)
 from hdmf.utils import (docval, getargs, get_docval)
 
 CORE_NAMESPACE = 'test_core'
-ROOT_NAME = 'root'
+from hdmf_zarr.backend import ROOT_NAME
 
 
 class CacheSpecTestHelper(object):
