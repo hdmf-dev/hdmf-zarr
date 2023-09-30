@@ -179,20 +179,18 @@ def test_simple_tqdm(tmpdir):
     expected_desc = f"Writing Zarr datasets with {number_of_jobs} jobs"
 
     zarr_top_level_path = str(tmpdir / "test_simple_tqdm.zarr")
-    with (
-        patch("sys.stderr", new=StringIO()) as tqdm_out,
-        ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io
-    ):
-        column = VectorData(
-            name="TestColumn",
-            description="",
-            data=PickleableDataChunkIterator(
-                data=np.array([1., 2., 3.]),
-                display_progress=True,
+    with patch("sys.stderr", new=StringIO()) as tqdm_out:
+        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+            column = VectorData(
+                name="TestColumn",
+                description="",
+                data=PickleableDataChunkIterator(
+                    data=np.array([1., 2., 3.]),
+                    display_progress=True,
+                )
             )
-        )
-        dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
-        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
+            dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
+            io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     assert expected_desc in tqdm_out.getvalue()
 
@@ -204,31 +202,29 @@ def test_compound_tqdm(tmpdir):
     expected_desc_not_pickleable = "Writing non-parallel dataset..."
 
     zarr_top_level_path = str(tmpdir / "test_compound_tqdm.zarr")
-    with (
-        patch("sys.stderr", new=StringIO()) as tqdm_out,
-        ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io
-    ):
-        pickleable_column = VectorData(
-            name="TestPickleableIteratorColumn",
-            description="",
-            data=PickleableDataChunkIterator(
-                data=np.array([1., 2., 3.]),
-                display_progress=True,
+    with patch("sys.stderr", new=StringIO()) as tqdm_out:
+        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+            pickleable_column = VectorData(
+                name="TestPickleableIteratorColumn",
+                description="",
+                data=PickleableDataChunkIterator(
+                    data=np.array([1., 2., 3.]),
+                    display_progress=True,
+                )
             )
-        )
-        not_pickleable_column = VectorData(
-            name="TestNotPickleableColumn",
-            description="",
-            data=NotPickleableDataChunkIterator(
-                data=np.array([4., 5., 6.]),
-                display_progress=True,
-                progress_bar_options=dict(desc=expected_desc_not_pickleable, position=1)
+            not_pickleable_column = VectorData(
+                name="TestNotPickleableColumn",
+                description="",
+                data=NotPickleableDataChunkIterator(
+                    data=np.array([4., 5., 6.]),
+                    display_progress=True,
+                    progress_bar_options=dict(desc=expected_desc_not_pickleable, position=1)
+                )
             )
-        )
-        dynamic_table = DynamicTable(
-            name="TestTable", description="", columns=[pickleable_column, not_pickleable_column]
-        )
-        io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
+            dynamic_table = DynamicTable(
+                name="TestTable", description="", columns=[pickleable_column, not_pickleable_column]
+            )
+            io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     tqdm_out_value = tqdm_out.getvalue()
     assert expected_desc_pickleable in tqdm_out_value
