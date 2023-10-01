@@ -1,4 +1,4 @@
-Prepare for release of HDMF [version]
+Prepare for release of HDMF-Zarr [version]
 
 ### Before merging:
 - [ ] Major and minor releases: Update package versions in `requirements.txt`, `requirements-dev.txt`,
@@ -21,4 +21,4 @@ Prepare for release of HDMF [version]
    [GitHub releases page](https://github.com/hdmf-dev/hdmf-zarr/releases) with the changelog
 3. Check that the readthedocs "latest" and "stable" builds run and succeed
 4. Update [conda-forge/hdmf_zarr-feedstock](https://github.com/conda-forge/hdmf_zarr-feedstock) with the latest version number
-   and SHA256 retrieved from PyPI > HDMF > Download Files > View hashes for the `.tar.gz` file. Re-render as needed
+   and SHA256 retrieved from PyPI > HDMF-Zarr > Download Files > View hashes for the `.tar.gz` file. Re-render as needed
