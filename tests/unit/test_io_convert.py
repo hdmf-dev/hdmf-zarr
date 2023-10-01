@@ -40,16 +40,19 @@ from abc import ABCMeta, abstractmethod
 
 from hdmf_zarr.backend import (ZarrIO,
                                ROOT_NAME)
+from hdmf_zarr.zarr_utils import ContainerZarrReferenceDataset
 
+from hdmf.backends.hdf5.h5_utils import ContainerH5ReferenceDataset
 from hdmf.backends.hdf5 import HDF5IO
 from hdmf.common import get_manager as get_hdmfcommon_manager
 from hdmf.testing import TestCase
 from hdmf.common import DynamicTable
 from hdmf.common import CSRMatrix
-from tests.unit.utils import (Foo,
-                              FooBucket,
-                              FooFile,
-                              get_foo_buildmanager)
+
+
+from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
+                              Baz, BazData, BazBucket, get_baz_buildmanager,
+                              BazCpdData, get_temp_filepath)
 
 from zarr.storage import (DirectoryStore,
                           TempStore,
@@ -108,8 +111,13 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     (Default=[None, ])
     """
 
+    REFERENCES = False
+    """
+    Bool parameter passed to check for references.
+    """
+
     def get_manager(self):
-        raise NotImplementedError('Cannot run test unless get_manger  is implemented')
+        raise NotImplementedError('Cannot run test unless get_manger is implemented')
 
     def setUp(self):
         self.__manager = self.get_manager()
@@ -176,6 +184,20 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                     container=container,
                     write_path=write_path,
                     export_path=export_path)
+                if self.REFERENCES:
+                    if self.TARGET_FORMAT == "H5":
+                        num_bazs = 10
+                        for i in range(num_bazs):
+                            baz_name = 'baz%d' % i
+                            self.assertIsInstance(exported_container.baz_data.data, ContainerH5ReferenceDataset)
+                            self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+                    elif self.TARGET_FORMAT == "ZARR":
+                        num_bazs = 10
+                        for i in range(num_bazs):
+                            baz_name = 'baz%d' % i
+                            self.assertIsInstance(exported_container.baz_data.data, ContainerZarrReferenceDataset)
+                            self.assertIs(exported_container.baz_data.data[i], exported_container.bazs[baz_name])
+
                 # assert that the roundtrip worked correctly
                 message = "Using: write_path=%s, export_path=%s" % (str(write_path), str(export_path))
                 self.assertIsNotNone(str(container), message)  # added as a test to make sure printing works
@@ -190,9 +212,10 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           ignore_hdmf_attrs=self.IGNORE_HDMF_ATTRS,
                                           ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
                                           message=message)
+
                 # TODO: May need to add further asserts here
                 # we are essentially running a new test each iteration so tearDown and setUp after each
-                self.tearDown()
+                self.tearDown()   # calls self.close_files_and_ios()
                 self.setUp()
 
 
@@ -212,6 +235,7 @@ class MixinTestHDF5ToZarr():
                     TempStore(),
                     NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
                     SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
+    TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -243,6 +267,7 @@ class MixinTestZarrToHDF5():
                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
                    SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
     EXPORT_PATHS = [None, ]
+    TARGET_FORMAT = "H5"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -278,6 +303,7 @@ class MixinTestZarrToZarr():
                     TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
                     NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr'),
                     SQLiteStore('test_export_SQLiteStore_Export.zarr.sqlite')]
+    TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
@@ -396,6 +422,34 @@ class MixinTestFoo():
             return foofile
         else:
             raise NotImplementedError("FOO_TYPE %i not implemented in test" % self.FOO_TYPE)
+
+
+########################################
+# HDMF Baz test dataset of references
+########################################
+class MixinTestBaz1():
+    """
+    Mixin class used in conjunction with MixinTestCaseConvert to test a dataset of references.
+
+    Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests that
+    test export of a dataset of references. This class only defines the setUpContainer
+    and get_manager functions. The roundtripExportContainer function required for
+    the test needs to be defined separately, e.g., MixinTestZarrToHDF5,  MixinTestHDF5ToZarr,
+    or MixinTestZarrToZarr.
+    """
+    def get_manager(self):
+        return get_baz_buildmanager()
+
+    def setUpContainer(self):
+        num_bazs = 10
+        # set up dataset of references
+        bazs = []
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data1', data=bazs)
+
+        bucket = BazBucket(bazs=bazs, baz_data=baz_data)
+        return bucket
 
 
 ########################################
@@ -603,6 +657,190 @@ class TestHDF5toZarrFooCase2(MixinTestFoo,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = True
     FOO_TYPE = MixinTestFoo.FOO_TYPES['link_data']
+
+
+########################################
+# Test cases for dataset of references
+########################################
+class TestZarrToHDF5Baz1(MixinTestBaz1,
+                         MixinTestZarrToHDF5,
+                         MixinTestCaseConvert,
+                         TestCase):
+    """
+    Test the conversion of a BazBucket containing a dataset of references from Zarr to HDF5
+    See MixinTestBaz1.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
+
+
+class TestHDF5toZarrBaz1(MixinTestBaz1,
+                         MixinTestHDF5ToZarr,
+                         MixinTestCaseConvert,
+                         TestCase):
+    """
+    Test the conversion of a BazBucket containing a dataset of references from HDF5 to Zarr
+    See MixinTestBaz1.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
+
+
+class TestZarrtoZarrBaz1(MixinTestBaz1,
+                         MixinTestZarrToZarr,
+                         MixinTestCaseConvert,
+                         TestCase):
+    """
+    Test the conversion of a BazBucket containing a dataset of references from Zarr to Zarr
+    See MixinTestBaz1.setUpContainer for the container spec used.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = True
+    REFERENCES = True
+
+
+##################################################
+# Test cases for compound dataset of references
+##################################################
+class TestHDF5ToZarrCPD(TestCase):
+    """
+    This class helps with making the test suit more readable, testing the roundtrip for compound
+    datasets that have references from HDF5 to Zarr.
+    """
+    def test_export_cpd_dset_refs(self):
+        self.path = [get_temp_filepath() for i in range(2)]
+
+        """Test that exporting a written container with a compound dataset with references works."""
+        bazs = []
+        baz_pairs = []
+        num_bazs = 10
+        for i in range(num_bazs):
+            b = Baz(name='baz%d' % i)
+            bazs.append(b)
+            baz_pairs.append((i, b))
+        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+
+        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+            write_io.write(bucket)
+
+        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket1 = read_io.read()
+
+            # NOTE: reference IDs might be the same between two identical files
+            # adding a Baz with a smaller name should change the reference IDs on export
+            new_baz = Baz(name='baz000')
+            read_bucket1.add_baz(new_baz)
+
+            with ZarrIO(self.path[1], mode='w') as export_io:
+                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+
+        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket2 = read_io.read()
+            # remove and check the appended child, then compare the read container with the original
+            read_new_baz = read_bucket2.remove_baz(new_baz.name)
+
+            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+            for i in range(num_bazs):
+                baz_name = 'baz%d' % i
+                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+
+
+class TestZarrToHDF5CPD(TestCase):
+    """
+    This class helps with making the test suit more readable, testing the roundtrip for compound
+    datasets that have references from Zarr to HDF5.
+    """
+    def test_export_cpd_dset_refs(self):
+        self.path = [get_temp_filepath() for i in range(2)]
+        """Test that exporting a written container with a compound dataset with references works."""
+        bazs = []
+        baz_pairs = []
+        num_bazs = 10
+        for i in range(num_bazs):
+            b = Baz(name='baz%d' % i)
+            bazs.append(b)
+            baz_pairs.append((i, b))
+        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+
+        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+            write_io.write(bucket)
+
+        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket1 = read_io.read()
+
+            # NOTE: reference IDs might be the same between two identical files
+            # adding a Baz with a smaller name should change the reference IDs on export
+            new_baz = Baz(name='baz000')
+            read_bucket1.add_baz(new_baz)
+
+            with HDF5IO(self.path[1], mode='w') as export_io:
+                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+
+        with HDF5IO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket2 = read_io.read()
+
+            # remove and check the appended child, then compare the read container with the original
+            read_new_baz = read_bucket2.remove_baz(new_baz.name)
+            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+            for i in range(num_bazs):
+                baz_name = 'baz%d' % i
+                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+
+
+class TestZarrToZarrCPD(TestCase):
+    """
+    This class helps with making the test suit more readable, testing the roundtrip for compound
+    datasets that have references from Zarr to Zarr.
+    """
+    def test_export_cpd_dset_refs(self):
+        self.path = [get_temp_filepath() for i in range(2)]
+
+        """Test that exporting a written container with a compound dataset with references works."""
+        bazs = []
+        baz_pairs = []
+        num_bazs = 10
+        for i in range(num_bazs):
+            b = Baz(name='baz%d' % i)
+            bazs.append(b)
+            baz_pairs.append((i, b))
+        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+
+        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+            write_io.write(bucket)
+        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket1 = read_io.read()
+            read_bucket1.baz_cpd_data.data[0][0]
+            # NOTE: reference IDs might be the same between two identical files
+            # adding a Baz with a smaller name should change the reference IDs on export
+            new_baz = Baz(name='baz000')
+            read_bucket1.add_baz(new_baz)
+
+            with ZarrIO(self.path[1], mode='w') as export_io:
+                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+
+        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+            read_bucket2 = read_io.read()
+            # remove and check the appended child, then compare the read container with the original
+            read_new_baz = read_bucket2.remove_baz(new_baz.name)
+            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+
+            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+            for i in range(num_bazs):
+                baz_name = 'baz%d' % i
+                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
 
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source

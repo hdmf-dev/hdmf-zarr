@@ -17,15 +17,14 @@ print('found these packages:', pkgs)
 
 
 reqs = [
-    'hdmf==3.5.4',  # temporary
+    'hdmf>=3.9.0',
     'zarr>=2.11.0',
-    'numpy<1.22; python_version < "3.8"',
-    'numpy>=1.22; python_version >= "3.8"',
+    'numpy>=1.24',
     'numcodecs>=0.9.1',
-    'numcodecs==0.10.2; python_version < "3.8"',
-    'numcodecs==0.11.0; python_version >= "3.8"',
-    'pynwb>=2.3.2',
+    'numcodecs==0.11.0',
+    'pynwb>=2.5.0',
     'setuptools',
+    'threadpoolctl>=3.1.0',
 ]
 
 print(reqs)
@@ -42,13 +41,13 @@ setup_args = {
     'url': 'https://github.com/hdmf-dev/hdmf-zarr',
     'license': "BSD",
     'install_requires': reqs,
+    'extras_require': {"tqdm": ["tqdm>=4.41.0"]},
     'packages': pkgs,
     'package_dir': {'': 'src'},
     'package_data': {},
-    'python_requires': '>=3.7',
+    'python_requires': '>=3.8',
     'classifiers': [
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
