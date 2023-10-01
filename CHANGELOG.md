@@ -3,19 +3,22 @@
 ## 0.4.0 (Upcoming)
 
 ### Enhancements
-* Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+* Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
 * Updated storage of references to also save the ``object_id`` and ``source_object_id``. While not strictly necessary this information is useful for validation and rigor of references. @oruebel [#57](https://github.com/hdmf-dev/hdmf-zarr/pull/57)
+
+### New Features
+* Added parallel write support for the ``ZarrIO`` for datasets wrapped with ``GenericDataChunkIterator``. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118)
 
 ### Dependencies
 * Updated HDMF and PyNWB version to the most recent release @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
 * Updated minimum Python version from 3.7 to 3.8 @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+* Added ``threadpoolctl`` dependency for parallel write. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118)
+* Added support for specifying optional dependencies and add optional dependency for ``tqdm`` used in parallel write. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118)
 
 ### Bug fixes
 * Fixed error in deploy workflow. @mavaylon1 [#109](https://github.com/hdmf-dev/hdmf-zarr/pull/109)
 * Fixed build error for ReadtheDocs by degrading numpy for python 3.7 support. @mavaylon1 [#115](https://github.com/hdmf-dev/hdmf-zarr/pull/115)
-
-### New Features
-* Added parallel write support for the ``ZarrIO``. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118)
+* Fixed bug in the resolution of references to Containers. Previously references were only resolved to Builders. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
 
 
 ## 0.3.0 (July 21, 2023)
