@@ -189,7 +189,12 @@ def test_simple_tqdm(tmpdir):
                     display_progress=True,
                 )
             )
-            dynamic_table = DynamicTable(name="TestTable", description="", columns=[column])
+            dynamic_table = DynamicTable(
+                name="TestTable",
+                description="",
+                columns=[column],
+                id=list(range(3))  # must provide id's when all columns are iterators
+            )
             io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     assert expected_desc in tqdm_out.getvalue()
@@ -222,7 +227,10 @@ def test_compound_tqdm(tmpdir):
                 )
             )
             dynamic_table = DynamicTable(
-                name="TestTable", description="", columns=[pickleable_column, not_pickleable_column]
+                name="TestTable",
+                description="",
+                columns=[pickleable_column, not_pickleable_column],
+                id=list(range(3))  # must provide id's when all columns are iterators
             )
             io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
