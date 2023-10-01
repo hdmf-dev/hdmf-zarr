@@ -4,6 +4,7 @@
 
 ### Enhancements
 * Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
+* Updated storage of references to also save the ``object_id`` and ``source_object_id``. While not strictly necessary this information is useful for validation and rigor of references. @oruebel [#57](https://github.com/hdmf-dev/hdmf-zarr/pull/57)
 
 ### New Features
 * Added parallel write support for the ``ZarrIO`` for datasets wrapped with ``GenericDataChunkIterator``. @CodyCBakerPhD [#118](https://github.com/hdmf-dev/hdmf-zarr/pull/118) @oruebel [#128](https://github.com/hdmf-dev/hdmf-zarr/pull/128)

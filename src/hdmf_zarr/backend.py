@@ -671,6 +671,24 @@ class ZarrIO(HDMFIO):
         # if isinstance(ref_object, RegionBuilder):
         #    region = ref_object.region
 
+        # get the object id if available
+        object_id = builder.get('object_id', None)
+
+        # determine the object_id of the source by following the parents of the builder until we find the root
+        # the root builder should be the same as the source file containing the reference
+        curr = builder
+        while curr is not None and curr.name != ROOT_NAME:
+            curr = curr.parent
+        if curr:
+            source_object_id = curr.get('object_id', None)
+        # We did not find ROOT_NAME as a parent. This should only happen if we have an invalid
+        # file as a source, e.g., if during testing we use an arbitrary builder. We check this
+        # anyways to avoid potential errors just in case
+        else:
+            source_object_id = None
+            warn_msg = "Could not determine source_object_id for builder with path: %s" % path
+            warnings.warn(warn_msg)
+
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source
@@ -687,7 +705,12 @@ class ZarrIO(HDMFIO):
         else:
             source = os.path.relpath(os.path.abspath(source), start=self.abspath)
         # Return the ZarrReference object
-        return ZarrReference(source, path)
+        ref = ZarrReference(
+            source=source,
+            path=path,
+            object_id=object_id,
+            source_object_id=source_object_id)
+        return ref
 
     def __add_link__(self, parent, target_source, target_path, link_name):
         """
