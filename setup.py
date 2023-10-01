@@ -24,6 +24,7 @@ reqs = [
     'numcodecs==0.11.0',
     'pynwb>=2.5.0',
     'setuptools',
+    'threadpoolctl>=3.1.0',
 ]
 
 print(reqs)
@@ -40,6 +41,7 @@ setup_args = {
     'url': 'https://github.com/hdmf-dev/hdmf-zarr',
     'license': "BSD",
     'install_requires': reqs,
+    'extras_require': {"tqdm": ["tqdm>=4.41.0"]},
     'packages': pkgs,
     'package_dir': {'': 'src'},
     'package_data': {},

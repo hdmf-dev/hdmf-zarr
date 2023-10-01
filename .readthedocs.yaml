@@ -26,6 +26,7 @@ python:
   install:
     - requirements: requirements-doc.txt
     - requirements: requirements.txt
+    - requirements: requirements-opt.txt
     - path: . # path to the package relative to the root
 
 # Optionally include all submodules

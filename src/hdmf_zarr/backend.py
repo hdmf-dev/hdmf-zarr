@@ -114,7 +114,7 @@ class ZarrIO(HDMFIO):
         self.__file = None
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
-        self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
+        self.__dci_queue = None  # Will be initialized on call to io.write
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         source_path = self.__path
@@ -188,17 +188,54 @@ class ZarrIO(HDMFIO):
                 reader = ZarrSpecReader(ns_group)
                 namespace_catalog.load_namespaces('namespace', reader=reader)
 
-    @docval({'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
-            {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True},)
+    @docval(
+        {'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
+        {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
+        {'name': 'link_data', 'type': bool,
+         'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
+        {'name': 'exhaust_dci', 'type': bool,
+         'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
+         'default': True},
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def write(self, **kwargs):
-        """Overwrite the write method to add support for caching the specification"""
-        cache_spec = popargs('cache_spec', kwargs)
+        """Overwrite the write method to add support for caching the specification and parallelization."""
+        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
+            "cache_spec", "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
+        )
+
+        self.__dci_queue = ZarrIODataChunkIteratorQueue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )
+
         super(ZarrIO, self).write(**kwargs)
         if cache_spec:
             self.__cache_spec()
@@ -225,8 +262,36 @@ class ZarrIO(HDMFIO):
             writer = ZarrSpecWriter(ns_group)
             ns_builder.export('namespace', writer=writer)
 
-    @docval(*get_docval(HDMFIO.export),
-            {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True})
+    @docval(
+        *get_docval(HDMFIO.export),
+        {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True},
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
         See :py:meth:`hdmf.backends.io.HDMFIO.export` for more details.
@@ -237,6 +302,15 @@ class ZarrIO(HDMFIO):
 
         src_io = getargs('src_io', kwargs)
         write_args, cache_spec = popargs('write_args', 'cache_spec', kwargs)
+        number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
+            "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
+        )
+
+        self.__dci_queue = ZarrIODataChunkIteratorQueue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
             raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
@@ -286,36 +360,53 @@ class ZarrIO(HDMFIO):
         builder_path = os.path.join(basepath, self.__get_path(builder).lstrip("/"))
         return builder_path
 
-    @docval({'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True},
-            {'name': 'export_source', 'type': str,
-             'doc': 'The source of the builders when exporting', 'default': None})
+    @docval(
+        {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
+        {
+            'name': 'link_data',
+            'type': bool,
+            'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets',
+            'default': True
+        },
+        {
+            'name': 'exhaust_dci',
+            'type': bool,
+            'doc': (
+                'Exhaust DataChunkIterators one at a time. If False, add '
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end'
+            ),
+            'default': True,
+        },
+        {
+            'name': 'export_source',
+            'type': str,
+            'doc': 'The source of the builders when exporting',
+            'default': None,
+        },
+    )
     def write_builder(self, **kwargs):
-        """Write a builder to disk"""
-        f_builder, link_data, exhaust_dci, export_source = getargs('builder',
-                                                                   'link_data',
-                                                                   'exhaust_dci',
-                                                                   'export_source',
-                                                                   kwargs)
+        """Write a builder to disk."""
+        f_builder, link_data, exhaust_dci, export_source = getargs(
+            'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
         for name, gbldr in f_builder.groups.items():
-            self.write_group(parent=self.__file,
-                             builder=gbldr,
-                             link_data=link_data,
-                             exhaust_dci=exhaust_dci,
-                             export_source=export_source)
+            self.write_group(
+                parent=self.__file,
+                builder=gbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                export_source=export_source,
+            )
         for name, dbldr in f_builder.datasets.items():
-            self.write_dataset(parent=self.__file,
-                               builder=dbldr,
-                               link_data=link_data,
-                               exhaust_dci=exhaust_dci,
-                               export_source=export_source)
+            self.write_dataset(
+                parent=self.__file,
+                builder=dbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                export_source=export_source,
+            )
         self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
-        self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
+        self.__dci_queue.exhaust_queue()  # Write any remaining DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
@@ -333,12 +424,10 @@ class ZarrIO(HDMFIO):
             returns='the Group that was created', rtype='Group')
     def write_group(self, **kwargs):
         """Write a GroupBuider to file"""
-        parent, builder, link_data, exhaust_dci, export_source = getargs('parent',
-                                                                         'builder',
-                                                                         'link_data',
-                                                                         'exhaust_dci',
-                                                                         'export_source',
-                                                                         kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs(
+            'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
+
         if self.get_written(builder):
             group = parent[builder.name]
         else:
@@ -347,19 +436,23 @@ class ZarrIO(HDMFIO):
         subgroups = builder.groups
         if subgroups:
             for subgroup_name, sub_builder in subgroups.items():
-                self.write_group(parent=group,
-                                 builder=sub_builder,
-                                 link_data=link_data,
-                                 exhaust_dci=exhaust_dci)
+                self.write_group(
+                    parent=group,
+                    builder=sub_builder,
+                    link_data=link_data,
+                    exhaust_dci=exhaust_dci,
+                )
 
         datasets = builder.datasets
         if datasets:
             for dset_name, sub_builder in datasets.items():
-                self.write_dataset(parent=group,
-                                   builder=sub_builder,
-                                   link_data=link_data,
-                                   exhaust_dci=exhaust_dci,
-                                   export_source=export_source)
+                self.write_dataset(
+                    parent=group,
+                    builder=sub_builder,
+                    link_data=link_data,
+                    exhaust_dci=exhaust_dci,
+                    export_source=export_source,
+                )
 
         # write all links (haven implemented)
         links = builder.links
@@ -379,10 +472,9 @@ class ZarrIO(HDMFIO):
             {'name': 'export_source', 'type': str,
              'doc': 'The source of the builders when exporting', 'default': None})
     def write_attributes(self, **kwargs):
-        """
-        Set (i.e., write) the attributes on a given Zarr Group or Array
-        """
+        """Set (i.e., write) the attributes on a given Zarr Group or Array."""
         obj, attributes, export_source = getargs('obj', 'attributes', 'export_source', kwargs)
+
         for key, value in attributes.items():
             # Case 1: list, set, tuple type attributes
             if isinstance(value, (set, list, tuple)) or (isinstance(value, np.ndarray) and np.ndim(value) != 0):
@@ -723,13 +815,15 @@ class ZarrIO(HDMFIO):
              'doc': 'The source of the builders when exporting', 'default': None},
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        parent, builder, link_data, exhaust_dci, export_source = getargs('parent',
-                                                                         'builder',
-                                                                         'link_data',
-                                                                         'exhaust_dci',
-                                                                         'export_source',
-                                                                         kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs(
+            'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
+
         force_data = getargs('force_data', kwargs)
+
+        if exhaust_dci and self.__dci_queue is None:
+            self.__dci_queue = ZarrIODataChunkIteratorQueue()
+
         if self.get_written(builder):
             return None
         name = builder.name
