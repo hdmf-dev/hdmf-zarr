@@ -34,6 +34,7 @@ customize the behavior of the mixin.
 """
 import os
 import shutil
+from sqlite3 import ProgrammingError as SQLiteProgrammingError
 import numpy as np
 from abc import ABCMeta, abstractmethod
 
@@ -55,7 +56,10 @@ from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
 
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          SQLiteStore)
+
+from tests.unit.base_tests_zarrio import reopen_store
 
 
 class MixinTestCaseConvert(metaclass=ABCMeta):
@@ -124,15 +128,24 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
         self.close_files_and_ios()
 
     def close_files_and_ios(self):
-        for io in self.ios:
+        paths = (self.filenames +
+                 [p if isinstance(p, str) else p.path
+                  for p in (self.EXPORT_PATHS + self.WRITE_PATHS)
+                  if p is not None])
+        for io in (self.ios + self.EXPORT_PATHS + self.WRITE_PATHS):
             if io is not None:
-                io.close()
-        for fn in self.filenames:
+                try:
+                    io.close()
+                except SQLiteProgrammingError:
+                    pass
+        for fn in paths:
             if fn is not None and os.path.exists(fn):
                 if os.path.isdir(fn):
                     shutil.rmtree(fn)
                 else:
                     os.remove(fn)
+                # except PermissionError:  # This can happen on Windows
+                #     warnings.warn("Could not remove: %s" % fn)
         self.filenames = []
         self.ios = []
 
@@ -199,7 +212,11 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                                           ignore_hdmf_attrs=self.IGNORE_HDMF_ATTRS,
                                           ignore_string_to_byte=self.IGNORE_STRING_TO_BYTE,
                                           message=message)
-                self.close_files_and_ios()
+
+                # TODO: May need to add further asserts here
+                # we are essentially running a new test each iteration so tearDown and setUp after each
+                self.tearDown()   # calls self.close_files_and_ios()
+                self.setUp()
 
 
 ##########################################################
@@ -216,7 +233,8 @@ class MixinTestHDF5ToZarr():
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore.zarr'),
                     TempStore(),
-                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
+                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
+                    SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
     TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
@@ -227,10 +245,10 @@ class MixinTestHDF5ToZarr():
             write_io.write(container, cache_spec=True)
 
         with HDF5IO(write_path, manager=self.get_manager(), mode='r') as read_io:
-            with ZarrIO(export_path, mode='w') as export_io:
+            with ZarrIO(reopen_store(export_path), mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
-        read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
+        read_io = ZarrIO(reopen_store(export_path), manager=self.get_manager(), mode='r')
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -246,7 +264,8 @@ class MixinTestZarrToHDF5():
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore.zarr'),
                    TempStore(),
-                   NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
+                   NestedDirectoryStore('test_export_NestedDirectoryStore.zarr'),
+                   SQLiteStore('test_export_SQLiteStore.zarr.sqlite')]
     EXPORT_PATHS = [None, ]
     TARGET_FORMAT = "H5"
 
@@ -254,10 +273,10 @@ class MixinTestZarrToHDF5():
         return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
-        with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
-            write_io.write(container)
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='w') as write_io:
+            write_io.write(container, cache_spec=True)
 
-        with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='r') as read_io:
             with HDF5IO(export_path,  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
@@ -277,25 +296,27 @@ class MixinTestZarrToZarr():
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore_Source.zarr'),
                    TempStore(dir=os.path.dirname(__file__)),  # set dir to avoid switching drives on Windows
-                   NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr')]
+                   NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr'),
+                   SQLiteStore('test_export_SQLiteStore_Source.zarr.sqlite')]
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
                     TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
-                    NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
+                    NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr'),
+                    SQLiteStore('test_export_SQLiteStore_Export.zarr.sqlite')]
     TARGET_FORMAT = "ZARR"
 
     def get_manager(self):
         return get_hdmfcommon_manager()
 
     def roundtripExportContainer(self, container,  write_path, export_path):
-        with ZarrIO(write_path, manager=self.get_manager(), mode='w') as write_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='w') as write_io:
             write_io.write(container, cache_spec=True)
 
-        with ZarrIO(write_path, manager=self.get_manager(), mode='r') as read_io:
-            with ZarrIO(export_path,  mode='w') as export_io:
+        with ZarrIO(reopen_store(write_path), manager=self.get_manager(), mode='r') as read_io:
+            with ZarrIO(reopen_store(export_path),  mode='w') as export_io:
                 export_io.export(src_io=read_io, write_args={'link_data': False})
 
-        read_io = ZarrIO(export_path, manager=self.get_manager(), mode='r')
+        read_io = ZarrIO(reopen_store(export_path), manager=self.get_manager(), mode='r')
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
@@ -446,9 +467,6 @@ class TestHDF5ToZarrDynamicTableC0(MixinTestDynamicTableContainer,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = False
     TABLE_TYPE = 0
-
-    def test_simple(self, write_path=None, export_path=None):
-        print(write_path, export_path)
 
 
 class TestZarrToHDF5DynamicTableC0(MixinTestDynamicTableContainer,
