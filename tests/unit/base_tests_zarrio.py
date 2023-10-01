@@ -299,7 +299,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             bazs.append(Baz(name='baz%d' % i))
         baz_data = BazData(name='baz_data', data=bazs)
         container = BazBucket(bazs=bazs, baz_data=baz_data)
-        manager=get_baz_buildmanager()
+        manager = get_baz_buildmanager()
         # write to file
         with ZarrIO(self.store, manager=manager, mode='w') as writer:
             writer.write(container=container)
