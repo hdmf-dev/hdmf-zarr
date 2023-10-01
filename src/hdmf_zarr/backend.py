@@ -1,8 +1,6 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 # Python imports
 import os
-import itertools
-from copy import deepcopy
 import warnings
 import numpy as np
 import tempfile
@@ -12,6 +10,9 @@ import logging
 import zarr
 from zarr.hierarchy import Group
 from zarr.core import Array
+from zarr.storage import (DirectoryStore,
+                          TempStore,
+                          NestedDirectoryStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -20,6 +21,7 @@ from .utils import (ZarrDataIO,
                     ZarrSpecWriter,
                     ZarrSpecReader,
                     ZarrIODataChunkIteratorQueue)
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 # HDMF imports
 from hdmf.backends.io import HDMFIO
@@ -48,12 +50,41 @@ from hdmf.container import Container
 
 # Module variables
 ROOT_NAME = 'root'
+"""
+Name of the root builder for read/write
+"""
+
 SPEC_LOC_ATTR = '.specloc'
+"""
+Reserved attribute storing the path to the Group where the schema for the file are cached
+"""
+
+DEFAULT_SPEC_LOC_DIR = 'specifications'
+"""
+Default name of the group where specifications should be cached
+"""
+
+SUPPORTED_ZARR_STORES = (DirectoryStore,
+                         TempStore,
+                         NestedDirectoryStore)
+"""
+Tuple listing all Zarr storage backends supported by ZarrIO
+"""
 
 
 class ZarrIO(HDMFIO):
 
-    @docval({'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+    @staticmethod
+    def can_read(path):
+        try:
+            zarr.open(path, mode="r")
+            return True
+        except Exception:
+            return False
+
+    @docval({'name': 'path',
+             'type': (str, *SUPPORTED_ZARR_STORES),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
              'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-")'},
@@ -83,13 +114,22 @@ class ZarrIO(HDMFIO):
         self.__file = None
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
-        self.__dci_queue = ZarrIODataChunkIteratorQueue()  # a queue of DataChunkIterators that need to be exhausted
+        self.__dci_queue = None  # Will be initialized on call to io.write
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
-        super().__init__(manager, source=path)
-        warn_msg = ("The ZarrIO backend is experimental. It is under active development. "
-                    "The ZarrIO backend may change any time and backward compatibility is not guaranteed.")
-        warnings.warn(warn_msg)
+        source_path = self.__path
+        if isinstance(self.__path, SUPPORTED_ZARR_STORES):
+            source_path = self.__path.path
+        super().__init__(manager, source=source_path)
+
+    @property
+    def file(self):
+        """
+        The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
+        May be None in case open has not been called yet, e.g., if no data has been
+        read or written yet via this instance.
+        """
+        return self.__file
 
     @property
     def path(self):
@@ -99,7 +139,7 @@ class ZarrIO(HDMFIO):
     @property
     def abspath(self):
         """The absolute path to the Zarr file"""
-        return os.path.abspath(self.path)
+        return os.path.abspath(self.source)
 
     @property
     def synchronizer(self):
@@ -112,7 +152,7 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.__path,
+            self.__file = zarr.open(store=self.path,
                                     mode=self.__mode,
                                     synchronizer=self.__synchronizer)
 
@@ -125,7 +165,9 @@ class ZarrIO(HDMFIO):
     @docval({'name': 'namespace_catalog',
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
-            {'name': 'path', 'type': str, 'doc': 'the path to the Zarr file'},
+            {'name': 'path',
+             'type': (str, *SUPPORTED_ZARR_STORES),
+             'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
     def load_namespaces(cls, namespace_catalog, path, namespaces=None):
         '''
@@ -146,17 +188,54 @@ class ZarrIO(HDMFIO):
                 reader = ZarrSpecReader(ns_group)
                 namespace_catalog.load_namespaces('namespace', reader=reader)
 
-    @docval({'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
-            {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True},)
+    @docval(
+        {'name': 'container', 'type': Container, 'doc': 'the Container object to write'},
+        {'name': 'cache_spec', 'type': bool, 'doc': 'cache specification to file', 'default': True},
+        {'name': 'link_data', 'type': bool,
+         'doc': 'If not specified otherwise link (True) or copy (False) Datasets', 'default': True},
+        {'name': 'exhaust_dci', 'type': bool,
+         'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
+         'default': True},
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def write(self, **kwargs):
-        """Overwrite the write method to add support for caching the specification"""
-        cache_spec = popargs('cache_spec', kwargs)
+        """Overwrite the write method to add support for caching the specification and parallelization."""
+        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
+            "cache_spec", "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
+        )
+
+        self.__dci_queue = ZarrIODataChunkIteratorQueue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )
+
         super(ZarrIO, self).write(**kwargs)
         if cache_spec:
             self.__cache_spec()
@@ -168,7 +247,7 @@ class ZarrIO(HDMFIO):
         if ref is not None:
             spec_group = self.__file[ref]
         else:
-            path = 'specifications'  # do something to figure out where the specifications should go
+            path = DEFAULT_SPEC_LOC_DIR  # do something to figure out where the specifications should go
             spec_group = self.__file.require_group(path)
             self.__file.attrs[SPEC_LOC_ATTR] = path
         ns_catalog = self.manager.namespace_catalog
@@ -183,8 +262,36 @@ class ZarrIO(HDMFIO):
             writer = ZarrSpecWriter(ns_group)
             ns_builder.export('namespace', writer=writer)
 
-    @docval(*get_docval(HDMFIO.export),
-            {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True})
+    @docval(
+        *get_docval(HDMFIO.export),
+        {'name': 'cache_spec', 'type': bool, 'doc': 'whether to cache the specification to file', 'default': True},
+        {
+            "name": "number_of_jobs",
+            "type": int,
+            "doc": (
+                "Number of jobs to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets)."
+            ),
+            "default": 1,
+        },
+        {
+            "name": "max_threads_per_process",
+            "type": int,
+            "doc": (
+                "Limits the number of threads used by each process. The default is None (no limits)."
+            ),
+            "default": None,
+        },
+        {
+            "name": "multiprocessing_context",
+            "type": str,
+            "doc": (
+                "Context for multiprocessing. It can be None (default), 'fork' or 'spawn'. "
+                "Note that 'fork' is only available on UNIX systems (not Windows)."
+            ),
+            "default": None,
+        },
+    )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
         See :py:meth:`hdmf.backends.io.HDMFIO.export` for more details.
@@ -195,12 +302,21 @@ class ZarrIO(HDMFIO):
 
         src_io = getargs('src_io', kwargs)
         write_args, cache_spec = popargs('write_args', 'cache_spec', kwargs)
+        number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
+            "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
+        )
+
+        self.__dci_queue = ZarrIODataChunkIteratorQueue(
+            number_of_jobs=number_of_jobs,
+            max_threads_per_process=max_threads_per_process,
+            multiprocessing_context=multiprocessing_context,
+        )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
             raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
                                        "link_data=True." % src_io.__class__.__name__)
 
-        # write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
+        write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
         super().export(**ckwargs)
@@ -222,15 +338,16 @@ class ZarrIO(HDMFIO):
         """
         written = self._written_builders.get_written(builder)
         if written and check_on_disk:
-            written = written and self.get_builder_exists_on_disk(builder=builder, filepath=self.__path)
+            written = written and self.get_builder_exists_on_disk(builder=builder)
         return written
 
-    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'},
-            {'name': 'filepath', 'type': str,
-             'doc': 'The path to the Zarr file or None for this file', 'default': None})
+    @docval({'name': 'builder', 'type': Builder, 'doc': 'The builder of interest'})
     def get_builder_exists_on_disk(self, **kwargs):
-        """Convenience function to check whether a given builder exists on disk"""
-        builder_path = self.get_builder_disk_path(**kwargs)
+        """
+        Convenience function to check whether a given builder exists on disk in this Zarr file.
+        """
+        builder = getargs('builder', kwargs)
+        builder_path = self.get_builder_disk_path(builder=builder, filepath=None)
         exists_on_disk = os.path.exists(builder_path)
         return exists_on_disk
 
@@ -239,32 +356,57 @@ class ZarrIO(HDMFIO):
              'doc': 'The path to the Zarr file or None for this file', 'default': None})
     def get_builder_disk_path(self, **kwargs):
         builder, filepath = getargs('builder', 'filepath', kwargs)
-        basepath = filepath if filepath is not None else self.__path
+        basepath = filepath if filepath is not None else self.source
         builder_path = os.path.join(basepath, self.__get_path(builder).lstrip("/"))
         return builder_path
 
-    @docval({'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
-            {'name': 'link_data', 'type': bool,
-             'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets', 'default': True},
-            {'name': 'exhaust_dci', 'type': bool,
-             'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
-                    'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
-             'default': True})
+    @docval(
+        {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder object representing the NWBFile'},
+        {
+            'name': 'link_data',
+            'type': bool,
+            'doc': 'If not specified otherwise link (True) or copy (False) Zarr Datasets',
+            'default': True
+        },
+        {
+            'name': 'exhaust_dci',
+            'type': bool,
+            'doc': (
+                'Exhaust DataChunkIterators one at a time. If False, add '
+                'them to the internal queue self.__dci_queue and exhaust them concurrently at the end'
+            ),
+            'default': True,
+        },
+        {
+            'name': 'export_source',
+            'type': str,
+            'doc': 'The source of the builders when exporting',
+            'default': None,
+        },
+    )
     def write_builder(self, **kwargs):
-        """Write a builder to disk"""
-        f_builder, link_data, exhaust_dci = getargs('builder', 'link_data', 'exhaust_dci', kwargs)
+        """Write a builder to disk."""
+        f_builder, link_data, exhaust_dci, export_source = getargs(
+            'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
         for name, gbldr in f_builder.groups.items():
-            self.write_group(parent=self.__file,
-                             builder=gbldr,
-                             link_data=link_data,
-                             exhaust_dci=exhaust_dci)
+            self.write_group(
+                parent=self.__file,
+                builder=gbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                export_source=export_source,
+            )
         for name, dbldr in f_builder.datasets.items():
-            self.write_dataset(parent=self.__file,
-                               builder=dbldr,
-                               link_data=link_data,
-                               exhaust_dci=exhaust_dci)
-        self.write_attributes(self.__file, f_builder.attributes)
-        self.__dci_queue.exhaust_queue()  # Write all DataChunkIterators that have been queued
+            self.write_dataset(
+                parent=self.__file,
+                builder=dbldr,
+                link_data=link_data,
+                exhaust_dci=exhaust_dci,
+                export_source=export_source,
+            )
+        self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
+        self.__dci_queue.exhaust_queue()  # Write any remaining DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
@@ -277,10 +419,15 @@ class ZarrIO(HDMFIO):
              'doc': 'exhaust DataChunkIterators one at a time. If False, add ' +
                     'them to the internal queue self.__dci_queue and exhaust them concurrently at the end',
              'default': True},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None},
             returns='the Group that was created', rtype='Group')
     def write_group(self, **kwargs):
         """Write a GroupBuider to file"""
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs(
+            'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
+
         if self.get_written(builder):
             group = parent[builder.name]
         else:
@@ -289,18 +436,23 @@ class ZarrIO(HDMFIO):
         subgroups = builder.groups
         if subgroups:
             for subgroup_name, sub_builder in subgroups.items():
-                self.write_group(parent=group,
-                                 builder=sub_builder,
-                                 link_data=link_data,
-                                 exhaust_dci=exhaust_dci)
+                self.write_group(
+                    parent=group,
+                    builder=sub_builder,
+                    link_data=link_data,
+                    exhaust_dci=exhaust_dci,
+                )
 
         datasets = builder.datasets
         if datasets:
             for dset_name, sub_builder in datasets.items():
-                self.write_dataset(parent=group,
-                                   builder=sub_builder,
-                                   link_data=link_data,
-                                   exhaust_dci=exhaust_dci)
+                self.write_dataset(
+                    parent=group,
+                    builder=sub_builder,
+                    link_data=link_data,
+                    exhaust_dci=exhaust_dci,
+                    export_source=export_source,
+                )
 
         # write all links (haven implemented)
         links = builder.links
@@ -316,12 +468,13 @@ class ZarrIO(HDMFIO):
     @docval({'name': 'obj', 'type': (Group, Array), 'doc': 'the Zarr object to add attributes to'},
             {'name': 'attributes',
              'type': dict,
-             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'})
+             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None})
     def write_attributes(self, **kwargs):
-        """
-        Set (i.e., write) the attributes on a given Zarr Group or Array
-        """
-        obj, attributes = getargs('obj', 'attributes', kwargs)
+        """Set (i.e., write) the attributes on a given Zarr Group or Array."""
+        obj, attributes, export_source = getargs('obj', 'attributes', 'export_source', kwargs)
+
         for key, value in attributes.items():
             # Case 1: list, set, tuple type attributes
             if isinstance(value, (set, list, tuple)) or (isinstance(value, np.ndarray) and np.ndim(value) != 0):
@@ -347,15 +500,16 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
-                if isinstance(value, RegionBuilder):
-                    type_str = 'region'
-                    refs = self.__get_ref(value.builder)
-                elif isinstance(value, (ReferenceBuilder, Container, Builder)):
+                # TODO: Region References are not yet supported
+                # if isinstance(value, RegionBuilder):
+                #     type_str = 'region'
+                #     refs = self.__get_ref(value.builder)
+                if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     if isinstance(value, Builder):
-                        refs = self.__get_ref(value)
+                        refs = self.__get_ref(value, export_source)
                     else:
-                        refs = self.__get_ref(value.builder)
+                        refs = self.__get_ref(value.builder, export_source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -454,28 +608,44 @@ class ZarrIO(HDMFIO):
         else:
             return dtype == DatasetBuilder.OBJECT_REF_TYPE or dtype == DatasetBuilder.REGION_REF_TYPE
 
-    def __resolve_ref(self, zarr_ref):
+    def resolve_ref(self, zarr_ref):
         """
         Get the full path to the object linked to by the zarr reference
 
         The function only constructs the links to the targe object, but it does not check if the object exists
 
-        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrRefernce` object
-        :return: Full path to the linked object
+        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrReference` object
+        :return: 1) name of the target object
+                 2) the target zarr object within the target file
         """
         # Extract the path as defined in the zarr_ref object
         if zarr_ref.get('source', None) is None:
-            ref_path = str(zarr_ref['path'])
-        elif zarr_ref.get('path', None) is None:
-            ref_path = str(zarr_ref['source'])
+            source_file = str(zarr_ref['path'])
         else:
-            ref_path = os.path.join(zarr_ref['source'], zarr_ref['path'].lstrip("/"))
-        # Make the path relative to the current file
-        ref_path = os.path.abspath(os.path.join(self.path, ref_path))
+            source_file = str(zarr_ref['source'])
+        # Resolve the path relative to the current file
+        source_file = os.path.abspath(os.path.join(self.source, source_file))
+        object_path = zarr_ref.get('path', None)
+        # full_path = None
+        # if os.path.isdir(source_file):
+        #    if object_path is not None:
+        #        full_path = os.path.join(source_file, object_path.lstrip('/'))
+        #    else:
+        #        full_path = source_file
+        if object_path:
+            target_name = os.path.basename(object_path)
+        else:
+            target_name = ROOT_NAME
+        target_zarr_obj = zarr.open(source_file, mode='r')
+        if object_path is not None:
+            try:
+                target_zarr_obj = target_zarr_obj[object_path]
+            except Exception:
+                raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
-        return ref_path
+        return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object):
+    def __get_ref(self, ref_object, export_source=None):
         """
         Create a ZarrReference object that points to the given container
 
@@ -523,9 +693,17 @@ class ZarrIO(HDMFIO):
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source
                   if (builder.source is not None and os.path.isdir(builder.source))
-                  else self.__path)
+                  else self.source)
+
         # Make the source relative to the current file
-        source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+        # TODO: This check assumes that all links are internal links on export.
+        # Need to deal with external links on export.
+        if export_source is not None:
+            # Make sure the source of the reference is now towards the new file
+            # and not the original source when exporting.
+            source = '.'
+        else:
+            source = os.path.relpath(os.path.abspath(source), start=self.abspath)
         # Return the ZarrReference object
         ref = ZarrReference(
             source=source,
@@ -641,6 +819,7 @@ class ZarrIO(HDMFIO):
                 io_settings['dtype'] = cls.__dtypes.get(io_settings['dtype'])
         try:
             dset = parent.create_dataset(name, **io_settings)
+            dset.attrs['zarr_dtype'] = np.dtype(io_settings['dtype']).str
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
@@ -655,10 +834,19 @@ class ZarrIO(HDMFIO):
              'default': True},
             {'name': 'force_data', 'type': None,
              'doc': 'Used internally to force the data being used when we have to load the data', 'default': None},
+            {'name': 'export_source', 'type': str,
+             'doc': 'The source of the builders when exporting', 'default': None},
             returns='the Zarr array that was created', rtype=Array)
     def write_dataset(self, **kwargs):  # noqa: C901
-        parent, builder, link_data, exhaust_dci = getargs('parent', 'builder', 'link_data', 'exhaust_dci', kwargs)
+        parent, builder, link_data, exhaust_dci, export_source = getargs(
+            'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        )
+
         force_data = getargs('force_data', kwargs)
+
+        if exhaust_dci and self.__dci_queue is None:
+            self.__dci_queue = ZarrIODataChunkIteratorQueue()
+
         if self.get_written(builder):
             return None
         name = builder.name
@@ -691,7 +879,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(data, HDMFDataset):
             # If we have a dataset of containers we need to make the references to the containers
             if len(data) > 0 and isinstance(data[0], Container):
-                ref_data = [self.__get_ref(data[i]) for i in range(len(data))]
+                ref_data = [self.__get_ref(data[i], export_source=export_source) for i in range(len(data))]
                 shape = (len(data), )
                 type_str = 'object'
                 dset = parent.require_dataset(name,
@@ -714,7 +902,8 @@ class ZarrIO(HDMFIO):
                 dset = self.write_dataset(parent=parent,
                                           builder=builder,
                                           link_data=link_data,
-                                          force_data=data[:])
+                                          force_data=data[:],
+                                          export_source=export_source)
                 self._written_builders.set_written(builder)  # record that the builder has been written
         # Write a compound dataset
         elif isinstance(options['dtype'], list):
@@ -723,7 +912,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self.__get_ref(data[0][i])
+                    ref_tmp = self.__get_ref(data[0][i], export_source=export_source)
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
@@ -745,29 +934,31 @@ class ZarrIO(HDMFIO):
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
-                        new_item[i] = self.__get_ref(item[i])
+                        new_item[i] = self.__get_ref(item[i], export_source=export_source)
                     dset[j] = new_item
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
-            if isinstance(data, RegionBuilder):
-                shape = (1,)
-                type_str = 'region'
-                refs = self.__get_ref(data.builder, data.region)
-            elif isinstance(data, ReferenceBuilder):
+            # TODO Region references are not yet support, but here how the code should look
+            #  if isinstance(data, RegionBuilder):
+            #      shape = (1,)
+            #      type_str = 'region'
+            #      refs = self.__get_ref(data.builder, data.region)
+            if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
-                refs = self.__get_ref(data.builder)
-            elif options['dtype'] == 'region':
-                shape = (len(data), )
-                type_str = 'region'
-                refs = [self.__get_ref(item.builder, item.region) for item in data]
+                refs = self.__get_ref(data.builder, export_source=export_source)
+            # TODO: Region References are not yet supported
+            # elif options['dtype'] == 'region':
+            #     shape = (len(data), )
+            #     type_str = 'region'
+            #     refs = [self.__get_ref(item.builder, item.region) for item in data]
             else:
                 shape = (len(data), )
                 type_str = 'object'
-                refs = [self.__get_ref(item) for item in data]
+                refs = [self.__get_ref(item, export_source=export_source) for item in data]
 
             dset = parent.require_dataset(name,
                                           shape=shape,
@@ -999,6 +1190,34 @@ class ZarrIO(HDMFIO):
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
 
+    @docval({'name': 'zarr_obj', 'type': (Array, Group),
+             'doc': 'the Zarr object to the corresponding Container/Data object for'})
+    def get_container(self, **kwargs):
+        """
+        Get the container for the corresponding Zarr Group or Dataset
+
+        :raises ValueError: When no builder has been constructed yet for the given h5py object
+        """
+        zarr_obj = getargs('zarr_obj', kwargs)
+        builder = self.get_builder(zarr_obj)
+        container = self.manager.construct(builder)
+        return container  # TODO: This method should be moved to HDMFIO
+
+    @docval({'name': 'zarr_obj', 'type': (Array, Group),
+             'doc': 'the Zarr object to the corresponding Builder object for'})
+    def get_builder(self, **kwargs):  # TODO: move this to HDMFIO (define skeleton in there at least)
+        """
+        Get the builder for the corresponding Group or Dataset
+
+        :raises ValueError: When no builder has been constructed
+        """
+        zarr_obj = kwargs['zarr_obj']
+        builder = self.__get_built(zarr_obj)
+        if builder is None:
+            msg = '%s has not been built' % (zarr_obj.name)
+            raise ValueError(msg)
+        return builder
+
     def __get_built(self, zarr_obj):
         """
         Look up a builder for the given zarr object
@@ -1021,7 +1240,7 @@ class ZarrIO(HDMFIO):
 
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
-        ret = GroupBuilder(name=name, source=self.__path, attributes=attributes)
+        ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
         ret.location = self.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
@@ -1054,18 +1273,13 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                l_path = self.__resolve_ref(link)
-                if not os.path.exists(l_path):
-                    raise ValueError("Found bad link %s in %s in file %s to %s" %
-                                     (link_name, self.__get_path(parent), self.__path, l_path))
-                target_name = str(os.path.basename(l_path))
-                target_zarr_obj = zarr.open(l_path, mode='r')
+                target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
-                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.__path)
+                link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
                 parent.set_link(link_builder)
@@ -1075,14 +1289,21 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if 'zarr_dtype' not in zarr_obj.attrs:
+        if 'zarr_dtype' in zarr_obj.attrs:
+            zarr_dtype = zarr_obj.attrs['zarr_dtype']
+        elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
+            zarr_dtype = zarr_obj.dtype
+            warnings.warn(
+                "Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)
+            )
+        else:
             raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
         kwargs = {"attributes": self.__read_attrs(zarr_obj),
-                  "dtype": zarr_obj.attrs['zarr_dtype'],
+                  "dtype": zarr_dtype,
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
-                  "source": self.__path}
+                  "source": self.source}
         dtype = kwargs['dtype']
 
         # By default, use the zarr.core.Array as data for lazy data load
@@ -1092,87 +1313,33 @@ class ZarrIO(HDMFIO):
         if dtype == 'scalar':
             data = zarr_obj[0]
 
-        obj_refs = False
-        reg_refs = False
-        has_reference = False
         if isinstance(dtype, list):
-            # compound data type
-            obj_refs = list()
-            reg_refs = list()
+            # Check compound dataset where one of the subsets contains references
+            has_reference = False
             for i, dts in enumerate(dtype):
-                if dts['dtype'] == DatasetBuilder.OBJECT_REF_TYPE:
-                    obj_refs.append(i)
+                if dts['dtype'] in ['object', 'region']:  # check items for object reference
                     has_reference = True
-                elif dts['dtype'] == DatasetBuilder.REGION_REF_TYPE:
-                    reg_refs.append(i)
-                    has_reference = True
-
+                    break
+            retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
+            if has_reference:
+                # TODO:  BuilderZarrTableDataset does not yet support region reference
+                data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
-            # reference array
-            has_reference = True
-            if dtype == DatasetBuilder.OBJECT_REF_TYPE:
-                obj_refs = True
-            elif dtype == DatasetBuilder.REGION_REF_TYPE:
-                reg_refs = True
-
-        if has_reference:
-            try:
-                # TODO Should implement a lazy way to evaluate references for Zarr
-                data = deepcopy(data[:])
-                self.__parse_ref(kwargs['maxshape'], obj_refs, reg_refs, data)
-            except ValueError as e:
-                raise ValueError(str(e) + "  zarr-name=" + str(zarr_obj.name) + " name=" + str(name))
+            # Array of references
+            if dtype == 'object':
+                data = BuilderZarrReferenceDataset(data, self)
+            # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
+            # elif dtype == 'region':
+            #     data = BuilderZarrRegionDataset(data, self)
 
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
-        ret = DatasetBuilder(name, **kwargs)
+        ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
         ret.location = self.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
         self.__set_built(zarr_obj, ret)
         return ret
-
-    def __parse_ref(self, shape, obj_refs, reg_refs, data):
-        corr = []
-        obj_pos = []
-        reg_pos = []
-        for s in shape:
-            corr.append(range(s))
-        corr = tuple(corr)
-        for c in itertools.product(*corr):
-            if isinstance(obj_refs, list):
-                for i in obj_refs:
-                    t = list(c)
-                    t.append(i)
-                    obj_pos.append(t)
-            elif obj_refs:
-                obj_pos.append(list(c))
-            if isinstance(reg_refs, list):
-                for i in reg_refs:
-                    t = list(c)
-                    t.append(i)
-                    reg_pos.append(t)
-            elif reg_refs:
-                reg_pos.append(list(c))
-
-        for p in obj_pos:
-            o = data
-            for i in p:
-                o = o[i]
-            path = self.__resolve_ref(o)
-            if not os.path.exists(path):
-                raise ValueError("Found bad link in dataset to %s" % (path))
-
-            target_name = os.path.basename(path)
-            target_zarr_obj = zarr.open(path, mode='r')
-
-            o = data
-            for i in range(0, len(p)-1):
-                o = data[p[i]]
-            if isinstance(target_zarr_obj, zarr.hierarchy.Group):
-                o[p[-1]] = self.__read_group(target_zarr_obj, target_name)
-            else:
-                o[p[-1]] = self.__read_dataset(target_zarr_obj, target_name)
 
     def __read_attrs(self, zarr_obj):
         ret = dict()
@@ -1180,14 +1347,8 @@ class ZarrIO(HDMFIO):
             if k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
                 if isinstance(v, dict) and 'zarr_dtype' in v:
-                    # TODO Is this the correct way to resolve references?
                     if v['zarr_dtype'] == 'object':
-                        path = self.__resolve_ref(v['value'])
-                        if not os.path.exists(path):
-                            raise ValueError("Found bad link in attribute to %s" % (path))
-
-                        target_name = str(os.path.basename(path))
-                        target_zarr_obj = zarr.open(str(path), mode='r')
+                        target_name, target_zarr_obj = self.resolve_ref(v['value'])
                         if isinstance(target_zarr_obj, zarr.hierarchy.Group):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:

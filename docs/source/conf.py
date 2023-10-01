@@ -43,7 +43,7 @@ autodoc_member_order = 'bysource'
 
 project = 'hdmf_zarr'
 copyright = '2022, Oliver Ruebel'
-author = 'Oliver Ruebel'
+author = 'Oliver Ruebel, Matthew Avaylon'
 
 # The short X.Y version.
 version = '{}'.format(get_versions()['version'])
@@ -75,7 +75,7 @@ sphinx_gallery_conf = {
 }
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3.10', None),
+    'python': ('https://docs.python.org/3.11', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'matplotlib': ('https://matplotlib.org/stable/', None),
@@ -88,9 +88,9 @@ intersphinx_mapping = {
 
 # Use this for mapping to external links
 extlinks = {
-    'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/', '%s'),
-    'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/', '%s'),
-    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/', '%s')
+    'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/%s', '%s'),
+    'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/%s', '%s'),
+    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/%s', '%s')
 }
 
 # Add any paths that contain templates here, relative to this directory.
