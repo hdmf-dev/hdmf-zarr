@@ -1,5 +1,17 @@
 # HDMF-ZARR Changelog
 
+## 0.5.0 (Future)
+
+### New Features
+* Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
+
+### Internal changes
+* Added ``ZarrIO.__opened_stores_references`` to track Zarr stores opened to resolve 
+  references in order to be able to close those stores as part of ``ZarrIO.close()``
+  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
+
+
 ## 0.4.0 (Upcoming)
 
 ### Enhancements
@@ -23,8 +35,6 @@
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
   ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``. 
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-* Added support for using ``SQLiteStore`` Zarr storage backend with ``ZarrIO``
-  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
 
 ### API Changes
 * Removed unused ``filepath`` argument from ``ZarrIO.get_builder_exists_on_disk`` 
@@ -43,16 +53,9 @@
 * Updated tests to handle upcoming changes to ``HDMFIO``. @rly 
   [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
 
-
 ### Docs
 * Added developer documentation on how to integrate new storage backends with ZarrIO. @oruebel
   [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
-
-### Internal changes
-* Added ``ZarrIO.__opened_stores_references`` to track Zarr stores opened to resolve 
-  references in order to be able to close those stores as part of ``ZarrIO.close()``
-  @oruebel [#66](https://github.com/hdmf-dev/hdmf-zarr/pull/66)
-
 
 ### Bug fixes
 * Fixed error in nightly CI. @rly [#93](https://github.com/hdmf-dev/hdmf-zarr/pull/93)
