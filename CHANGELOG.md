@@ -4,9 +4,7 @@
 
 ### Enhancements
 * Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
-* Updated storage of references to also save the ``object_id`` and ``source_object_id``. While these
-  fields are not strictly necessary to define a link they are useful for validation of references
-  and enhance the rigor of the definition of references. @oruebel [#57](https://github.com/hdmf-dev/hdmf-zarr/pull/57)
+* Updated storage of references to also save the ``object_id`` and ``source_object_id``. While not strictly necessary this information is useful for validation and rigor of references. @oruebel [#57](https://github.com/hdmf-dev/hdmf-zarr/pull/57)
 
 ### Dependencies
 * Updated HDMF and PyNWB version to the most recent release @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
