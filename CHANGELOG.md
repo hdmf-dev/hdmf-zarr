@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.4.0 (Upcoming)
+## 0.4.0 (October 3, 2023)
 
 ### Enhancements
 * Enhanced ZarrIO to resolve object references lazily on read similar to HDMF's `HDF5IO` backend. @mavaylon1 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/120)
