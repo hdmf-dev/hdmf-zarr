@@ -14,7 +14,6 @@ jobs:
           
       - uses: actions/checkout@v4
         with:
-            submodules: 'recursive'
             fetch-depth: 0  # tags are required for versioneer to determine the version
       
       - name: Set up Python 3.11
