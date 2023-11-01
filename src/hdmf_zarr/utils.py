@@ -476,31 +476,59 @@ class ZarrReference(dict):
 
     @docval({'name': 'source',
              'type': str,
-             'doc': 'Source of referenced object',
+             'doc': 'Source of referenced object. Usually the relative path to the '
+                    'Zarr file containing the referenced object',
              'default': None},
             {'name': 'path',
              'type': str,
-             'doc': 'Path of referenced object',
+             'doc': 'Path of referenced object within the source',
+             'default': None},
+            {'name': 'object_id',
+             'type': str,
+             'doc': 'Object_id of the referenced object (if available)',
+             'default': None},
+            {'name': 'source_object_id',
+             'type': str,
+             'doc': 'Object_id of the source (should always be available)',
              'default': None}
             )
     def __init__(self, **kwargs):
-        dest_source, dest_path = getargs('source', 'path', kwargs)
+        dest_source, dest_path, dest_object_id, dest_source_object_id = getargs(
+            'source', 'path', 'object_id', 'source_object_id', kwargs)
         super(ZarrReference, self).__init__()
-        super(ZarrReference, self).__setitem__('source', dest_source)
-        super(ZarrReference, self).__setitem__('path', dest_path)
+        self.source = dest_source
+        self.path = dest_path
+        self.object_id = dest_object_id
+        self.source_object_id = dest_source_object_id
 
     @property
-    def source(self):
+    def source(self) -> str:
         return super(ZarrReference, self).__getitem__('source')
 
     @property
-    def path(self):
+    def path(self) -> str:
         return super(ZarrReference, self).__getitem__('path')
 
+    @property
+    def object_id(self) -> str:
+        return super(ZarrReference, self).__getitem__('object_id')
+
+    @property
+    def source_object_id(self) -> str:
+        return super(ZarrReference, self).__getitem__('source_object_id')
+
     @source.setter
-    def source(self, s):
-        super(ZarrReference, self).__setitem__('source', s)
+    def source(self, source: str):
+        super(ZarrReference, self).__setitem__('source', source)
 
     @path.setter
-    def path(self, p):
-        super(ZarrReference, self).__setitem__('path', p)
+    def path(self, path: str):
+        super(ZarrReference, self).__setitem__('path', path)
+
+    @object_id.setter
+    def object_id(self, object_id: str):
+        super(ZarrReference, self).__setitem__('object_id', object_id)
+
+    @source_object_id.setter
+    def source_object_id(self, object_id: str):
+        super(ZarrReference, self).__setitem__('source_object_id', object_id)

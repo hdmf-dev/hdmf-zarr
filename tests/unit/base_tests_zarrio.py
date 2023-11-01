@@ -12,7 +12,8 @@ import warnings
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
 from hdmf_zarr.backend import ZarrIO
-from hdmf_zarr.utils import ZarrDataIO
+from hdmf_zarr.utils import ZarrDataIO, ZarrReference
+from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 
 # Try to import numcodecs and disable compression tests if it is not available
 try:
@@ -289,6 +290,41 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                         mode='a')
         writer.write_builder(builder)
         writer.close()
+
+    def test_write_references_roundtrip(self):
+        # Setup a file container with references
+        num_bazs = 10
+        bazs = []  # set up dataset of references
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data', data=bazs)
+        container = BazBucket(bazs=bazs, baz_data=baz_data)
+        manager = get_baz_buildmanager()
+        # write to file
+        with ZarrIO(self.store, manager=manager, mode='w') as writer:
+            writer.write(container=container)
+        # read from file and validate references
+        with ZarrIO(self.store, manager=manager, mode='r') as reader:
+            read_container = reader.read()
+            for i in range(num_bazs):
+                baz_name = 'baz%d' % i
+                expected_container = read_container.bazs[baz_name]
+                expected_value = {'source': '.',
+                                  'path': '/bazs/' + baz_name,
+                                  'object_id': expected_container.object_id,
+                                  'source_object_id': read_container.object_id}
+                # Read the dict with the definition of the reference from the raw Zarr file and compare
+                # to also check that reference (included object id's) are defined correctly
+                self.assertDictEqual(reader.file['baz_data'][i], expected_value)
+                # Also test using the low-level reference functions
+                zarr_ref = ZarrReference(**expected_value)
+                # Check the ZarrReference first
+                self.assertEqual(zarr_ref.object_id, expected_value['object_id'])
+                self.assertEqual(zarr_ref.source_object_id, expected_value['source_object_id'])
+                # Check that the ZarReference is being resolved via the ZarrIO.resolve_ref
+                target_name, target_zarr_obj = reader.resolve_ref(zarr_ref)
+                self.assertEqual(target_name, baz_name)
+                self.assertEqual(target_zarr_obj.attrs['object_id'], expected_container.object_id)
 
     def test_write_reference_compound(self):
         builder = self.createReferenceCompoundBuilder()
@@ -578,8 +614,14 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
         attr = {'attr1': dataset_1}
-        tempIO.write_attributes(obj=tempIO.file, attributes=attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
+        with self.assertWarnsWith(UserWarning,
+                                  "Could not determine source_object_id for builder with path: /dataset_1"):
+            tempIO.write_attributes(obj=tempIO.file, attributes=attr)
+        expected_value = {'attr1': {'zarr_dtype': 'object',
+                                    'value': {'source': ".",
+                                              'path': '/dataset_1',
+                                              'object_id': None,
+                                              'source_object_id': None}}}
         self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
         tempIO.close()
 
@@ -590,8 +632,16 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
         attr = {'attr1': ref1}
-        tempIO.write_attributes(obj=tempIO.file, attributes=attr)
-        expected_value = {'attr1': {'zarr_dtype': 'object', 'value': {'source': ".", 'path': '/dataset_1'}}}
+        with self.assertWarnsWith(UserWarning,
+                                  "Could not determine source_object_id for builder with path: /dataset_1"):
+            tempIO.write_attributes(obj=tempIO.file, attributes=attr)
+        expected_value = {'attr1': {'zarr_dtype': 'object',
+                                    'value': {'source': ".",
+                                              'path': '/dataset_1',
+                                              'source_object_id': None,
+                                              'object_id': None},
+                                    }
+                          }
         self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
         tempIO.close()
 
@@ -1027,9 +1077,14 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         foofile = FooFile(buckets=[foobucket], foo_link=foo1)
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
+
+        # with open(self.paths[0]+"/.zattrs", 'r') as f:
+        #     print(f.readlines())
+
         with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, write_args=dict(link_data=False))
+                export_io.export(src_io=read_io,
+                                 write_args=dict(link_data=False))
         with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is within the same file
