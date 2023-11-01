@@ -34,7 +34,7 @@ jobs:
 
       - name: Run HDMF_Zarr Tests
         run:
-          pytest -v
+          pytest tests
           
       
           
