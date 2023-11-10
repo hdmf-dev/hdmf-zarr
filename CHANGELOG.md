@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## 0.4.1 (?)
+
+### Enhancements
+* Fix linking for FSSpec #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
+
 ## 0.4.0 (October 3, 2023)
 
 ### Enhancements
