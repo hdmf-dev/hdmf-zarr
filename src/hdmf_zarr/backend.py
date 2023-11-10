@@ -133,7 +133,7 @@ class ZarrIO(HDMFIO):
 
     @property
     def path(self):
-        """The path to the Zarr file as set by the use"""
+        """The path to the Zarr file as set by the user"""
         return self.__path
 
     @property
@@ -160,6 +160,14 @@ class ZarrIO(HDMFIO):
         """Close the Zarr file"""
         self.__file = None
         return
+
+    def is_remote(self):
+        """Return True if the file is remote, False otherwise"""
+        from zarr.storage import FSStore
+        if isinstance(self.file.store, FSStore):
+            return True
+        else:
+            return False
 
     @classmethod
     @docval({'name': 'namespace_catalog',
@@ -624,18 +632,20 @@ class ZarrIO(HDMFIO):
         else:
             source_file = str(zarr_ref['source'])
         # Resolve the path relative to the current file
-        source_file = os.path.abspath(os.path.join(self.source, source_file))
+        if not self.is_remote():
+            source_file = os.path.abspath(os.path.join(self.source, source_file))
+        else:
+            # get rid of extra "/" and "./" in the path root and source_file
+            root_path = str(self.path)[:-1] if str(self.path).endswith("/") else str(self.path)
+            source_path = str(source_file)[1:] if str(source_file).startswith(".") else str(source_file)
+            source_file = root_path + source_path
+
         object_path = zarr_ref.get('path', None)
-        # full_path = None
-        # if os.path.isdir(source_file):
-        #    if object_path is not None:
-        #        full_path = os.path.join(source_file, object_path.lstrip('/'))
-        #    else:
-        #        full_path = source_file
         if object_path:
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
+
         target_zarr_obj = zarr.open(source_file, mode='r')
         if object_path is not None:
             try:
