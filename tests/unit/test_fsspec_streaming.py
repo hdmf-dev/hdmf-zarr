@@ -24,7 +24,7 @@ class TestFSSpecStreaming(unittest.TestCase):
             "ecephys_625749_2022-08-03_15-15-06_experiment1_recording1.nwb.zarr/"
         )
 
-        with NWBZarrIO(remote_path, "r") as io:
+        with NWBZarrIO(remote_path, mode="r", storage_options=dict(anon=True)) as io:
             nwbfile = io.read()
 
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")

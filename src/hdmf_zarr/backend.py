@@ -94,11 +94,14 @@ class ZarrIO(HDMFIO):
             {'name': 'object_codec_class', 'type': None,
              'doc': 'Set the numcodec object codec class to be used to encode objects.'
                     'Use numcodecs.pickles.Pickle by default.',
+             'default': None},
+            {'name': 'storage_options', 'type': dict,
+             'doc': 'Zarr storage options to read remote folders',
              'default': None})
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', kwargs)
+        path, manager, mode, synchronizer, object_codec_class, storage_options = popargs(
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', 'storage_options', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
@@ -112,6 +115,7 @@ class ZarrIO(HDMFIO):
         self.__mode = mode
         self.__path = path
         self.__file = None
+        self.__storage_options = storage_options
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = None  # Will be initialized on call to io.write
@@ -154,7 +158,8 @@ class ZarrIO(HDMFIO):
         if self.__file is None:
             self.__file = zarr.open(store=self.path,
                                     mode=self.__mode,
-                                    synchronizer=self.__synchronizer)
+                                    synchronizer=self.__synchronizer,
+                                    storage_options=self.__storage_options)
 
     def close(self):
         """Close the Zarr file"""
