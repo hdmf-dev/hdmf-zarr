@@ -1,16 +1,8 @@
 import unittest
-
-
-try:
-    import s3fs
-    import fsspec
-
-    HAVE_FSSPEC = True
-except ImportError:
-    HAVE_FSSPEC = False
-
-
 from hdmf_zarr import NWBZarrIO
+from .utils import check_s3fs_ffspec_installed
+
+HAVE_FSSPEC = check_s3fs_ffspec_installed()
 
 
 class TestFSSpecStreaming(unittest.TestCase):

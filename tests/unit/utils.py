@@ -34,6 +34,16 @@ def get_temp_filepath():
     return temp_file.name
 
 
+def check_s3fs_ffspec_installed():
+    """Check if s3fs and ffspec are installed required for streaming access from S3"""
+    try:
+        import s3fs    # noqa  F401
+        import fsspec  # noqa  F401
+        return True
+    except ImportError:
+        return False
+
+
 ############################################
 #  Foo example data containers and specs
 ###########################################
