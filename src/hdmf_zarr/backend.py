@@ -77,6 +77,7 @@ class ZarrIO(HDMFIO):
     @staticmethod
     def can_read(path):
         try:
+            # TODO: how to use storage_options? Maybe easier to just check for ".zarr" suffix
             zarr.open(path, mode="r")
             return True
         except Exception:
@@ -186,7 +187,8 @@ class ZarrIO(HDMFIO):
         '''
         Load cached namespaces from a file.
         '''
-        f = zarr.open(path, 'r')
+        # TODO: how to use storage_options here?
+        f = zarr.open(path, mode='r')
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
             warnings.warn(msg)
@@ -651,7 +653,7 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = zarr.open(source_file, mode='r')
+        target_zarr_obj = zarr.open(source_file, mode='r', storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
