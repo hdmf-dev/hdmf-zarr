@@ -643,8 +643,8 @@ class ZarrIO(HDMFIO):
             source_file = os.path.abspath(os.path.join(self.source, source_file))
         else:
             # get rid of extra "/" and "./" in the path root and source_file
-            root_path = str(self.path)[:-1] if str(self.path).endswith("/") else str(self.path)
-            source_path = str(source_file)[1:] if str(source_file).startswith(".") else str(source_file)
+            root_path = str(self.path).rstrip("/") 
+            source_path = str(source_file).lstrip(".")
             source_file = root_path + source_path
 
         object_path = zarr_ref.get('path', None)
