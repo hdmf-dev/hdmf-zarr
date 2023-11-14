@@ -645,7 +645,7 @@ class ZarrIO(HDMFIO):
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
             source_path = str(source_file).lstrip(".")
-            source_file = os.path.join(root_path, source_path)
+            source_file = root_path + source_path
 
         object_path = zarr_ref.get('path', None)
         if object_path:
