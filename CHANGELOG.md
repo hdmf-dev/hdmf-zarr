@@ -3,7 +3,7 @@
 ## 0.4.1 (?)
 
 ### Enhancements
-* Fix linking for FSSpec #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
+* Fix linking for FSSpec and support passing of `storage_options` required reading data from S3 #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
 
 ## 0.4.0 (October 3, 2023)
 
