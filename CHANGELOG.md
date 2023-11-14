@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.4.1 (?)
+## 0.5.0 (Upcoming)
 
 ### Enhancements
 * Fix linking for FSSpec and support passing of `storage_options` required reading data from S3 #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
