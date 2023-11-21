@@ -152,9 +152,7 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.path,
-                                    mode=self.__mode,
-                                    synchronizer=self.__synchronizer)
+            self.__file = self.open_file_consolidated()
 
     def close(self):
         """Close the Zarr file"""
@@ -410,6 +408,35 @@ class ZarrIO(HDMFIO):
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
+
+        # Consolidate metadata for the entire file after everything has been written
+        zarr.consolidate_metadata(self.path, metadata_key='.zmetadata')
+
+    def consolidate_metadata(self):
+        """
+        When a file is written, the metadata within the file is consolidated automatically.
+        If there are any metadata changes, the user needs to consolidate the metadata again
+        with this method in order for the metadata to be read correctly.
+
+        Consolidate all metadata for groups and arrays within the given store into a
+        single resource and put it under .zmetadata.
+        """
+        zarr.consolidate_metadata(self.path, metadata_key='.zmetadata')
+
+    def open_file_consolidated(self):
+        """
+        This method will check to see if the metadata has been consolidated, if so
+        """
+        if os.path.isfile(self.path+'/.zmetadata'):
+            zarr.open_consolidated(store=self.path,
+                                   mode=self.__mode,)
+        else:
+            msg = "Could not find consolidated metadata."
+            warnings.warn(msg)
+
+            zarr.open(store=self.path,
+                      mode=self.__mode,
+                      synchronizer=self.__synchronizer)
 
     @docval({'name': 'parent', 'type': Group, 'doc': 'the parent Zarr object'},
             {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder to write'},
