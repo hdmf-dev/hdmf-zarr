@@ -1,1 +1,1 @@
-src/hdmf_zarr/_version.py export-subst
+.git_archival.txt export-subst
