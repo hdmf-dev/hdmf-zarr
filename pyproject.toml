@@ -1,3 +1,89 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hdmf_zarr"
+authors = [
+  { name="Oliver Ruebel", email="oruebel@lbl.gov" },
+  { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
+]
+description = "A package defining a Zarr I/O backend for HDMF"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = {text = "BSD"}
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: Unix",
+    "Topic :: Scientific/Engineering :: Medical Science Apps."
+]
+dependencies = [
+    'hdmf>=3.9.0',
+    'zarr>=2.11.0',
+    'numpy>=1.24',
+    'numcodecs>=0.9.1',
+    'numcodecs==0.11.0',
+    'pynwb>=2.5.0',
+    'threadpoolctl>=3.1.0',
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tqdm = ["tqdm>=4.41.0"]
+fsspec = ["ffspec"]
+s3fs = ["s3fs"]
+
+[project.urls]
+"Homepage" = "https://github.com/hdmf-dev/hdmf-zarr"
+"Bug Tracker" = "https://github.com/hdmf-dev/hdmf-zarr/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+# this file is created/updated when the package is installed and used in
+# src/hdmf_zarr/__init__.py to set `hdmf_zarr.__version__`
+# this allows the version to be accessible from python
+version-file = "src/hdmf_zarr/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [".git_archival.txt"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hdmf_zarr"]
+
+[tool.pytest.ini_options]
+addopts = "--cov --cov-report html"
+norecursedirs = "tests/unit/helpers"
+
+[tool.codespell]
+skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,hdmf-common-schema,./docs/_build/*,*.ipynb"
+ignore-words-list = "datas"
+
+[tool.coverage.run]
+branch = true
+source = ["src/"]
+omit = [
+    "src/hdmf/_due.py",
+    "src/hdmf/testing/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@abstract"
+]
+
 [tool.black]
 line-length = 120
 target-version = ['py38']
@@ -25,3 +111,27 @@ force-exclude = '''
    /docs/*
 )\
 '''
+
+[tool.ruff]
+select = ["E", "F", "T100", "T201", "T203"]
+exclude = [
+  ".git",
+  ".tox",
+  "__pycache__",
+  "build/",
+  "dist/",
+  "docs/source/conf.py",
+  "src/hdmf_zarr/_due.py",
+  "docs/source/tutorials/",
+  "docs/_build/",
+]
+line-length = 120
+
+[tool.ruff.per-file-ignores]
+"docs/gallery/*" = ["E402", "T201"]
+"src/*/__init__.py" = ["F401"]
+"setup.py" = ["T201"]
+"test_gallery.py" = ["T201"]
+
+[tool.ruff.mccabe]
+max-complexity = 17
