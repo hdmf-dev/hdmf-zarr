@@ -46,9 +46,9 @@ copyright = '2022, Oliver Ruebel'
 author = 'Oliver Ruebel, Matthew Avaylon'
 
 # The short X.Y version.
-version = '{}'.format(get_versions()['version'])
+version = hdmf_zarr.__version__
 # The full version, including alpha/beta/rc tags.
-release = '{}'.format(get_versions()['version'])
+release = hdmf_zarr.__version__
 
 # -- General configuration ---------------------------------------------------
 
