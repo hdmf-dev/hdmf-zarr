@@ -256,7 +256,7 @@ class ZarrIO(HDMFIO):
             self.__cache_spec()
 
     def __cache_spec(self):
-        """Interanl function used to cache the spec in the current file"""
+        """Internal function used to cache the spec in the current file"""
         ref = self.__file.attrs.get(SPEC_LOC_ATTR)
         spec_group = None
         if ref is not None:
