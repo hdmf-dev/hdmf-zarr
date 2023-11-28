@@ -24,7 +24,7 @@ Supported features
 - Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator` 
 - Parallel write with :py:class:`~hdmf.data_utils.GenericDataChunkIterator` (since v0.4)
 - Lazy load of datasets
-- Lazy load of datasets containing object refernces (since v0.4)
+- Lazy load of datasets containing object references (since v0.4)
 
 Known Limitations
 -----------------
