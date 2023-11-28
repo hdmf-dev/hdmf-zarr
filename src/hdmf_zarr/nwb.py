@@ -27,9 +27,9 @@ try:
                  'doc': 'a path to a namespace, a TypeMap, or a list consisting paths  to namespaces and TypeMaps',
                  'default': None})
         def __init__(self, **kwargs):
-            path, mode, manager, extensions, load_namespaces, synchronizer = \
+            path, mode, manager, extensions, load_namespaces, synchronizer, storage_options = \
                 popargs('path', 'mode', 'manager', 'extensions',
-                        'load_namespaces', 'synchronizer', kwargs)
+                        'load_namespaces', 'synchronizer', 'storage_options', kwargs)
             if load_namespaces:
                 if manager is not None:
                     warn("loading namespaces from file - ignoring 'manager'")
@@ -52,7 +52,8 @@ try:
             super(NWBZarrIO, self).__init__(path,
                                             manager=manager,
                                             mode=mode,
-                                            synchronizer=synchronizer)
+                                            synchronizer=synchronizer,
+                                            storage_options=storage_options)
 
         @docval({'name': 'src_io', 'type': HDMFIO, 'doc': 'the HDMFIO object for reading the data to export'},
                 {'name': 'nwbfile', 'type': 'NWBFile',

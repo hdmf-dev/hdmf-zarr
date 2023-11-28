@@ -77,6 +77,7 @@ class ZarrIO(HDMFIO):
     @staticmethod
     def can_read(path):
         try:
+            # TODO: how to use storage_options? Maybe easier to just check for ".zarr" suffix
             zarr.open(path, mode="r")
             return True
         except Exception:
@@ -94,11 +95,14 @@ class ZarrIO(HDMFIO):
             {'name': 'object_codec_class', 'type': None,
              'doc': 'Set the numcodec object codec class to be used to encode objects.'
                     'Use numcodecs.pickles.Pickle by default.',
+             'default': None},
+            {'name': 'storage_options', 'type': dict,
+             'doc': 'Zarr storage options to read remote folders',
              'default': None})
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', kwargs)
+        path, manager, mode, synchronizer, object_codec_class, storage_options = popargs(
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', 'storage_options', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
@@ -112,6 +116,7 @@ class ZarrIO(HDMFIO):
         self.__mode = mode
         self.__path = path
         self.__file = None
+        self.__storage_options = storage_options
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = None  # Will be initialized on call to io.write
@@ -133,7 +138,7 @@ class ZarrIO(HDMFIO):
 
     @property
     def path(self):
-        """The path to the Zarr file as set by the use"""
+        """The path to the Zarr file as set by the user"""
         return self.__path
 
     @property
@@ -152,12 +157,23 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = self.open_file_consolidated()
+            self.__file = zarr.open(store=self.path,
+                                    mode=self.__mode,
+                                    synchronizer=self.__synchronizer,
+                                    storage_options=self.__storage_options)
 
     def close(self):
         """Close the Zarr file"""
         self.__file = None
         return
+
+    def is_remote(self):
+        """Return True if the file is remote, False otherwise"""
+        from zarr.storage import FSStore
+        if isinstance(self.file.store, FSStore):
+            return True
+        else:
+            return False
 
     @classmethod
     @docval({'name': 'namespace_catalog',
@@ -171,7 +187,8 @@ class ZarrIO(HDMFIO):
         '''
         Load cached namespaces from a file.
         '''
-        f = zarr.open(path, 'r')
+        # TODO: how to use storage_options here?
+        f = zarr.open(path, mode='r')
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
             warnings.warn(msg)
@@ -651,19 +668,21 @@ class ZarrIO(HDMFIO):
         else:
             source_file = str(zarr_ref['source'])
         # Resolve the path relative to the current file
-        source_file = os.path.abspath(os.path.join(self.source, source_file))
+        if not self.is_remote():
+            source_file = os.path.abspath(os.path.join(self.source, source_file))
+        else:
+            # get rid of extra "/" and "./" in the path root and source_file
+            root_path = str(self.path).rstrip("/")
+            source_path = str(source_file).lstrip(".")
+            source_file = root_path + source_path
+
         object_path = zarr_ref.get('path', None)
-        # full_path = None
-        # if os.path.isdir(source_file):
-        #    if object_path is not None:
-        #        full_path = os.path.join(source_file, object_path.lstrip('/'))
-        #    else:
-        #        full_path = source_file
         if object_path:
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
-        target_zarr_obj = zarr.open(source_file, mode='r')
+
+        target_zarr_obj = zarr.open(source_file, mode='r', storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
