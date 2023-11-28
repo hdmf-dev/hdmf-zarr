@@ -8,7 +8,7 @@ HAVE_FSSPEC = check_s3fs_ffspec_installed()
 class TestFSSpecStreaming(unittest.TestCase):
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming(self):
-        # PLACEHOLDER test file from Allen Insitute for Neural Dynamics
+        # PLACEHOLDER test file from Allen Institute for Neural Dynamics
         # TODO: store a small test file and use it to speed up testing
         remote_path = (
             "s3://aind-open-data/ecephys_625749_2022-08-03_15-15-06_nwb_2023-05-16_16-34-55/"
