@@ -30,8 +30,8 @@ project_root = os.path.dirname(os.path.dirname(cwd))
 # This lets us ensure that the source package is imported, and that its
 # version is used.
 sys.path.insert(0, os.path.join(project_root, 'src'))
-from hdmf_zarr._version import get_versions
 
+import hdmf_zarr
 
 # -- Autodoc configuration -----------------------------------------------------
 autoclass_content = 'both'
