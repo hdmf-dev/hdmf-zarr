@@ -79,6 +79,7 @@ class ZarrIO(HDMFIO):
         try:
             # TODO: how to use storage_options? Maybe easier to just check for ".zarr" suffix
             zarr.open(path, mode="r")
+            self.__open_file_consolidated(source=path, mode='r')
             return True
         except Exception:
             return False
@@ -157,22 +158,10 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            # self.__file = zarr.open(store=self.path,
-            #                         mode=self.__mode,
-            #                         synchronizer=self.__synchronizer,
-            #                         storage_options=self.__storage_options)
-            # # breakpoint()
-            if self.__mode == 'w':
-                self.__file = zarr.open(store=self.path,
-                                        mode=self.__mode,
-                                        synchronizer=self.__synchronizer,
-                                        storage_options=self.__storage_options)
-            else:
-                self.__file = self.__open_file_consolidated(store=self.path,
-                                                            mode=self.__mode,
-                                                            synchronizer=self.__synchronizer,
-                                                            storage_options=self.__storage_options)
-
+            self.__file = self.__open_file_consolidated(store=self.path,
+                                                        mode=self.__mode,
+                                                        synchronizer=self.__synchronizer,
+                                                        storage_options=self.__storage_options)
 
     def close(self):
         """Close the Zarr file"""
@@ -200,6 +189,7 @@ class ZarrIO(HDMFIO):
         Load cached namespaces from a file.
         '''
         # TODO: how to use storage_options here?
+        # f = self.__open_file_consolidated(source=path, mode='r')
         f = zarr.open(path, mode='r')
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
@@ -439,10 +429,9 @@ class ZarrIO(HDMFIO):
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
 
         # Consolidate metadata for the entire file after everything has been written
-        # breakpoint()
-        zarr.consolidate_metadata(store=self.path)
+        zarr.consolidate_metadata(self.__file, metadata_key='.zmetadata')
 
-    def consolidate_metadata(self, store):
+    def consolidate_metadata(self):
         """
         When a file is written, the metadata within the file is consolidated automatically.
         If there are any metadata changes, the user needs to consolidate the metadata again
@@ -451,7 +440,7 @@ class ZarrIO(HDMFIO):
         Consolidate all metadata for groups and arrays within the given store into a
         single resource and put it under .zmetadata.
         """
-        zarr.consolidate_metadata(store, metadata_key='.zmetadata')
+        zarr.consolidate_metadata(self.__path, metadata_key='.zmetadata')
 
     def __open_file_consolidated(self,
                                  store,
@@ -461,21 +450,20 @@ class ZarrIO(HDMFIO):
         """
         This method will check to see if the metadata has been consolidated, if so
         """
-        try:
-            temp = os.path.isfile(self.path+'/.zmetadata')
-        except TypeError:
-            temp = os.path.isfile(self.path.path+'/.zmetadata')
-        if temp:
-            return zarr.open_consolidated(store=store,
+
+        if os.path.isfile(self.__path+'/.zmetadata'):
+            zarr.open_consolidated(store=store,
                                    mode=mode,
                                    synchronizer=synchronizer,
                                    storage_options=storage_options)
         else:
             msg = "Could not find consolidated metadata."
             warnings.warn(msg)
-            return zarr.open(store=self.path,
-                             mode=self.__mode,
-                             synchronizer=self.__synchronizer)
+
+            zarr.open(store=store,
+                      mode=mode,
+                      synchronizer=synchronizer,
+                      storage_options=storage_options)
 
     @docval({'name': 'parent', 'type': Group, 'doc': 'the parent Zarr object'},
             {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder to write'},
@@ -626,11 +614,7 @@ class ZarrIO(HDMFIO):
         # In Zarr the path is a combination of the path of the store and the path of the object. So we first need to
         # merge those two paths, then remove the path of the file, add the missing leading "/" and then compute the
         # directory name to get the path of the parent
-        if isinstance(zarr_object.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = zarr_object.store.store.path
-        else:
-            fpath = zarr_object.store.path
-        fullpath = os.path.normpath(os.path.join(fpath, zarr_object.path)).replace("\\", "/")
+        fullpath = os.path.normpath(os.path.join(zarr_object.store.path, zarr_object.path)).replace("\\", "/")
         # To determine the filepath we now iterate over the path and check if the .zgroup object exists at
         # a level, indicating that we are still within the Zarr file. The first level we hit where the parent
         # directory does not have a .zgroup means we have found the main file
@@ -709,6 +693,7 @@ class ZarrIO(HDMFIO):
             target_name = ROOT_NAME
 
         target_zarr_obj = zarr.open(source_file, mode='r', storage_options=self.__storage_options)
+        # target_zarr_obj = self.__open_file_consolidated(store=source_file, mode='r', storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -941,11 +926,7 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             if link_data:
-                if isinstance(data.store, zarr.storage.ConsolidatedMetadataStore):
-                    path =  data.store.store.path
-                else:
-                    path = data.store.path
-                self.__add_link__(parent, path, data.name, name)
+                self.__add_link__(parent, data.store.path, data.name, name)
                 linked = True
                 dset = None
             else:
@@ -1261,11 +1242,7 @@ class ZarrIO(HDMFIO):
         return f_builder
 
     def __set_built(self, zarr_obj, builder):
-        # fpath = zarr_obj.store.path
-        if isinstance(zarr_obj.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = zarr_obj.store.store.path
-        else:
-            fpath = zarr_obj.store.path
+        fpath = zarr_obj.store.path
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
@@ -1305,19 +1282,12 @@ class ZarrIO(HDMFIO):
         :type zarr_obj: Zarr Group or Dataset
         :return: Builder in the self.__built cache or None
         """
-
-        if isinstance(zarr_obj.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = zarr_obj.store.store.path
-        else:
-            fpath = zarr_obj.store.path
-
-        # fpath = zarr_obj.store.path
+        fpath = zarr_obj.store.path
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
 
     def __read_group(self, zarr_obj, name=None):
-        # breakpoint()
         ret = self.__get_built(zarr_obj)
         if ret is not None:
             return ret
