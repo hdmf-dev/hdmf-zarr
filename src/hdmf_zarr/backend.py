@@ -468,13 +468,16 @@ class ZarrIO(HDMFIO):
                                  synchronizer = None,
                                  storage_options = None):
         """
-        This method will check to see if the metadata has been consolidated, if so
+        This method will check to see if the metadata has been consolidated.
+        If so, use open_consolidated.
         """
-        try:
-            temp = os.path.isfile(self.path+'/.zmetadata')
-        except TypeError:
-            temp = os.path.isfile(self.path.path+'/.zmetadata')
-        if temp:
+        # self.path can be both a string or a one of the `SUPPORTED_ZARR_STORES`.
+        if isinstance(self.path, str):
+            path = self.path
+        else:
+            path = self.path.path
+
+        if os.path.isfile(path+'/.zmetadata'):
             return zarr.open_consolidated(store=store,
                                    mode=mode,
                                    synchronizer=synchronizer,
