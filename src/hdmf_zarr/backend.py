@@ -448,16 +448,17 @@ class ZarrIO(HDMFIO):
         """
         zarr.consolidate_metadata(store, metadata_key='.zmetadata')
 
-    def __get_store_path(self, zarr_object):
+    @staticmethod
+    def __get_store_path(store):
         """
         Method to retrieve the path from the Zarr storage.
         ConsolidatedMetadataStore wraps around other Zarr Store objects, requiring a check to
         retrieve the path.
         """
-        if isinstance(zarr_object.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = zarr_object.store.store.path
+        if isinstance(store, zarr.storage.ConsolidatedMetadataStore):
+            fpath = store.store.path
         else:
-            fpath = zarr_object.store.path
+            fpath = store.path
 
         return fpath
 
@@ -627,7 +628,8 @@ class ZarrIO(HDMFIO):
             path = "%s%s" % (delim, delim.join(reversed(names)))
         return path
 
-    def get_zarr_paths(self, zarr_object):
+    @staticmethod
+    def get_zarr_paths(zarr_object):
         """
         For a Zarr object find 1) the path to the main zarr file it is in and 2) the path to the object within the file
         :param zarr_object: Object for which we are looking up the path
@@ -637,7 +639,7 @@ class ZarrIO(HDMFIO):
         # In Zarr the path is a combination of the path of the store and the path of the object. So we first need to
         # merge those two paths, then remove the path of the file, add the missing leading "/" and then compute the
         # directory name to get the path of the parent
-        fpath = self.__get_store_path(zarr_object)
+        fpath = ZarrIO._ZarrIO__get_store_path(zarr_object.store)
         fullpath = os.path.normpath(os.path.join(fpath, zarr_object.path)).replace("\\", "/")
         # To determine the filepath we now iterate over the path and check if the .zgroup object exists at
         # a level, indicating that we are still within the Zarr file. The first level we hit where the parent
@@ -651,14 +653,15 @@ class ZarrIO(HDMFIO):
         # return the result
         return filepath, objectpath
 
-    def get_zarr_parent_path(self, zarr_object):
+    @staticmethod
+    def get_zarr_parent_path(zarr_object):
         """
         Get the location of the parent of a zarr_object within the file
         :param zarr_object: Object for which we are looking up the path
         :type zarr_object: Zarr Group or Array
         :return: String with the path
         """
-        filepath, objectpath = self.get_zarr_paths(zarr_object)
+        filepath, objectpath = ZarrIO.get_zarr_paths(zarr_object)
         parentpath = os.path.dirname(objectpath)
         return parentpath
 
@@ -948,7 +951,7 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             if link_data:
-                path = self.__get_store_path(data)
+                path = self.__get_store_path(data.store)
                 self.__add_link__(parent, path, data.name, name)
                 linked = True
                 dset = None
@@ -1266,7 +1269,7 @@ class ZarrIO(HDMFIO):
 
     def __set_built(self, zarr_obj, builder):
         # fpath = zarr_obj.store.path
-        fpath = self.__get_store_path(zarr_obj)
+        fpath = self.__get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
@@ -1307,7 +1310,7 @@ class ZarrIO(HDMFIO):
         :return: Builder in the self.__built cache or None
         """
 
-        fpath = self.__get_store_path(zarr_obj)
+        fpath = self.__get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
@@ -1323,7 +1326,7 @@ class ZarrIO(HDMFIO):
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
         ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
-        ret.location = self.get_zarr_parent_path(zarr_obj)
+        ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
         for sub_name, sub_group in zarr_obj.groups():
@@ -1418,7 +1421,7 @@ class ZarrIO(HDMFIO):
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
         ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
-        ret.location = self.get_zarr_parent_path(zarr_obj)
+        ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
         self.__set_built(zarr_obj, ret)
         return ret

@@ -1,0 +1,6 @@
+{
+    "data_type": "ElementIdentifiers",
+    "namespace": "hdmf-common",
+    "object_id": "6b8eebde-6762-43da-8d0c-885f3aef95dc",
+    "zarr_dtype": "int64"
+}

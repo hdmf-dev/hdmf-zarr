@@ -15,6 +15,9 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
+import zarr
+from hdmf.testing import TestCase
+from hdmf_zarr.backend import ZarrIO
 
 
 ######################################################
@@ -127,15 +130,26 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
 #########################################
 #  Consolidate Metadata tests
 #########################################
-# class TestConsolidateMetadata(TestCase):
-#     """
-#
-#     """
-#     def test_get_store_path(self):
-#         pass
-#
-#     def test_warning_consolidate_metadata(self):
-#         pass
-#
-#     def test_open_with_zmetadata(self):
-#         pass
+class TestConsolidateMetadata(TestCase):
+    """
+    Tests for consolidated metadata and corresponding helper methods.
+    """
+    def setUp(self):
+        self.store = DirectoryStore('example.zarr')
+        # zarr.consolidate_metadata(store)
+
+    def test_get_store_path_shallow(self):
+        store1 = DirectoryStore('example.zarr')
+        path = ZarrIO._ZarrIO__get_store_path(store1)
+
+    # def test_get_store_path_deep(self):
+    #     path =
+
+    # def test_warning_consolidate_metadata(self):
+    #     pass
+    #
+    # def test_open_with_zmetadata(self):
+    #     pass
+    #
+    # def test_open_with_zmetadata_references(self):
+    #     pass
