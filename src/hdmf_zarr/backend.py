@@ -158,7 +158,7 @@ class ZarrIO(HDMFIO):
         """Open the Zarr file"""
         if self.__file is None:
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
-            # As a result, when in 'w' mode, the file will not use consolidated metadata.
+            # As a result, when in other modes, the file will not use consolidated metadata.
             if self.__mode not in ['r', 'r+']:
                 self.__file = zarr.open(store=self.path,
                                         mode=self.__mode,
