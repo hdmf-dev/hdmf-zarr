@@ -170,7 +170,6 @@ class ZarrIO(HDMFIO):
                                                             synchronizer=self.__synchronizer,
                                                             storage_options=self.__storage_options)
 
-
     def close(self):
         """Close the Zarr file"""
         self.__file = None
@@ -465,8 +464,8 @@ class ZarrIO(HDMFIO):
     def __open_file_consolidated(self,
                                  store,
                                  mode,
-                                 synchronizer = None,
-                                 storage_options = None):
+                                 synchronizer=None,
+                                 storage_options=None):
         """
         This method will check to see if the metadata has been consolidated.
         If so, use open_consolidated.
@@ -479,9 +478,9 @@ class ZarrIO(HDMFIO):
 
         if os.path.isfile(path+'/.zmetadata'):
             return zarr.open_consolidated(store=store,
-                                   mode=mode,
-                                   synchronizer=synchronizer,
-                                   storage_options=storage_options)
+                                          mode=mode,
+                                          synchronizer=synchronizer,
+                                          storage_options=storage_options)
         else:
             msg = "Could not find consolidated metadata."
             warnings.warn(msg)
