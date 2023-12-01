@@ -18,6 +18,10 @@ from zarr.storage import (DirectoryStore,
 import zarr
 from hdmf.testing import TestCase
 from hdmf_zarr.backend import ZarrIO
+import os
+
+
+CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 ######################################################
@@ -137,13 +141,15 @@ class TestConsolidateMetadata(TestCase):
     def test_get_store_path_shallow(self):
         store = DirectoryStore('tests/unit/example.zarr')
         path = ZarrIO._ZarrIO__get_store_path(store)
-        # assert
+        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'example.zarr'))
+        self.assertEqual(path, expected_path)
 
     def test_get_store_path_deep(self):
         zarr_obj = zarr.open_consolidated('tests/unit/test_consolidate.zarr', mode='r')
         store = zarr_obj.store
         path = ZarrIO._ZarrIO__get_store_path(store)
-        # assert
+        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_consolidate.zarr'))
+        self.assertEqual(path, expected_path)
 
     # def test_warning_consolidate_metadata(self):
     #     pass
