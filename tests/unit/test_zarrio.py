@@ -150,12 +150,3 @@ class TestConsolidateMetadata(TestCase):
         path = ZarrIO._ZarrIO__get_store_path(store)
         expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_consolidate.zarr'))
         self.assertEqual(path, expected_path)
-
-    # def test_warning_consolidate_metadata(self):
-    #     pass
-    #
-    # def test_open_with_zmetadata(self):
-    #     pass
-    #
-    # def test_open_with_zmetadata_references(self):
-    #     pass
