@@ -1,0 +1,7 @@
+{
+    "data_type": "VectorData",
+    "description": "fixed set of elements referenced by quux",
+    "namespace": "hdmf-common",
+    "object_id": "a9335508-31e2-4cd4-a364-8cffeba78958",
+    "zarr_dtype": "object_"
+}

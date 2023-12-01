@@ -135,13 +135,15 @@ class TestConsolidateMetadata(TestCase):
     Tests for consolidated metadata and corresponding helper methods.
     """
     def test_get_store_path_shallow(self):
-        store1 = DirectoryStore('example.zarr')
-        path = ZarrIO._ZarrIO__get_store_path(store1)
+        store = DirectoryStore('tests/unit/example.zarr')
+        path = ZarrIO._ZarrIO__get_store_path(store)
         # assert
 
     def test_get_store_path_deep(self):
-        store1 = DirectoryStore('example.zarr')
-        zarr.storage.ConsolidatedMetadataStore(store=)
+        zarr_obj = zarr.open_consolidated('tests/unit/test_consolidate.zarr', mode='r')
+        store = zarr_obj.store
+        path = ZarrIO._ZarrIO__get_store_path(store)
+        # assert
 
     # def test_warning_consolidate_metadata(self):
     #     pass

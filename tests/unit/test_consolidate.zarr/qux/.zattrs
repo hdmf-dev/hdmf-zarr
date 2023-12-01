@@ -1,0 +1,7 @@
+{
+    "data_type": "VectorData",
+    "description": "a boolean column",
+    "namespace": "hdmf-common",
+    "object_id": "f311fa94-f5cc-4018-b778-100ba541c218",
+    "zarr_dtype": "bool_"
+}

@@ -437,16 +437,16 @@ class ZarrIO(HDMFIO):
         # Consolidate metadata for the entire file after everything has been written
         zarr.consolidate_metadata(store=self.path)
 
-    def consolidate_metadata(self, store):
-        """
-        When a file is written, the metadata within the file is consolidated automatically.
-        If there are any metadata changes, the user needs to consolidate the metadata again
-        with this method in order for the metadata to be read correctly.
-
-        Consolidate all metadata for groups and arrays within the given store into a
-        single resource and put it under .zmetadata.
-        """
-        zarr.consolidate_metadata(store, metadata_key='.zmetadata')
+    # def consolidate_metadata(store):
+    #     """
+    #     When a file is written, the metadata within the file is consolidated automatically.
+    #     If there are any metadata changes, the user needs to consolidate the metadata again
+    #     with this method in order for the metadata to be read correctly.
+    #
+    #     Consolidate all metadata for groups and arrays within the given store into a
+    #     single resource and put it under .zmetadata.
+    #     """
+    #     zarr.consolidate_metadata(store, metadata_key='.zmetadata')
 
     @staticmethod
     def __get_store_path(store):
@@ -456,6 +456,7 @@ class ZarrIO(HDMFIO):
         retrieve the path.
         """
         if isinstance(store, zarr.storage.ConsolidatedMetadataStore):
+            # breakpoint()
             fpath = store.store.path
         else:
             fpath = store.path
@@ -1268,7 +1269,6 @@ class ZarrIO(HDMFIO):
         return f_builder
 
     def __set_built(self, zarr_obj, builder):
-        # fpath = zarr_obj.store.path
         fpath = self.__get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)

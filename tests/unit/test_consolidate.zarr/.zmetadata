@@ -1,0 +1,194 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "colnames": [
+                "foo",
+                "bar",
+                "qux",
+                "quux"
+            ],
+            "data_type": "DynamicTable",
+            "description": "an example table",
+            "namespace": "hdmf-common",
+            "object_id": "c37d1abb-d4fb-44b8-978b-3792d65b7ef9"
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "bar/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": 0.0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "bar/.zattrs": {
+            "data_type": "VectorData",
+            "description": "a float column",
+            "namespace": "hdmf-common",
+            "object_id": "faf51caa-069c-4d26-ba1b-a4e59a5222d7",
+            "zarr_dtype": "float64"
+        },
+        "foo/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i8",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "foo/.zattrs": {
+            "data_type": "VectorData",
+            "description": "an int column",
+            "namespace": "hdmf-common",
+            "object_id": "503b7599-9ab9-46f5-b184-c5c03c6e40e4",
+            "zarr_dtype": "int64"
+        },
+        "id/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i8",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "id/.zattrs": {
+            "data_type": "ElementIdentifiers",
+            "namespace": "hdmf-common",
+            "object_id": "1e3b5569-0058-4476-a15f-1548cd25c5b0",
+            "zarr_dtype": "int64"
+        },
+        "quux/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|u1",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "quux/.zattrs": {
+            "data_type": "EnumData",
+            "description": "a enum column",
+            "elements": {
+                "value": {
+                    "object_id": null,
+                    "path": "/quux_elements",
+                    "source": ".",
+                    "source_object_id": "c37d1abb-d4fb-44b8-978b-3792d65b7ef9"
+                },
+                "zarr_dtype": "object"
+            },
+            "namespace": "hdmf-experimental",
+            "object_id": "1f806f14-eb04-4795-a558-69dc56410e76",
+            "zarr_dtype": "uint8"
+        },
+        "quux_elements/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|O",
+            "fill_value": 0,
+            "filters": [
+                {
+                    "id": "vlen-utf8"
+                }
+            ],
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "quux_elements/.zattrs": {
+            "data_type": "VectorData",
+            "description": "fixed set of elements referenced by quux",
+            "namespace": "hdmf-common",
+            "object_id": "a9335508-31e2-4cd4-a364-8cffeba78958",
+            "zarr_dtype": "object_"
+        },
+        "qux/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|b1",
+            "fill_value": false,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "qux/.zattrs": {
+            "data_type": "VectorData",
+            "description": "a boolean column",
+            "namespace": "hdmf-common",
+            "object_id": "f311fa94-f5cc-4018-b778-100ba541c218",
+            "zarr_dtype": "bool_"
+        }
+    },
+    "zarr_consolidated_format": 1
+}

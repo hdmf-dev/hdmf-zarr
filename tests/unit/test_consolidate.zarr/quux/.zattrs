@@ -1,0 +1,16 @@
+{
+    "data_type": "EnumData",
+    "description": "a enum column",
+    "elements": {
+        "value": {
+            "object_id": null,
+            "path": "/quux_elements",
+            "source": ".",
+            "source_object_id": "c37d1abb-d4fb-44b8-978b-3792d65b7ef9"
+        },
+        "zarr_dtype": "object"
+    },
+    "namespace": "hdmf-experimental",
+    "object_id": "1f806f14-eb04-4795-a558-69dc56410e76",
+    "zarr_dtype": "uint8"
+}

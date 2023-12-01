@@ -1,0 +1,7 @@
+{
+    "data_type": "VectorData",
+    "description": "a float column",
+    "namespace": "hdmf-common",
+    "object_id": "faf51caa-069c-4d26-ba1b-a4e59a5222d7",
+    "zarr_dtype": "float64"
+}
