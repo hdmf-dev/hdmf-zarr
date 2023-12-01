@@ -159,7 +159,7 @@ class ZarrIO(HDMFIO):
         if self.__file is None:
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in 'w' mode, the file will not use consolidated metadata.
-            if self.__mode == 'w':
+            if self.__mode not in ['r', 'r+']:
                 self.__file = zarr.open(store=self.path,
                                         mode=self.__mode,
                                         synchronizer=self.__synchronizer,
@@ -716,7 +716,7 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = zarr.open(source_file, mode='r', storage_options=self.__storage_options)
+        target_zarr_obj = self.__open_file_consolidated(source_file, mode='r', storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]

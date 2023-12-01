@@ -122,3 +122,20 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
     def setUp(self):
         super().setUp()
         self.store = [NestedDirectoryStore(p) for p in self.store_path]
+
+
+#########################################
+#  Consolidate Metadata tests
+#########################################
+# class TestConsolidateMetadata(TestCase):
+#     """
+#
+#     """
+#     def test_get_store_path(self):
+#         pass
+#
+#     def test_warning_consolidate_metadata(self):
+#         pass
+#
+#     def test_open_with_zmetadata(self):
+#         pass
