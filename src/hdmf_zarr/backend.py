@@ -472,8 +472,6 @@ class ZarrIO(HDMFIO):
                                           synchronizer=synchronizer,
                                           storage_options=storage_options)
         else:
-            msg = "Could not find consolidated metadata."
-            warnings.warn(msg)
             return zarr.open(store=self.path,
                              mode=self.__mode,
                              synchronizer=self.__synchronizer,
