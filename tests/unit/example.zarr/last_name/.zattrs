@@ -1,7 +1,0 @@
-{
-    "data_type": "VectorData",
-    "description": "the last name of the user",
-    "namespace": "hdmf-common",
-    "object_id": "ff302d07-62c1-4e84-b50a-75f4d8586e88",
-    "zarr_dtype": "str"
-}
