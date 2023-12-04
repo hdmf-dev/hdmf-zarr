@@ -10,13 +10,13 @@ classes will then be run here with all different backends so that we don't
 need to implement the tests separately for the different backends.
 """
 from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
+                                          ZarrStoreTestCase,
                                           BaseTestZarrWriteUnit,
                                           BaseTestExportZarrToZarr)
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
 import zarr
-from hdmf.testing import TestCase
 from hdmf_zarr.backend import ZarrIO
 import os
 
@@ -134,19 +134,21 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
 #########################################
 #  Consolidate Metadata tests
 #########################################
-class TestConsolidateMetadata(TestCase):
+class TestConsolidateMetadata(ZarrStoreTestCase):
     """
     Tests for consolidated metadata and corresponding helper methods.
     """
     def test_get_store_path_shallow(self):
-        store = DirectoryStore('tests/unit/example.zarr')
+        self.create_zarr(consolidate_metadata=False)
+        store = DirectoryStore(self.store)
         path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'example.zarr'))
+        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_io.zarr'))
         self.assertEqual(path, expected_path)
 
     def test_get_store_path_deep(self):
-        zarr_obj = zarr.open_consolidated('tests/unit/test_consolidate.zarr', mode='r')
+        self.create_zarr()
+        zarr_obj = zarr.open_consolidated(self.store, mode='r')
         store = zarr_obj.store
         path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_consolidate.zarr'))
+        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_io.zarr'))
         self.assertEqual(path, expected_path)

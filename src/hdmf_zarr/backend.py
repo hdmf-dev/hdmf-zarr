@@ -246,6 +246,14 @@ class ZarrIO(HDMFIO):
             ),
             "default": None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": (
+                "Boolean to consolidate metadata into a single a .zmetadata file within root group."
+            ),
+            "default": True,
+        }
     )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
@@ -406,11 +414,19 @@ class ZarrIO(HDMFIO):
             'doc': 'The source of the builders when exporting',
             'default': None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": (
+                "Boolean to consolidate metadata into a single a .zmetadata file within root group."
+            ),
+            "default": True,
+        }
     )
     def write_builder(self, **kwargs):
         """Write a builder to disk."""
-        f_builder, link_data, exhaust_dci, export_source = getargs(
-            'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        f_builder, link_data, exhaust_dci, export_source, consolidate_metadata = getargs(
+            'builder', 'link_data', 'exhaust_dci', 'export_source', 'consolidate_metadata', kwargs
         )
         for name, gbldr in f_builder.groups.items():
             self.write_group(
@@ -435,7 +451,8 @@ class ZarrIO(HDMFIO):
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
 
         # Consolidate metadata for the entire file after everything has been written
-        zarr.consolidate_metadata(store=self.path)
+        if consolidate_metadata:
+            zarr.consolidate_metadata(store=self.path)
 
     @staticmethod
     def __get_store_path(store):

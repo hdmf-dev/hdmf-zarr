@@ -87,6 +87,43 @@ class BaseZarrWriterTestCase(TestCase, metaclass=ABCMeta):
                     warnings.warn("Could not remove: %s" % path)
 
 
+class ZarrStoreTestCase(TestCase):
+    """
+    Class that creates a zarr file containing groups, datasets, and references for
+    general purpose testing.
+    """
+    def setUp(self):
+        self.manager = get_foo_buildmanager()
+        self.store = "tests/unit/test_io.zarr"
+
+    def tearDown(self):
+        shutil.rmtree(self.store)
+
+    def createReferenceBuilder(self):
+        data_1 = np.arange(100, 200, 10).reshape(2, 5)
+        data_2 = np.arange(0, 200, 10).reshape(4, 5)
+        dataset_1 = DatasetBuilder('dataset_1', data_1)
+        dataset_2 = DatasetBuilder('dataset_2', data_2)
+
+        ref_dataset_1 = ReferenceBuilder(dataset_1)
+        ref_dataset_2 = ReferenceBuilder(dataset_2)
+        ref_data = [ref_dataset_1, ref_dataset_2]
+        dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype='object')
+
+        builder = GroupBuilder('root',
+                               source=self.store,
+                               datasets={'dataset_1': dataset_1,
+                                         'dataset_2': dataset_2,
+                                         'ref_dataset': dataset_ref})
+        return builder
+
+    def create_zarr(self, consolidate_metadata=True):
+        builder = self.createReferenceBuilder()
+        writer = ZarrIO(self.store, manager=self.manager, mode='a')
+        writer.write_builder(builder, consolidate_metadata)
+        writer.close()
+
+
 class BaseTestZarrWriter(BaseZarrWriterTestCase):
     """
     Test writing of builder with ZarrIO
