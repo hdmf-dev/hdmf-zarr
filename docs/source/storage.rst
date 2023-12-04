@@ -398,6 +398,6 @@ be stored in ``/specifications/core/2.0.1/nwb.ecephys``).
 Consolidating Metadata
 ======================
 
-Zarr allows users to consolidate all metadata for groups and arrays within the given store. In practice, every file
+Zarr allows users to consolidate all metadata for groups and arrays within the given store. By default, every file
 will consolidate all metadata within into a single `.zmetadata` file, stored in the root group. This reduces the number of read
 operations when retrieving certain metadata in read mode.
