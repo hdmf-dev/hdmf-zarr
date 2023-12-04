@@ -93,7 +93,6 @@ class ZarrStoreTestCase(TestCase):
     general purpose testing.
     """
     def setUp(self):
-        self.manager = get_foo_buildmanager()
         self.store = "tests/unit/test_io.zarr"
 
     def tearDown(self):
@@ -119,7 +118,7 @@ class ZarrStoreTestCase(TestCase):
 
     def create_zarr(self, consolidate_metadata=True):
         builder = self.createReferenceBuilder()
-        writer = ZarrIO(self.store, manager=self.manager, mode='a')
+        writer = ZarrIO(self.store, mode='a')
         writer.write_builder(builder, consolidate_metadata)
         writer.close()
 
