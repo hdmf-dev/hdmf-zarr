@@ -26,6 +26,7 @@ tutorial.
 
 from datetime import datetime
 from dateutil.tz import tzlocal
+import zarr
 
 import numpy as np
 from pynwb import NWBFile
@@ -142,3 +143,15 @@ with NWBZarrIO(path=path, mode="w") as io:
 # relative ``path`` here instead is fine.
 with NWBZarrIO(path=absolute_path, mode="r") as io:
     infile = io.read()
+
+###############################################################################
+# Consolidating Metadata
+# ----------------------
+# When writing to Zarr, the metadata within the file will be consolidated into a single
+# file within the root group, `.zmetadata`. Users who do not wish to consolidate the
+# metadata can set the boolean parameter `consolidate_metadata` to `False` within `write`.
+# Even when the metadata is consolidated, the metadata natively within the file can be altered.
+# Any alterations within would require the user to call `zarr.convenience.consolidate_metadata()`
+# to sync the file with the changes. Please refer to the Zarr documentation for more details:
+# https://zarr.readthedocs.io/en/stable/tutorial.html#storage-alternatives
+zarr.consolidate_metadata(path)
