@@ -157,10 +157,18 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            self.__file = zarr.open(store=self.path,
-                                    mode=self.__mode,
-                                    synchronizer=self.__synchronizer,
-                                    storage_options=self.__storage_options)
+            # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
+            # As a result, when in other modes, the file will not use consolidated metadata.
+            if self.__mode not in ['r', 'r+']:
+                self.__file = zarr.open(store=self.path,
+                                        mode=self.__mode,
+                                        synchronizer=self.__synchronizer,
+                                        storage_options=self.__storage_options)
+            else:
+                self.__file = self.__open_file_consolidated(store=self.path,
+                                                            mode=self.__mode,
+                                                            synchronizer=self.__synchronizer,
+                                                            storage_options=self.__storage_options)
 
     def close(self):
         """Close the Zarr file"""
@@ -238,6 +246,14 @@ class ZarrIO(HDMFIO):
             ),
             "default": None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": (
+                "Consolidate metadata into a single .zmetadata file in the root group to accelerate read."
+            ),
+            "default": True,
+        }
     )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
@@ -398,11 +414,19 @@ class ZarrIO(HDMFIO):
             'doc': 'The source of the builders when exporting',
             'default': None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": (
+                "Consolidate metadata into a single .zmetadata file in the root group to accelerate read."
+            ),
+            "default": True,
+        }
     )
     def write_builder(self, **kwargs):
         """Write a builder to disk."""
-        f_builder, link_data, exhaust_dci, export_source = getargs(
-            'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
+        f_builder, link_data, exhaust_dci, export_source, consolidate_metadata = getargs(
+            'builder', 'link_data', 'exhaust_dci', 'export_source', 'consolidate_metadata', kwargs
         )
         for name, gbldr in f_builder.groups.items():
             self.write_group(
@@ -425,6 +449,50 @@ class ZarrIO(HDMFIO):
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
                           (f_builder.__class__.__qualname__, f_builder.name, self.source))
+
+        # Consolidate metadata for the entire file after everything has been written
+        if consolidate_metadata:
+            zarr.consolidate_metadata(store=self.path)
+
+    @staticmethod
+    def __get_store_path(store):
+        """
+        Method to retrieve the path from the Zarr storage.
+        ConsolidatedMetadataStore wraps around other Zarr Store objects, requiring a check to
+        retrieve the path.
+        """
+        if isinstance(store, zarr.storage.ConsolidatedMetadataStore):
+            fpath = store.store.path
+        else:
+            fpath = store.path
+
+        return fpath
+
+    def __open_file_consolidated(self,
+                                 store,
+                                 mode,
+                                 synchronizer=None,
+                                 storage_options=None):
+        """
+        This method will check to see if the metadata has been consolidated.
+        If so, use open_consolidated.
+        """
+        # self.path can be both a string or a one of the `SUPPORTED_ZARR_STORES`.
+        if isinstance(self.path, str):
+            path = self.path
+        else:
+            path = self.path.path
+
+        if os.path.isfile(path+'/.zmetadata'):
+            return zarr.open_consolidated(store=store,
+                                          mode=mode,
+                                          synchronizer=synchronizer,
+                                          storage_options=storage_options)
+        else:
+            return zarr.open(store=self.path,
+                             mode=self.__mode,
+                             synchronizer=self.__synchronizer,
+                             storage_options=self.__storage_options)
 
     @docval({'name': 'parent', 'type': Group, 'doc': 'the parent Zarr object'},
             {'name': 'builder', 'type': GroupBuilder, 'doc': 'the GroupBuilder to write'},
@@ -575,7 +643,8 @@ class ZarrIO(HDMFIO):
         # In Zarr the path is a combination of the path of the store and the path of the object. So we first need to
         # merge those two paths, then remove the path of the file, add the missing leading "/" and then compute the
         # directory name to get the path of the parent
-        fullpath = os.path.normpath(os.path.join(zarr_object.store.path, zarr_object.path)).replace("\\", "/")
+        fpath = ZarrIO._ZarrIO__get_store_path(zarr_object.store)
+        fullpath = os.path.normpath(os.path.join(fpath, zarr_object.path)).replace("\\", "/")
         # To determine the filepath we now iterate over the path and check if the .zgroup object exists at
         # a level, indicating that we are still within the Zarr file. The first level we hit where the parent
         # directory does not have a .zgroup means we have found the main file
@@ -653,7 +722,7 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = zarr.open(source_file, mode='r', storage_options=self.__storage_options)
+        target_zarr_obj = self.__open_file_consolidated(source_file, mode='r', storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -886,7 +955,8 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             if link_data:
-                self.__add_link__(parent, data.store.path, data.name, name)
+                path = self.__get_store_path(data.store)
+                self.__add_link__(parent, path, data.name, name)
                 linked = True
                 dset = None
             else:
@@ -1202,7 +1272,7 @@ class ZarrIO(HDMFIO):
         return f_builder
 
     def __set_built(self, zarr_obj, builder):
-        fpath = zarr_obj.store.path
+        fpath = self.__get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
@@ -1242,7 +1312,8 @@ class ZarrIO(HDMFIO):
         :type zarr_obj: Zarr Group or Dataset
         :return: Builder in the self.__built cache or None
         """
-        fpath = zarr_obj.store.path
+
+        fpath = self.__get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
@@ -1258,7 +1329,7 @@ class ZarrIO(HDMFIO):
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
         ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
-        ret.location = self.get_zarr_parent_path(zarr_obj)
+        ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
         for sub_name, sub_group in zarr_obj.groups():
@@ -1353,7 +1424,7 @@ class ZarrIO(HDMFIO):
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
         ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
-        ret.location = self.get_zarr_parent_path(zarr_obj)
+        ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
         self.__set_built(zarr_obj, ret)
         return ret
