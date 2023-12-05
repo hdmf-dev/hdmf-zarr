@@ -64,18 +64,16 @@ packages = ["src/hdmf_zarr"]
 
 [tool.pytest.ini_options]
 addopts = "--cov --cov-report html"
-norecursedirs = "tests/unit/helpers"
 
 [tool.codespell]
-skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,hdmf-common-schema,./docs/_build/*,*.ipynb"
+skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,./docs/_build/*,*.ipynb"
 ignore-words-list = "datas"
 
 [tool.coverage.run]
 branch = true
 source = ["src/"]
 omit = [
-    "src/hdmf/_due.py",
-    "src/hdmf/testing/*",
+    "src/hdmf_zarr/_due.py",
 ]
 
 [tool.coverage.report]
