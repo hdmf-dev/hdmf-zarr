@@ -418,7 +418,7 @@ class ZarrIO(HDMFIO):
             "name": "consolidate_metadata",
             "type": bool,
             "doc": (
-                "Boolean to consolidate metadata into a single a .zmetadata file within root group."
+                "Consolidate metadata into a single .zmetadata file in the root group to accelerate read."
             ),
             "default": True,
         }
