@@ -4,6 +4,7 @@
 
 ### Enhancements
 * Fix linking for FSSpec and support passing of `storage_options` required reading data from S3 #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
+* Updated versioning to hatch-vcs and deprecated setup.py in full transition to `pyproject.toml`. @mavaylon1 [#143](https://github.com/hdmf-dev/hdmf-zarr/pull/143)
 
 ## 0.4.0 (October 3, 2023)
 
