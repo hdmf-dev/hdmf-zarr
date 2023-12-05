@@ -401,3 +401,10 @@ Consolidating Metadata
 Zarr allows users to consolidate all metadata for groups and arrays within the given store. By default, every file
 will consolidate all metadata within into a single `.zmetadata` file, stored in the root group. This reduces the number of read
 operations when retrieving certain metadata in read mode.
+
+.. note::
+
+    When updating a file, the consolidated metadata will also need to be updated via 
+    `zarr.consolidate_metadata(path)` to ensure the consolidated metadata is consistent 
+    with the file.
+
