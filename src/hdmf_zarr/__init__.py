@@ -2,9 +2,15 @@ from .backend import ZarrIO
 from .utils import ZarrDataIO
 from .nwb import NWBZarrIO
 
-from ._version import get_versions  # noqa: E402
-__version__ = get_versions()['version']
-del get_versions
+try:
+    # see https://effigies.gitlab.io/posts/python-packaging-2023/
+    from ._version import __version__
+except ImportError:  # pragma: no cover
+    # this is a relatively slower method for getting the version string
+    from importlib.metadata import version  # noqa: E402
+
+    __version__ = version("hdmf")
+    del version
 
 # Duecredit definitions
 from ._due import due, BibTeX  # noqa: E402

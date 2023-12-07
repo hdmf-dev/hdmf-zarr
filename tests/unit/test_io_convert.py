@@ -447,9 +447,6 @@ class TestHDF5ToZarrDynamicTableC0(MixinTestDynamicTableContainer,
     IGNORE_STRING_TO_BYTE = False
     TABLE_TYPE = 0
 
-    def test_simple(self, write_path=None, export_path=None):
-        print(write_path, export_path)
-
 
 class TestZarrToHDF5DynamicTableC0(MixinTestDynamicTableContainer,
                                    MixinTestZarrToHDF5,

@@ -5,6 +5,7 @@
 ### Enhancements
 * Added a new default to consolidate metadata in order more efficeintly traverse storage contents. @mavaylon1 [#142](https://github.com/hdmf-dev/hdmf-zarr/pull/142)
 * Fix linking for FSSpec and support passing of `storage_options` required reading data from S3 #138. @alejoe91 [#120](https://github.com/hdmf-dev/hdmf-zarr/pull/138)
+* Updated versioning to hatch-vcs and deprecated setup.py in full transition to `pyproject.toml`. @mavaylon1 [#143](https://github.com/hdmf-dev/hdmf-zarr/pull/143)
 
 ## 0.4.0 (October 3, 2023)
 
@@ -65,7 +66,7 @@
   links/reference when moving Zarr files @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bugs in requirements defined in setup.py @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bug regarding Sphinx external links @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
-* Updated gallery tests to use test_gallery.py and necessary package dependcies 
+* Updated gallery tests to use test_gallery.py and necessary package dependencies 
   @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
 * Updated dateset used in conversion tutorial, which caused warnings 
   @oruebel [#56](https://github.com/hdmf-dev/hdmf-zarr/pull/56)

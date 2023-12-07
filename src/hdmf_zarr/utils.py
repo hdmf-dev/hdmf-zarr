@@ -27,7 +27,7 @@ from hdmf.spec import SpecWriter, SpecReader
 # Necessary definitions to avoid parallelization bugs, Inherited from SpikeInterface experience
 # see
 # https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool
-# the tricks is : theses 2 variables are global per worker
+# the tricks is : these 2 variables are global per worker
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
@@ -36,7 +36,7 @@ global _operation_to_run
 class ZarrIODataChunkIteratorQueue(deque):
     """
     Helper class used by ZarrIO to manage the write for DataChunkIterators
-    Each queue element must be a tupple of two elements:
+    Each queue element must be a tuple of two elements:
     1) the dataset to write to and 2) the AbstractDataChunkIterator with the data
     :param number_of_jobs: The number of jobs used to write the datasets. The default is 1.
     :type number_of_jobs: integer
@@ -192,7 +192,7 @@ class ZarrIODataChunkIteratorQueue(deque):
 
                             results = tqdm(iterable=results, **progress_bar_options)
 
-                            # exector map must be iterated to deploy commands over jobs
+                            # executor map must be iterated to deploy commands over jobs
                             for size_in_MB, result in zip(size_in_MB_per_iteration, results):
                                 results.update(n=int(size_in_MB))  # int() to round down for better display
                         except Exception as exception:  # pragma: no cover
@@ -203,11 +203,11 @@ class ZarrIODataChunkIteratorQueue(deque):
                                 ),
                                 stacklevel=2,
                             )
-                            # exector map must be iterated to deploy commands over jobs
+                            # executor map must be iterated to deploy commands over jobs
                             for result in results:
                                 pass
                     else:
-                        # exector map must be iterated to deploy commands over jobs
+                        # executor map must be iterated to deploy commands over jobs
                         for result in results:
                             pass
 

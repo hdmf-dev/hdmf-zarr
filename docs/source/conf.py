@@ -30,8 +30,8 @@ project_root = os.path.dirname(os.path.dirname(cwd))
 # This lets us ensure that the source package is imported, and that its
 # version is used.
 sys.path.insert(0, os.path.join(project_root, 'src'))
-from hdmf_zarr._version import get_versions
 
+import hdmf_zarr
 
 # -- Autodoc configuration -----------------------------------------------------
 autoclass_content = 'both'
@@ -46,9 +46,9 @@ copyright = '2022, Oliver Ruebel'
 author = 'Oliver Ruebel, Matthew Avaylon'
 
 # The short X.Y version.
-version = '{}'.format(get_versions()['version'])
+version = hdmf_zarr.__version__
 # The full version, including alpha/beta/rc tags.
-release = '{}'.format(get_versions()['version'])
+release = hdmf_zarr.__version__
 
 # -- General configuration ---------------------------------------------------
 

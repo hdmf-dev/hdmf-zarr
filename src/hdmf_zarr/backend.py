@@ -272,7 +272,7 @@ class ZarrIO(HDMFIO):
             self.__cache_spec()
 
     def __cache_spec(self):
-        """Interanl function used to cache the spec in the current file"""
+        """Internal function used to cache the spec in the current file"""
         ref = self.__file.attrs.get(SPEC_LOC_ATTR)
         spec_group = None
         if ref is not None:
@@ -364,7 +364,7 @@ class ZarrIO(HDMFIO):
                               by this I/O backend
         :type check_on_disk: bool
         :return: True if the builder is found in self._written_builders using the builder ID, False otherwise. If
-                 check_on_disk is enabled then the function cals get_builder_exists_on_disk in addtion to verify
+                 check_on_disk is enabled then the function cals get_builder_exists_on_disk in addition to verify
                  that the builder has indeed been written to disk.
         """
         written = self._written_builders.get_written(builder)
@@ -1236,7 +1236,7 @@ class ZarrIO(HDMFIO):
         else:
             try:
                 dset[:] = data  # If data is an h5py.Dataset then this will copy the data
-            # For compound data types containing strings Zarr sometimes does not like wirting multiple values
+            # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
             except ValueError:
                 for i in range(len(data)):
@@ -1352,7 +1352,7 @@ class ZarrIO(HDMFIO):
         """
         Read the links associated with a zarr group
         :param zarr_obj: The Zarr group we should read links from
-        :type zarr_obj: zarr.hiearchy.Group
+        :type zarr_obj: zarr.hierarchy.Group
         :param parent: GroupBuilder with which the links need to be associated
         :type parent: GroupBuilder
         """
@@ -1379,7 +1379,7 @@ class ZarrIO(HDMFIO):
 
         if 'zarr_dtype' in zarr_obj.attrs:
             zarr_dtype = zarr_obj.attrs['zarr_dtype']
-        elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are mssing zarr_type
+        elif hasattr(zarr_obj, 'dtype'):   # Fallback for invalid files that are missing zarr_type
             zarr_dtype = zarr_obj.dtype
             warnings.warn(
                 "Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)
