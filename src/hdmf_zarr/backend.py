@@ -1012,17 +1012,20 @@ class ZarrIO(HDMFIO):
 
             if len(refs) > 0:
                 dset = parent.require_dataset(name,
-                                              shape=(len(data), ),
+                                              shape=(len(data), len(data[0])),
                                               dtype=object,
                                               object_codec=self.__codec_cls(),
                                               **options['io_settings'])
                 self._written_builders.set_written(builder)  # record that the builder has been written
                 dset.attrs['zarr_dtype'] = type_str
+                new_items = []
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
                         new_item[i] = self.__get_ref(item[i], export_source=export_source)
-                    dset[j] = new_item
+                    new_items.append(new_item)
+
+                dset[...] = np.array(new_items)
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
