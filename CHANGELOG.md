@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.5.0 (Upcoming)
+## 0.5.0 (December 8, 2023)
 
 ### Enhancements
 * Added a new default to consolidate metadata in order more efficeintly traverse storage contents. @mavaylon1 [#142](https://github.com/hdmf-dev/hdmf-zarr/pull/142)
