@@ -1018,11 +1018,20 @@ class ZarrIO(HDMFIO):
                                               **options['io_settings'])
                 self._written_builders.set_written(builder)  # record that the builder has been written
                 dset.attrs['zarr_dtype'] = type_str
+                new_items = []
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
                         new_item[i] = self.__get_ref(item[i], export_source=export_source)
-                    dset[j] = new_item
+                    new_items.append(tuple(new_item))
+                    # dset[j] = new_item
+
+                generated_dtype = []
+                for item in builder.dtype:
+                    if item['dtype'] == type('string'):
+                        item['dtype'] = 'U25'
+                    generated_dtype.append((item['name'], item['dtype']))
+                dset[...] = np.array(new_items, dtype=generated_dtype)
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)

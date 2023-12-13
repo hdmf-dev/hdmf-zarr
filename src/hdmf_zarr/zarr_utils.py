@@ -151,7 +151,8 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         return self.__dtype
 
     def __getitem__(self, arg):
-        rows = copy(super().__getitem__(arg))
+        rows = list(copy(super().__getitem__(arg)))
+        # breakpoint()
         if np.issubdtype(type(arg), np.integer):
             self.__swap_refs(rows)
         else:
