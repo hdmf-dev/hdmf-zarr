@@ -38,6 +38,8 @@ jobs:
         with:
           submodules: 'recursive'
           # fetch-depth: 0  # tags are required for versioneer to determine the version
+      - name: tag
+        run: git tag -l | sort -V
 
       - name: Set up Python
         uses: actions/setup-python@v4
