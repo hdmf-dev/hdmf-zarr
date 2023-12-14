@@ -2,10 +2,10 @@ Prepare for release of HDMF-Zarr [version]
 
 ### Before merging:
 - [ ] Major and minor releases: Update package versions in `requirements.txt`, `requirements-dev.txt`,
-  `requirements-doc.txt`, `requirements-min.txt`, and `setup.py` as needed
+  `requirements-doc.txt`, `requirements-min.txt`, and `pyproject.toml` as needed
 - [ ] Check legal file dates and information in `Legal.txt`, `license.txt`, `README.rst`, `docs/source/conf.py`,
   and any other locations as needed
-- [ ] Update `setup.py` as needed
+- [ ] Update `pyproject.toml` as needed
 - [ ] Update `README.rst` as needed
 - [ ] Update changelog (set release date) in `CHANGELOG.md` and any other docs as needed
 - [ ] Run tests locally including gallery tests, and inspect all warnings and outputs
