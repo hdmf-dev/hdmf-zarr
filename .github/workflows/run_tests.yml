@@ -12,9 +12,9 @@ jobs:
   run-tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
+    # defaults:
+    #   run:
+    #     shell: bash
     strategy:
       fail-fast: false
       matrix:
