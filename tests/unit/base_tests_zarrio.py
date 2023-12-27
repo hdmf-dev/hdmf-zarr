@@ -436,7 +436,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         read_builder = self.root['ref_dataset']
 
         # ensure the array was written as a compound array
-        ref_dtype = np.dtype([('id', '<i8'), ('name', '<U25'), ('reference', 'O')])
+        ref_dtype = np.dtype([('id', '<i4'), ('name', '<U25'), ('reference', 'O')])
         self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
 
         # Load the elements of each entry in the compound dataset and compar the index, string, and referenced array

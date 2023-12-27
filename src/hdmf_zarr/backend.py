@@ -1023,9 +1023,16 @@ class ZarrIO(HDMFIO):
                     new_items.append(tuple(new_item))
 
                 # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
+                # ---
+                # TODO: Replace with a simple one-liner once __resolve_dtype_helper__ is
+                # compatible with zarr's need for fixed-length string dtypes.
+                # dtype = self.__resolve_dtype_helper__(options['dtype'])
+
                 new_dtype = []
                 for field in options['dtype']:
-                    if field['dtype'] is str:
+                    if field['dtype'] is str or field['dtype'] in (
+                            'str', 'text', 'utf', 'utf8', 'utf-8', 'isodatetime'
+                    ):
                         new_dtype.append((field['name'], 'U25'))
                     elif isinstance(field['dtype'], dict):
                         # eg. for some references, dtype will be of the form
@@ -1033,7 +1040,7 @@ class ZarrIO(HDMFIO):
                         # which should just get serialized as an object
                         new_dtype.append((field['name'], 'O'))
                     else:
-                        new_dtype.append((field['name'], field['dtype']))
+                        new_dtype.append((field['name'], self.__resolve_dtype_helper__(field['dtype'])))
                 dtype = np.dtype(new_dtype)
 
                 # cast and store compound dataset
@@ -1171,8 +1178,10 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get(dtype)
         elif isinstance(dtype, dict):
             return cls.__dtypes.get(dtype['reftype'])
-        else:
+        elif isinstance(dtype, list):
             return np.dtype([(x['name'], cls.__resolve_dtype_helper__(x['dtype'])) for x in dtype])
+        else:
+            raise ValueError(f'Cant resolve dtype {dtype}')
 
     @classmethod
     def get_type(cls, data):
