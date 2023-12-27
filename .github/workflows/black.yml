@@ -10,4 +10,5 @@ jobs:
     - uses: actions/setup-python@v4
     - uses: pre-commit/action@v3.0.0
       with:
-        extra_args: black
+        extra_args: black --from-ref HEAD^1 --to-ref HEAD
+
