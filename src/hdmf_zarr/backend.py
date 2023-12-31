@@ -938,6 +938,11 @@ class ZarrIO(HDMFIO):
         name = builder.name
         data = builder.data if force_data is None else force_data
         options = dict()
+        # Check if data is a h5py.Dataset to infer I/O settings if necessary
+        if ZarrDataIO.is_h5py_dataset(data):
+            # Wrap the h5py.Dataset in ZarrDataIO with chunking and compression settings inferred from the input data
+            data = ZarrDataIO.from_h5py_dataset(h5dataset=data)
+        # Separate data values and io_settings for write
         if isinstance(data, ZarrDataIO):
             options['io_settings'] = data.io_settings
             link_data = data.link_data

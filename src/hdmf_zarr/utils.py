@@ -461,13 +461,83 @@ class ZarrDataIO(DataIO):
             self.__iosettings['filters'] = filters
 
     @property
-    def link_data(self):
+    def link_data(self) -> bool:
+        """Bool indicating should it be linked to or copied. NOTE: Only applies to zarr.Array type data"""
         return self.__link_data
 
     @property
-    def io_settings(self):
+    def io_settings(self) -> dict:
+        """"""
         return self.__iosettings
 
+    @staticmethod
+    def from_h5py_dataset(h5dataset, **kwargs):
+        """
+        Create a ZarrDataIO instance that wraps the given h5py dataset and infers
+        the filters that should be used in Zarr from the filters used in h5py.
+
+        :param dataset: h5py.Dataset object that should be wrapped
+        :type dataset: h5py.Dataset
+        :param **kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
+
+        :returns: ZarrDataIO object wrapping the dataset
+        """
+        filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        fillvalue = h5dataset.fillvalue if 'fillvalue' not in kwargs else kwargs.pop('fillvalue')
+        chunks = h5dataset.chunks if 'chunks' not in kwargs else kwargs.pop('chunks')
+        re = ZarrDataIO(
+            data=h5dataset,
+            filters=filters,
+            fillvalue=fillvalue,
+            chunks=chunks,
+            **kwargs)
+
+    @staticmethod
+    def hdf5_to_zarr_filters(self, h5dataset) -> list:
+        """From the given h5py.Dataset infer the corresponding filters to use in Zarr"""
+        # Based on https://github.com/fsspec/kerchunk/blob/617d9ce06b9d02375ec0e5584541fcfa9e99014a/kerchunk/hdf.py#L181
+        filters = []
+        # Check for unsupported filters
+        if h5dataset.scaleoffset:
+            # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
+            warnings.warn( f" {h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
+        if h5obj.compression in ("szip", "lzf"):
+            warnings.warn(f"{h5dateset.name} HDF5 szip or lzf compression ignored in Zarr")
+        # Add the shuffle filter if possible
+        if h5obj.shuffle and h5obj.dtype.kind != "O":
+            # cannot use shuffle if we materialised objects
+            filters.append(numcodecs.Shuffle(elementsize=h5dataset.dtype.itemsize))
+        # iterate through all the filters and add them to the list
+        for filter_id, properties in h5dataset._filters.items():
+            filter_id_str = str(filter_id)
+            if filter_id_str == "32001":
+                blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
+                (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
+                pars = dict(
+                    blocksize=total_bytes,
+                    clevel=clevel,
+                    shuffle=shuffle,
+                    cname=blosc_compressors[compressor])
+                filters.append(numcodecs.Blosc(**pars))
+            elif filter_id_str == "32015":
+                filters.append(numcodecs.Zstd(level=properties[0]))
+            elif filter_id_str == "gzip":
+                filters.append(numcodecs.Zlib(level=properties))
+            elif filter_id_str == "32004":
+                warnings.warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr"
+                )
+            elif filter_id_str == "32008":
+                warnings.warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
+            elif filter_id_str == "shuffle": # already handled above
+                pass
+            else:
+                warnings.warn(
+                    f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
+        return filters
+    @staticmethod
+    def is_h5py_dataset(obj):
+        """Check if the object is an instance of h5py.Dataset without requiring import of h5py"""
+        return (obj.__class__.__module__, obj.__class__.__name__) == ('h5py._hl.dataset', 'Dataset')
 
 class ZarrReference(dict):
     """
