@@ -473,8 +473,10 @@ class ZarrDataIO(DataIO):
     @staticmethod
     def from_h5py_dataset(h5dataset, **kwargs):
         """
-        Create a ZarrDataIO instance that wraps the given h5py dataset and infers
-        the filters that should be used in Zarr from the filters used in h5py.
+        Factory method to create a ZarrDataIO instance from a h5py.Dataset.
+        The ZarrDataIO object wraps the h5py.Dataset and the io filter settings
+        are inferred from filters used in h5py such that the options in Zarr match
+        (if possible) the options used in HDF5.
 
         :param dataset: h5py.Dataset object that should be wrapped
         :type dataset: h5py.Dataset
@@ -491,6 +493,7 @@ class ZarrDataIO(DataIO):
             fillvalue=fillvalue,
             chunks=chunks,
             **kwargs)
+        return re
 
     @staticmethod
     def hdf5_to_zarr_filters(h5dataset) -> list:
