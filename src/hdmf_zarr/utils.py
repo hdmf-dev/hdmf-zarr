@@ -493,7 +493,7 @@ class ZarrDataIO(DataIO):
             **kwargs)
 
     @staticmethod
-    def hdf5_to_zarr_filters(self, h5dataset) -> list:
+    def hdf5_to_zarr_filters(h5dataset) -> list:
         """From the given h5py.Dataset infer the corresponding filters to use in Zarr"""
         # Based on https://github.com/fsspec/kerchunk/blob/617d9ce06b9d02375ec0e5584541fcfa9e99014a/kerchunk/hdf.py#L181
         filters = []
