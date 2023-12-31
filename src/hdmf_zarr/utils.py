@@ -501,10 +501,10 @@ class ZarrDataIO(DataIO):
         if h5dataset.scaleoffset:
             # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
             warnings.warn( f" {h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
-        if h5obj.compression in ("szip", "lzf"):
+        if h5dataset.compression in ("szip", "lzf"):
             warnings.warn(f"{h5dateset.name} HDF5 szip or lzf compression ignored in Zarr")
         # Add the shuffle filter if possible
-        if h5obj.shuffle and h5obj.dtype.kind != "O":
+        if h5dataset.shuffle and h5dataset.dtype.kind != "O":
             # cannot use shuffle if we materialised objects
             filters.append(numcodecs.Shuffle(elementsize=h5dataset.dtype.itemsize))
         # iterate through all the filters and add them to the list
