@@ -35,13 +35,14 @@ customize the behavior of the mixin.
 import os
 import shutil
 import numpy as np
+import numcodecs
 from abc import ABCMeta, abstractmethod
 
 from hdmf_zarr.backend import (ZarrIO,
                                ROOT_NAME)
 from hdmf_zarr.zarr_utils import ContainerZarrReferenceDataset
 
-from hdmf.backends.hdf5.h5_utils import ContainerH5ReferenceDataset
+from hdmf.backends.hdf5.h5_utils import ContainerH5ReferenceDataset, H5DataIO
 from hdmf.backends.hdf5 import HDF5IO
 from hdmf.common import get_manager as get_hdmfcommon_manager
 from hdmf.testing import TestCase
@@ -820,6 +821,88 @@ class TestZarrToZarrCPD(TestCase):
                 baz_name = 'baz%d' % i
                 self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
                 self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+
+
+class TestHDF5toZarrWithFilters(TestCase):
+    """
+    Test conversion from HDF5 to Zarr while preserving HDF5 filter settings
+    """
+    def setUp(self):
+        self.hdf_filename = get_temp_filepath()
+        self.zarr_filename = get_temp_filepath()
+        self.out_container = None
+        self.read_container = None
+
+    def tearDown(self):
+        # close the ZarrIO used for reading
+        del self.out_container
+        del self.read_container
+        # clean up any opened files
+        for fn in  [self.hdf_filename, self.zarr_filename]:
+            if fn is not None and os.path.exists(fn):
+                if os.path.isdir(fn):
+                    shutil.rmtree(fn)
+                else:
+                    os.remove(fn)
+        self.filenames = []
+
+    def __roundtrip_data(self, data):
+        """Sets the variables self.out_container, self.read_container"""
+        # Create example foofile with the provided data (which may be wrapped in H5DataIO)
+        foo1 = Foo('foo1', data, "I am foo1", 17, 3.14)
+        foobucket = FooBucket('bucket1', [foo1,])
+        foofile = FooFile(buckets=[foobucket])
+        self.out_container = foofile
+
+        # write example HDF5 file with no filter settings
+        with HDF5IO(self.hdf_filename, manager=get_foo_buildmanager(), mode='w') as write_io:
+            write_io.write(foofile, cache_spec=True)
+        # Export the HDF5 file to Zarr
+        with HDF5IO(self.hdf_filename, manager=get_foo_buildmanager(), mode='r') as hdf_read_io:
+            with ZarrIO(self.zarr_filename, mode='w') as export_io:
+                export_io.export(src_io=hdf_read_io, write_args={'link_data': False})
+        # read and compare the containers
+        with ZarrIO(self.zarr_filename, mode='r', manager=get_foo_buildmanager()) as zarr_read_io:
+            self.read_container = zarr_read_io.read()
+
+    def __get_data_array(self, foo_container):
+        """For a container created by __roundtrip_data return the data array"""
+        return foo_container.buckets['bucket1'].foos['foo1'].my_data
+
+    def test_nofilters(self):
+        """basic test that export without any options specified is working as expected"""
+        data = list(range(5))
+        self.__roundtrip_data(data=data)
+        self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
+
+    def test_chunking(self):
+        """Test that chunking is being preserved"""
+        outdata = H5DataIO(data=list(range(100)), chunks=(10,))
+        self.__roundtrip_data(data=outdata)
+        self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
+        read_array = self.__get_data_array(self.read_container)
+        self.assertTupleEqual((10,), read_array.chunks)
+
+    def test_shuffle(self):
+        """Test that shuffle filter is being preserved"""
+        outdata = H5DataIO(data=list(range(100)), chunks=(10,), shuffle=True)
+        self.__roundtrip_data(data=outdata)
+        self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
+        read_array = self.__get_data_array(self.read_container)
+        self.assertEqual(len(read_array.filters), 1)
+        self.assertIsInstance(read_array.filters[0], numcodecs.Shuffle)
+        self.assertTupleEqual((10,), read_array.chunks)
+
+    def test_gzip(self):
+        """Test that gzip filter is being preserved"""
+        outdata = H5DataIO(data=list(range(100)), chunks=(10,), compression='gzip', compression_opts=2 )
+        self.__roundtrip_data(data=outdata)
+        self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
+        read_array = self.__get_data_array(self.read_container)
+        self.assertEqual(len(read_array.filters), 1)
+        self.assertIsInstance(read_array.filters[0], numcodecs.Zlib)
+        self.assertEqual(read_array.filters[0].level, 2)
+        self.assertTupleEqual((10,), read_array.chunks)
 
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source

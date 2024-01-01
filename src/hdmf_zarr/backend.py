@@ -344,8 +344,9 @@ class ZarrIO(HDMFIO):
         )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
-            raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
-                                       "link_data=True." % src_io.__class__.__name__)
+            raise UnsupportedOperation(f"Cannot export from non-Zarr backend { src_io.__class__.__name__} " +
+                                       "to Zarr with write argument link_data=True. "
+                                       + "Set write_args={'link_data': False}")
 
         write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
