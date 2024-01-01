@@ -538,6 +538,7 @@ class ZarrDataIO(DataIO):
             else:
                 warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
         return filters
+
     @staticmethod
     def is_h5py_dataset(obj):
         """Check if the object is an instance of h5py.Dataset without requiring import of h5py"""
