@@ -480,7 +480,7 @@ class ZarrDataIO(DataIO):
 
         :param dataset: h5py.Dataset object that should be wrapped
         :type dataset: h5py.Dataset
-        :param **kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
+        :param kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
 
         :returns: ZarrDataIO object wrapping the dataset
         """
