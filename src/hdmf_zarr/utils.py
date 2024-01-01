@@ -486,6 +486,8 @@ class ZarrDataIO(DataIO):
         """
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
         fillvalue = h5dataset.fillvalue if 'fillvalue' not in kwargs else kwargs.pop('fillvalue')
+        if isinstance(fillvalue, bytes): # bytes are not JSON serializable so use string instead
+            fillvalue = str(fillvalue)
         chunks = h5dataset.chunks if 'chunks' not in kwargs else kwargs.pop('chunks')
         re = ZarrDataIO(
             data=h5dataset,
