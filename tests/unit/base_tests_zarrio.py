@@ -1579,7 +1579,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         with OtherIO(manager=get_foo_buildmanager()) as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
-                msg = "Cannot export from non-Zarr backend OtherIO to Zarr with write argument link_data=True."
+                msg = ("Cannot export from non-Zarr backend OtherIO to Zarr with write argument link_data=True. "
+                       "Set write_args={'link_data': False}")
                 with self.assertRaisesWith(UnsupportedOperation, msg):
                     export_io.export(src_io=read_io, container=foofile)
 
