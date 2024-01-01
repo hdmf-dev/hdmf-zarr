@@ -467,7 +467,7 @@ class ZarrDataIO(DataIO):
 
     @property
     def io_settings(self) -> dict:
-        """"""
+        """Dict with the io settings to use"""
         return self.__iosettings
 
     @staticmethod
