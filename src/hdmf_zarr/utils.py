@@ -485,14 +485,14 @@ class ZarrDataIO(DataIO):
         :returns: ZarrDataIO object wrapping the dataset
         """
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
-        fillvalue = h5dataset.fillvalue if 'fillvalue' not in kwargs else kwargs.pop('fillvalue')
-        if isinstance(fillvalue, bytes): # bytes are not JSON serializable so use string instead
-            fillvalue = str(fillvalue)
+        fillval = h5dataset.fillvalue if 'fillvalue' not in kwargs else kwargs.pop('fillvalue')
+        if isinstance(fillval, bytes): # bytes are not JSON serializable so use string instead
+            fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if 'chunks' not in kwargs else kwargs.pop('chunks')
         re = ZarrDataIO(
             data=h5dataset,
             filters=filters,
-            fillvalue=fillvalue,
+            fillvalue=fillval,
             chunks=chunks,
             **kwargs)
         return re

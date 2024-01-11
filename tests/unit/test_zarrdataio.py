@@ -217,3 +217,21 @@ class TestZarrDataIO(TestCase):
         self.assertIsInstance(re_zarrdataio.io_settings['filters'][1], numcodecs.Zlib)
         # Close the HDF5 file
         h5file.close()
+
+    def test_from_h5py_datase_bytes_fillvaluet(self):
+        """
+        Test ZarrDataIO.from_h5py_dataset with a fillvalue that is in bytes, which needs to be handled
+        separately since bytes are not JSON serializable by default
+        """
+        h5file = h5py.File(self.hdf_filename, mode='a')
+        # print(np.arange(10, dtype=np.int8).tobytes())
+        h5dset = h5file.create_dataset(
+            name='test_str',
+            data=[b'hello', b'world', b'go'],
+            fillvalue=b'None')
+        re_zarrdataio = ZarrDataIO.from_h5py_dataset(h5dset)
+        # Test that all settings are being presevered when creating the ZarrDataIO object
+        self.assertIsInstance(re_zarrdataio, ZarrDataIO)
+        self.assertEqual(re_zarrdataio.io_settings['fill_value'], str("None"))
+        # Close the HDF5 file
+        h5file.close()
