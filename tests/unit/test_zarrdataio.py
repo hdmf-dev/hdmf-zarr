@@ -218,7 +218,7 @@ class TestZarrDataIO(TestCase):
         # Close the HDF5 file
         h5file.close()
 
-    def test_from_h5py_datase_bytes_fillvaluet(self):
+    def test_from_h5py_dataset_bytes_fillvalue(self):
         """
         Test ZarrDataIO.from_h5py_dataset with a fillvalue that is in bytes, which needs to be handled
         separately since bytes are not JSON serializable by default
