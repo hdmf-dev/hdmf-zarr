@@ -844,7 +844,6 @@ class TestHDF5toZarrWithFilters(TestCase):
                     shutil.rmtree(fn)
                 else:
                     os.remove(fn)
-        self.filenames = []
 
     def __roundtrip_data(self, data):
         """Sets the variables self.out_container, self.read_container"""
@@ -903,6 +902,7 @@ class TestHDF5toZarrWithFilters(TestCase):
         self.assertIsInstance(read_array.filters[0], numcodecs.Zlib)
         self.assertEqual(read_array.filters[0].level, 2)
         self.assertTupleEqual((10,), read_array.chunks)
+
 
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source

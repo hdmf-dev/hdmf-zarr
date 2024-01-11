@@ -505,7 +505,7 @@ class ZarrDataIO(DataIO):
         # Check for unsupported filters
         if h5dataset.scaleoffset:
             # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
-            warn( f" {h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
+            warn( f"{h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
         if h5dataset.compression in ("szip", "lzf"):
             warn(f"{h5dataset.name} HDF5 szip or lzf compression ignored in Zarr")
         # Add the shuffle filter if possible
@@ -529,8 +529,7 @@ class ZarrDataIO(DataIO):
             elif filter_id_str == "gzip":
                 filters.append(numcodecs.Zlib(level=properties))
             elif filter_id_str == "32004":
-                warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr"
-                )
+                warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
             elif filter_id_str == "32008":
                 warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
             elif filter_id_str == "shuffle": # already handled above
