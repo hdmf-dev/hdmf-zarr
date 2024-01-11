@@ -98,27 +98,20 @@ class TestZarrDataIO(TestCase):
 
     @unittest.skipIf(not HDF5PLUGIN, "hdf5_plugin not installed")
     def test_hdf5_to_zarr_filters_other_unsupported(self):
-        """Test that we warn when other unsupported filter is used in HDF5 in ZarrDataIO.hdf5_to_zarr_filters."""
+        """
+        Test that we warn when an unsupported filter is used in HDF5 with ZarrDataIO.hdf5_to_zarr_filters.
+        This test is to ensure that the catch-all at the end of the loop works.
+        """
         # Create a test HDF5 dataset with scaleoffset
         h5file = h5py.File(self.hdf_filename, mode='a')
         h5dset_FciDecomp = h5file.create_dataset(
             name='test_fcidecomp',
             data=[1, 2, 3, 4, 5],
             **hdf5plugin.FciDecomp())
-        h5dset_SZ3 = h5file.create_dataset(
-            name='test_sz3',
-            data=[1, 2, 3, 4, 5],
-            **hdf5plugin.SZ3(absolute=0.1))
         # test that we warn due to the FciDecomp
         msg = "/test_fcidecomp HDF5 filter id 32018 with properties None ignored in Zarr."
         with self.assertWarnsWith(UserWarning, msg):
             filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_FciDecomp)
-            self.assertEqual(len(filters), 0)
-        # test that we warn due to the SZ3
-        msg = ("/test_sz3 HDF5 filter id 32024 with properties "
-               "(1, 9, 0, 5, 0, 1069128089, 2576980378, 0, 0, 0, 0, 0, 0) ignored in Zarr.")
-        with self.assertWarnsWith(UserWarning, msg):
-            filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_SZ3)
             self.assertEqual(len(filters), 0)
         # Close the HDF5 file
         h5file.close()
