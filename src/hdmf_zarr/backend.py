@@ -344,8 +344,9 @@ class ZarrIO(HDMFIO):
         )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
-            raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
-                                       "link_data=True." % src_io.__class__.__name__)
+            raise UnsupportedOperation(f"Cannot export from non-Zarr backend { src_io.__class__.__name__} " +
+                                       "to Zarr with write argument link_data=True. "
+                                       + "Set write_args={'link_data': False}")
 
         write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
@@ -938,6 +939,11 @@ class ZarrIO(HDMFIO):
         name = builder.name
         data = builder.data if force_data is None else force_data
         options = dict()
+        # Check if data is a h5py.Dataset to infer I/O settings if necessary
+        if ZarrDataIO.is_h5py_dataset(data):
+            # Wrap the h5py.Dataset in ZarrDataIO with chunking and compression settings inferred from the input data
+            data = ZarrDataIO.from_h5py_dataset(h5dataset=data)
+        # Separate data values and io_settings for write
         if isinstance(data, ZarrDataIO):
             options['io_settings'] = data.io_settings
             link_data = data.link_data
