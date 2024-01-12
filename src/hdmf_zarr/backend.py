@@ -1033,7 +1033,8 @@ class ZarrIO(HDMFIO):
                     if field['dtype'] is str or field['dtype'] in (
                             'str', 'text', 'utf', 'utf8', 'utf-8', 'isodatetime'
                     ):
-                        new_dtype.append((field['name'], 'U25'))
+                        # Zarr does not support variable length strings
+                        new_dtype.append((field['name'], 'O'))
                     elif isinstance(field['dtype'], dict):
                         # eg. for some references, dtype will be of the form
                         # {'target_type': 'Baz', 'reftype': 'object'}
