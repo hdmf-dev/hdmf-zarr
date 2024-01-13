@@ -426,7 +426,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         builder = self.createReferenceBuilder()['ref_dataset']
         read_builder = self.root['ref_dataset']
         # Load the linked arrays and confirm we get the same data as we had in the original builder
-        breakpoint()
+        # breakpoint()
         # for i, v in enumerate(read_builder['data']):
         #     self.assertTrue(np.all(builder['data'][i]['builder']['data'] == v['data'][:]))
 
@@ -435,24 +435,16 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.read()
         builder = self.createReferenceCompoundBuilder()['ref_dataset']
         read_builder = self.root['ref_dataset']
-        read_builder['data'][0]
-        #Load the elements of each entry in the compound dataset and compare the index, string, and referenced array
+
+        # ensure the array was written as a compound array
+        ref_dtype = np.dtype([('id', '<i4'), ('name', '<U'), ('reference', 'O')])
+        self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
         breakpoint()
+        # Load the elements of each entry in the compound dataset and compar the index, string, and referenced array
         # for i, v in enumerate(read_builder['data']):
-        #     # self.assertEqual(v[0], builder['data'][i][0])  # Compare index value from compound tuple
+        #     self.assertEqual(v[0], builder['data'][i][0])  # Compare index value from compound tuple
         #     self.assertEqual(v[1], builder['data'][i][1])  # Compare string value from compound tuple
-        # self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
-
-        # self.assertEqual(read_builder['data'].dataset[0][0], builder['data'][0][0])
-        # self.assertEqual(read_builder['data'].dataset[0][0], builder['data'][1][0])
-        # self.assertEqual(read_builder['data'].dataset[0][1], 'dataset_1')
-        # self.assertEqual(read_builder['data'].dataset[1][1], 'dataset_2')
-        # self.assertEqual(read_builder['data'].dataset[0][1], '/dataset_1')
-        # self.assertEqual(read_builder['data'].dataset[1][1], '/dataset_2')
-
-            # self.assertEqual(v[1], builder['data'][i][1])  # Compare string value from compound tuple
-            # self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
-
+        #     self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
 
     def test_read_reference_compound_buf(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)

@@ -1011,27 +1011,59 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
-                dset = parent.require_dataset(name,
-                                              shape=(len(data), ),
-                                              dtype=object,
-                                              object_codec=self.__codec_cls(),
-                                              **options['io_settings'])
+                # dset = parent.require_dataset(name,
+                #                               shape=(len(data), ),
+                #                               dtype=object,
+                #                               object_codec=self.__codec_cls(),
+                #                               **options['io_settings'])
                 self._written_builders.set_written(builder)  # record that the builder has been written
-                dset.attrs['zarr_dtype'] = type_str
+                # dset.attrs['zarr_dtype'] = type_str
                 new_items = []
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
                         new_item[i] = self.__get_ref(item[i], export_source=export_source)
                     new_items.append(tuple(new_item))
-                    # dset[j] = new_item
 
-                generated_dtype = []
-                for item in builder.dtype:
-                    if item['dtype'] == type('string'):
-                        item['dtype'] = 'U25'
-                    generated_dtype.append((item['name'], item['dtype']))
-                dset[...] = np.array(new_items, dtype=generated_dtype)
+                # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
+                # ---
+                # TODO: Replace with a simple one-liner once __resolve_dtype_helper__ is
+                # compatible with zarr's need for fixed-length string dtypes.
+                # dtype = self.__resolve_dtype_helper__(options['dtype'])
+
+                new_dtype = []
+                for field in options['dtype']:
+                    if field['dtype'] is str or field['dtype'] in ('str', 'text', 'utf', 'utf8', 'utf-8', 'isodatetime'):
+                        new_dtype.append((field['name'], 'U'))
+                    elif isinstance(field['dtype'], dict):
+                        # eg. for some references, dtype will be of the form
+                        # {'target_type': 'Baz', 'reftype': 'object'}
+                        # which should just get serialized as an object
+                        new_dtype.append((field['name'], 'O'))
+                    else:
+                        new_dtype.append((field['name'], self.__resolve_dtype_helper__(field['dtype'])))
+                dtype = np.dtype(new_dtype)
+
+                # cast and store compound dataset
+                arr = np.array(new_items, dtype=dtype)
+                dset = parent.require_dataset(
+                    name,
+                    shape=(len(arr),),
+                    dtype=dtype,
+                    object_codec=self.__codec_cls(),
+                    **options['io_settings']
+                )
+                dset.attrs['zarr_dtype'] = type_str
+                dset[...] = arr
+
+
+
+                # generated_dtype = []
+                # for item in builder.dtype:
+                #     if item['dtype'] == type('string'):
+                #         item['dtype'] = 'U25'
+                #     generated_dtype.append((item['name'], item['dtype']))
+                # dset[...] = np.array(new_items, dtype=generated_dtype)
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
@@ -1156,8 +1188,10 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get(dtype)
         elif isinstance(dtype, dict):
             return cls.__dtypes.get(dtype['reftype'])
-        else:
+        elif isinstance(dtype, list):
             return np.dtype([(x['name'], cls.__resolve_dtype_helper__(x['dtype'])) for x in dtype])
+        else:
+            raise ValueError(f'Cant resolve dtype {dtype}')
 
     @classmethod
     def get_type(cls, data):
