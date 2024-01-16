@@ -868,6 +868,12 @@ class TestHDF5toZarrWithFilters(TestCase):
         """For a container created by __roundtrip_data return the data array"""
         return foo_container.buckets['bucket1'].foos['foo1'].my_data
 
+    def test_maxshape(self):
+        """test when maxshape is set for the dataset"""
+        data = H5DataIO(data=list(range(5)), maxshape=(None,))
+        self.__roundtrip_data(data=data)
+        self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
+
     def test_nofilters(self):
         """basic test that export without any options specified is working as expected"""
         data = list(range(5))
