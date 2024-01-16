@@ -1174,9 +1174,8 @@ class ZarrIO(HDMFIO):
         io_settings = dict()
         if options is not None:
             dtype = options.get('dtype')
-            io_settings = options.get('io_settings')
-            if io_settings is None:
-                io_settings = dict()
+            if options.get('io_settings') is not None:
+                io_settings = options.get('io_settings')
         # Determine the dtype
         if not isinstance(dtype, type):
             try:
