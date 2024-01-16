@@ -1193,7 +1193,13 @@ class ZarrIO(HDMFIO):
             data_shape = io_settings.pop('shape')
         # If we have a numeric numpy array then use its shape
         elif isinstance(dtype, np.dtype) and np.issubdtype(dtype, np.number) or dtype == np.bool_:
-            data_shape = get_data_shape(data)
+            # HDMF's get_data_shape may return the maxshape of an HDF5 dataset which can include None values
+            # which Zarr does not allow for dataset shape. Check for the shape attribute first before falling
+            # back on get_data_shape
+            if hasattr(data, 'shape') and data.shape is not None:
+                data_shape = data.shape  
+            else:
+                data_shape = get_data_shape(data)
         # Deal with object dtype
         elif isinstance(dtype, np.dtype):
             data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
