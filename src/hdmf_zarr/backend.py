@@ -1174,9 +1174,8 @@ class ZarrIO(HDMFIO):
         io_settings = dict()
         if options is not None:
             dtype = options.get('dtype')
-            io_settings = options.get('io_settings')
-            if io_settings is None:
-                io_settings = dict()
+            if options.get('io_settings') is not None:
+                io_settings = options.get('io_settings')
         # Determine the dtype
         if not isinstance(dtype, type):
             try:
@@ -1191,9 +1190,16 @@ class ZarrIO(HDMFIO):
         # Determine the shape and update the dtype if necessary when dtype==object
         if 'shape' in io_settings:  # Use the shape set by the user
             data_shape = io_settings.pop('shape')
-        # If we have a numeric numpy array then use its shape
+        # If we have a numeric numpy-like array (e.g., numpy.array or h5py.Dataset) then use its shape
         elif isinstance(dtype, np.dtype) and np.issubdtype(dtype, np.number) or dtype == np.bool_:
-            data_shape = get_data_shape(data)
+            # HDMF's get_data_shape may return the maxshape of an HDF5 dataset which can include None values
+            # which Zarr does not allow for dataset shape. Check for the shape attribute first before falling
+            # back on get_data_shape
+            if hasattr(data, 'shape') and data.shape is not None:
+                data_shape = data.shape  
+            # This is a fall-back just in case. However this should not happen for standard numpy and h5py arrays 
+            else: # pragma: no cover
+                data_shape = get_data_shape(data) # pragma: no cover
         # Deal with object dtype
         elif isinstance(dtype, np.dtype):
             data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
