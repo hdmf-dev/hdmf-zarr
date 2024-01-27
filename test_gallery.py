@@ -49,12 +49,12 @@ _user_warning_transpose = (
     "length of electrodes. Your data may be transposed."
 )
 
-_deprication_warning_map = (
+_deprecation_warning_map = (
     'Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed '
     'in HDMF 3.0.'
 )
 
-_deprication_warning_fmt_docval_args = (
+_deprecation_warning_fmt_docval_args = (
     "fmt_docval_args will be deprecated in a future version of HDMF. Instead of using fmt_docval_args, "
     "call the function directly with the kwargs. Please note that fmt_docval_args "
     "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
@@ -62,11 +62,15 @@ _deprication_warning_fmt_docval_args = (
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
 )
 
-_deprication_warning_call_docval_func = (
+_deprecation_warning_call_docval_func = (
     "call the function directly with the kwargs. Please note that call_docval_func "
     "removes all arguments not accepted by the function's docval, so if you are passing kwargs that "
     "includes extra arguments and the function's docval does not allow extra arguments (allow_extra=True "
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
+)
+
+_deprecation_warning_pandas_pyarrow_re = (
+    r"\nPyarrow will become a required dependency of pandas.*"
 )
 
 
@@ -96,13 +100,13 @@ def run_gallery_tests():
         try:
             with warnings.catch_warnings(record=True):
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_map, category=DeprecationWarning
+                    "ignore", message=_deprecation_warning_map, category=DeprecationWarning
                 )
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_fmt_docval_args, category=PendingDeprecationWarning
+                    "ignore", message=_deprecation_warning_fmt_docval_args, category=PendingDeprecationWarning
                 )
                 warnings.filterwarnings(
-                    "ignore", message=_deprication_warning_call_docval_func, category=PendingDeprecationWarning
+                    "ignore", message=_deprecation_warning_call_docval_func, category=PendingDeprecationWarning
                 )
                 warnings.filterwarnings(
                     "ignore", message=_experimental_warning_re, category=UserWarning
@@ -126,6 +130,10 @@ def run_gallery_tests():
                 warnings.filterwarnings(
                     # this warning is triggered when downstream code such as pynwb uses pkg_resources>=5.13
                     "ignore", message=_pkg_resources_declare_warning_re, category=DeprecationWarning
+                )
+                warnings.filterwarnings(
+                    # this warning is triggered from pandas
+                    "ignore", message=_deprecation_warning_pandas_pyarrow_re, category=DeprecationWarning
                 )
                 _import_from_file(script_abs)
         except Exception:
