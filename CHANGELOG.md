@@ -1,5 +1,14 @@
 # HDMF-ZARR Changelog
 
+## 0.6.0 (Upcoming)
+
+### Enhancements
+* Enhanced `ZarrIO` and `ZarrDataIO` to infer io settings (e.g., chunking and compression) from HDF5 datasets to preserve storage settings on export if possible @oruebel [#153](https://github.com/hdmf-dev/hdmf-zarr/pull/153)
+
+### Bug Fixes
+* Fixed bug when converting HDF5 datasets with unlimited dimensions @oruebel [#155](https://github.com/hdmf-dev/hdmf-zarr/pull/155)
+* Adjust gallery tests to not fail on deprecation warnings from pandas. @rly [#157](https://github.com/hdmf-dev/hdmf-zarr/pull/157)
+
 ## 0.5.0 (December 8, 2023)
 
 ### Enhancements
@@ -32,11 +41,11 @@
 
 ### New Features
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
-  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``. 
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``.
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### Minor enhancements
-* Updated handling of references on read to simplify future integration of file-based Zarr 
+* Updated handling of references on read to simplify future integration of file-based Zarr
   stores (e.g., ZipStore or database stores). @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added ``can_read`` classmethod to ``ZarrIO``. @bendichter [#97](https://github.com/hdmf-dev/hdmf-zarr/pull/97)
 
@@ -45,7 +54,7 @@
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Fixed CI testing of minimum and optional installation requirement. @rly
   [#99](https://github.com/hdmf-dev/hdmf-zarr/pull/99)
-* Updated tests to handle upcoming changes to ``HDMFIO``. @rly 
+* Updated tests to handle upcoming changes to ``HDMFIO``. @rly
   [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
 
 
@@ -66,25 +75,25 @@
   links/reference when moving Zarr files @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bugs in requirements defined in setup.py @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bug regarding Sphinx external links @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
-* Updated gallery tests to use test_gallery.py and necessary package dependencies 
+* Updated gallery tests to use test_gallery.py and necessary package dependencies
   @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
-* Updated dateset used in conversion tutorial, which caused warnings 
+* Updated dateset used in conversion tutorial, which caused warnings
   @oruebel [#56](https://github.com/hdmf-dev/hdmf-zarr/pull/56)
 
 ### Docs
-* Added tutorial illustrating how to create a new NWB file with NWBZarrIO 
+* Added tutorial illustrating how to create a new NWB file with NWBZarrIO
   @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
-* Added docs for describing the mapping of HDMF schema to Zarr storage 
+* Added docs for describing the mapping of HDMF schema to Zarr storage
   @oruebel [#48](https://github.com/hdmf-dev/hdmf-zarr/pull/48)
-* Added ``docs/gallery/resources`` for storing local files used by the tutorial galleries 
+* Added ``docs/gallery/resources`` for storing local files used by the tutorial galleries
   @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
-* Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as 
+* Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as
   local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
 ## 0.1.0 (August 23, 2022)
 
 ### New features
 
-* Created new optional Zarr-based I/O backend for writing files using Zarr's `zarr.store.DirectoryStore` backend, 
-  including support for iterative write, chunking, compression, simple and compound data types, links, object 
+* Created new optional Zarr-based I/O backend for writing files using Zarr's `zarr.store.DirectoryStore` backend,
+  including support for iterative write, chunking, compression, simple and compound data types, links, object
   references, namespace and spec I/O.
