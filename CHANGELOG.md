@@ -4,6 +4,7 @@
 
 ### Enhancements
 * Enhanced `ZarrIO` and `ZarrDataIO` to infer io settings (e.g., chunking and compression) from HDF5 datasets to preserve storage settings on export if possible @oruebel [#153](https://github.com/hdmf-dev/hdmf-zarr/pull/153)
+* Update writing references in compound datasets to same-sized array, rather than iteratively as an array of lists. @sneakers-the-rat [#146](https://github.com/hdmf-dev/hdmf-zarr/pull/146)
 
 ### Bug Fixes
 * Fixed bug when converting HDF5 datasets with unlimited dimensions @oruebel [#155](https://github.com/hdmf-dev/hdmf-zarr/pull/155)
