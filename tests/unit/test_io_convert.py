@@ -36,6 +36,8 @@ import os
 import shutil
 import numpy as np
 import numcodecs
+from datetime import datetime
+from dateutil import tz
 from abc import ABCMeta, abstractmethod
 
 from hdmf_zarr.backend import (ZarrIO,
@@ -49,7 +51,6 @@ from hdmf.testing import TestCase
 from hdmf.common import DynamicTable
 from hdmf.common import CSRMatrix
 
-
 from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
                               Baz, BazData, BazBucket, get_baz_buildmanager,
                               BazCpdData, get_temp_filepath)
@@ -57,6 +58,12 @@ from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
+try:
+    import pynwb
+    PYNWB_AVAILABLE = True
+except ImportError:
+    PYNWB_AVAILABLE = False
+
 
 
 class MixinTestCaseConvert(metaclass=ABCMeta):
@@ -403,6 +410,40 @@ class MixinTestFoo():
         else:
             raise NotImplementedError("FOO_TYPE %i not implemented in test" % self.FOO_TYPE)
 
+############################################
+# HDMF Common test container mixins
+###########################################
+class MixinTestNWBFile():
+    """
+    Mixin class used in conjunction with MixinTestCaseConvert to create conversion tests that
+    test export of a basic NWBFile. This class only defines the setUpContainer function for the test.
+    The roundtripExportContainer function required for the test needs to be defined separately
+    (e.g., by another mixin or the test class itself)
+    """
+    TABLE_TYPE = 0
+
+    def get_manager(self):
+        return pynwb.get_manager()
+
+    def setUpContainer(self):
+        if not PYNWB_AVAILABLE:
+            self.skipTest('Skip test. PyNWB is not installed')
+
+        subject = pynwb.file.Subject(
+            subject_id="001",
+            species="Mus musculus",
+            sex="M",
+            date_of_birth=datetime(2018, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific")),
+            age="P1D",
+            description=None,
+        )
+        nwbfile = pynwb.file.NWBFile(
+            session_description="Test File",
+            identifier="0000",
+            session_start_time=datetime(2019, 4, 25, 2, 30, 3, tzinfo=tz.gettz("US/Pacific")),
+            subject=subject,
+        )
+        return nwbfile
 
 ########################################
 # HDMF Baz test dataset of references
@@ -637,6 +678,44 @@ class TestHDF5toZarrFooCase2(MixinTestFoo,
     IGNORE_HDMF_ATTRS = True
     IGNORE_STRING_TO_BYTE = True
     FOO_TYPE = MixinTestFoo.FOO_TYPES['link_data']
+
+
+class TestZarrToZarrNWBFile(MixinTestNWBFile,
+                            MixinTestZarrToZarr,
+                            MixinTestCaseConvert,
+                            TestCase):
+    """
+    Test the conversion of DynamicTable containers from Zarr to HDF5.
+    See MixinTestDynamicTableContainer.setUpContainer for the container spec.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = False
+
+
+class TestHDF5ToZarrNWBFile(MixinTestNWBFile,
+                            MixinTestHDF5ToZarr,
+                            MixinTestCaseConvert,
+                            TestCase):
+    """
+    Test the conversion of DynamicTable containers from Zarr to HDF5.
+    See MixinTestDynamicTableContainer.setUpContainer for the container spec.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = False
+
+class TestZarrToHDF5NWBFile(MixinTestNWBFile,
+                            MixinTestZarrToHDF5,
+                            MixinTestCaseConvert,
+                            TestCase):
+    """
+    Test the conversion of DynamicTable containers from Zarr to HDF5.
+    See MixinTestDynamicTableContainer.setUpContainer for the container spec.
+    """
+    IGNORE_NAME = True
+    IGNORE_HDMF_ATTRS = True
+    IGNORE_STRING_TO_BYTE = False
 
 
 ########################################

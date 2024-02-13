@@ -1137,6 +1137,7 @@ class ZarrIO(HDMFIO):
         "utf8": str,
         "utf-8": str,
         "ascii": bytes,
+        "bytes":  bytes,
         "str": str,
         "isodatetime": str,
         "string_": bytes,
@@ -1193,7 +1194,9 @@ class ZarrIO(HDMFIO):
     @classmethod
     def get_type(cls, data):
         if isinstance(data, str):
-            return str
+            return cls.__dtypes.get("str")
+        elif isinstance(data, bytes):
+            return cls.__dtypes.get("bytes")
         elif not hasattr(data, '__len__'):
             return type(data)
         else:
@@ -1230,8 +1233,8 @@ class ZarrIO(HDMFIO):
             # which Zarr does not allow for dataset shape. Check for the shape attribute first before falling
             # back on get_data_shape
             if hasattr(data, 'shape') and data.shape is not None:
-                data_shape = data.shape  
-            # This is a fall-back just in case. However this should not happen for standard numpy and h5py arrays 
+                data_shape = data.shape
+            # This is a fall-back just in case. However this should not happen for standard numpy and h5py arrays
             else: # pragma: no cover
                 data_shape = get_data_shape(data) # pragma: no cover
         # Deal with object dtype
