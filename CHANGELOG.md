@@ -8,6 +8,7 @@
 
 ### Bug Fixes
 * Fixed bug when converting HDF5 datasets with unlimited dimensions @oruebel [#155](https://github.com/hdmf-dev/hdmf-zarr/pull/155)
+* Fixed bug resolving bytes dtype when exporting from Zarr to Zarr @oruebel [#161](https://github.com/hdmf-dev/hdmf-zarr/pull/161)
 * Adjust gallery tests to not fail on deprecation warnings from pandas. @rly [#157](https://github.com/hdmf-dev/hdmf-zarr/pull/157)
 
 ## 0.5.0 (December 8, 2023)

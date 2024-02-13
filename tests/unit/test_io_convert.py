@@ -419,11 +419,6 @@ class MixinTestNWBFile():
     test export of a basic NWBFile. This class only defines the setUpContainer function for the test.
     The roundtripExportContainer function required for the test needs to be defined separately
     (e.g., by another mixin or the test class itself)
-    This mixin adds the class variable, ``TABLE_TYPE``  which is an int to select between different
-    container types for testing:
-
-    * ``TABLE_TYPE=0`` : Table of int, float, bool, Enum
-    * ``TABLE_TYPE=1`` : Table of int, float, str, bool, Enum
     """
     TABLE_TYPE = 0
 
