@@ -4,12 +4,13 @@
 
 ### Enhancements
 * Enhanced `ZarrIO` and `ZarrDataIO` to infer io settings (e.g., chunking and compression) from HDF5 datasets to preserve storage settings on export if possible @oruebel [#153](https://github.com/hdmf-dev/hdmf-zarr/pull/153)
-* Update writing references in compound datasets to same-sized array, rather than iteratively as an array of lists. @sneakers-the-rat [#146](https://github.com/hdmf-dev/hdmf-zarr/pull/146)
+* Updated writing references in compound datasets to same-sized array, rather than iteratively as an array of lists. @sneakers-the-rat [#146](https://github.com/hdmf-dev/hdmf-zarr/pull/146)
 
 ### Bug Fixes
 * Fixed bug when converting HDF5 datasets with unlimited dimensions @oruebel [#155](https://github.com/hdmf-dev/hdmf-zarr/pull/155)
 * Fixed bug resolving bytes dtype when exporting from Zarr to Zarr @oruebel [#161](https://github.com/hdmf-dev/hdmf-zarr/pull/161)
-* Adjust gallery tests to not fail on deprecation warnings from pandas. @rly [#157](https://github.com/hdmf-dev/hdmf-zarr/pull/157)
+* Adjusted gallery tests to not fail on deprecation warnings from pandas. @rly [#157](https://github.com/hdmf-dev/hdmf-zarr/pull/157)
+* Fixed bug in `pyproject.toml` where duplicate versions of `numcodec` where specified. @oruebel [#163](https://github.com/hdmf-dev/hdmf-zarr/pull/163)
 
 ## 0.5.0 (December 8, 2023)
 
