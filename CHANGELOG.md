@@ -13,7 +13,7 @@
 * Fixed bug in `pyproject.toml` where duplicate versions of `numcodec` where specified. @oruebel [#163](https://github.com/hdmf-dev/hdmf-zarr/pull/163)
 
 ### Internal Fixes
-* Updated actions in `deploy_release.yml` workflow to avoid use of deprecated Node.js 16 . @oruebel [#165](https://github.com/hdmf-dev/hdmf-zarr/pull/165)
+* Updated actions in `deploy_release.yml` workflow to avoid use of deprecated Node.js 16. @oruebel [#165](https://github.com/hdmf-dev/hdmf-zarr/pull/165)
 
 
 ## 0.5.0 (December 8, 2023)
