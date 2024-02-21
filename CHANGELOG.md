@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.6.0 (Upcoming)
+## 0.6.0 (February 21, 2024)
 
 ### Enhancements
 * Enhanced `ZarrIO` and `ZarrDataIO` to infer io settings (e.g., chunking and compression) from HDF5 datasets to preserve storage settings on export if possible @oruebel [#153](https://github.com/hdmf-dev/hdmf-zarr/pull/153)
