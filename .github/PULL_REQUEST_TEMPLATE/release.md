@@ -6,7 +6,6 @@ Prepare for release of HDMF-Zarr [version]
 - [ ] Check legal file dates and information in `Legal.txt`, `license.txt`, `README.rst`, `docs/source/conf.py`,
   and any other locations as needed
 - [ ] Update `pyproject.toml` as needed
-- [ ] Update `README.rst` as needed
 - [ ] Update changelog (set release date) in `CHANGELOG.md` and any other docs as needed
 - [ ] Run tests locally including gallery tests, and inspect all warnings and outputs
   (`pytest && python test_gallery.py`)
