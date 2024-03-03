@@ -122,6 +122,7 @@ exclude = [
   "src/hdmf_zarr/_due.py",
   "docs/source/tutorials/",
   "docs/_build/",
+  "test_gallery.py"
 ]
 line-length = 120
 
