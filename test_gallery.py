@@ -74,8 +74,7 @@ _deprecation_warning_pandas_pyarrow_re = (
 )
 
 _deprecation_warning_datetime = (
-    "datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. "
-    "Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC)."
+    r"datetime.datetime.utcfromtimestamp() *"
 )
 
 def run_gallery_tests():
