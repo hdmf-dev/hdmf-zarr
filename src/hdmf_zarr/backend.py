@@ -94,7 +94,7 @@ class ZarrIO(HDMFIO):
              'default': None},
             {'name': 'object_codec_class', 'type': None,
              'doc': 'Set the numcodec object codec class to be used to encode objects.'
-                    'Use numcodecs.pickles.Pickle by default.',
+                    'Use numcodecs.JSON by default.',
              'default': None},
             {'name': 'storage_options', 'type': dict,
              'doc': 'Zarr storage options to read remote folders',
