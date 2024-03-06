@@ -249,7 +249,7 @@ Zarr file. The individual object references are defined in the
 :py:class:`~hdmf_zarr.backend.ZarrIO` as py:class:`~hdmf_zarr.utils.ZarrReference` object created via
 the :py:meth:`~hdmf_zarr.backend.ZarrIO.__get_ref` helper function.
 
-By default, :py:class:`~hdmf_zarr.backend.ZarrIO` uses the ``numcodecs.pickles.Pickle`` codec to
+By default, :py:class:`~hdmf_zarr.backend.ZarrIO` uses the ``numcodecs.JSON`` codec to
 encode object references defined as py:class:`~hdmf_zarr.utils.ZarrReference` dicts in datasets.
 Users may set the codec used to encode objects in Zarr datasets via the ``object_codec_class``
 parameter of the :py:func:`~hdmf_zarr.backend.ZarrIO.__init__` constructor of

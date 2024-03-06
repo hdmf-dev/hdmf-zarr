@@ -17,7 +17,7 @@ from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 
 # Try to import numcodecs and disable compression tests if it is not available
 try:
-    from numcodecs import Blosc, Delta, JSON
+    from numcodecs import Blosc, Delta, JSON, Pickle
     DISABLE_ZARR_COMPRESSION_TESTS = False
 except ImportError:
     DISABLE_ZARR_COMPRESSION_TESTS = True
@@ -491,12 +491,12 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     #  ZarrDataIO general
     #############################################
     def test_set_object_codec(self):
-        # Test that the default codec is the Pickle store
+        # Test that the default codec is JSON
         tempIO = ZarrIO(self.store, mode='w')
-        self.assertEqual(tempIO.object_codec_class.__qualname__, 'Pickle')
-        del tempIO  # also calls tempIO.close()
-        tempIO = ZarrIO(self.store, mode='w', object_codec_class=JSON)
         self.assertEqual(tempIO.object_codec_class.__qualname__, 'JSON')
+        del tempIO  # also calls tempIO.close()
+        tempIO = ZarrIO(self.store, mode='w', object_codec_class=Pickle)
+        self.assertEqual(tempIO.object_codec_class.__qualname__, 'Pickle')
         tempIO.close()
 
     def test_synchronizer_constructor_arg_bool(self):

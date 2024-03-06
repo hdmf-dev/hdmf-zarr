@@ -94,7 +94,7 @@ class ZarrIO(HDMFIO):
              'default': None},
             {'name': 'object_codec_class', 'type': None,
              'doc': 'Set the numcodec object codec class to be used to encode objects.'
-                    'Use numcodecs.pickles.Pickle by default.',
+                    'Use numcodecs.JSON by default.',
              'default': None},
             {'name': 'storage_options', 'type': dict,
              'doc': 'Zarr storage options to read remote folders',
@@ -120,8 +120,8 @@ class ZarrIO(HDMFIO):
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = None  # Will be initialized on call to io.write
-        # Codec class to be used. Alternates, e.g., =numcodecs.JSON
-        self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
+        # Codec class to be used. Alternates, e.g., =numcodecs.pickles.Pickle
+        self.__codec_cls = numcodecs.JSON if object_codec_class is None else object_codec_class
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
@@ -1050,13 +1050,18 @@ class ZarrIO(HDMFIO):
                         new_dtype.append((field['name'], self.__resolve_dtype_helper__(field['dtype'])))
                 dtype = np.dtype(new_dtype)
 
+                object_codec = self.__codec_cls()
+                if not isinstance(object_codec, numcodecs.Pickle):
+                    warnings.warn(f'Resorting to Pickle codec for dataset {name} of {parent.name}')
+                    object_codec = numcodecs.Pickle()
+
                 # cast and store compound dataset
                 arr = np.array(new_items, dtype=dtype)
                 dset = parent.require_dataset(
                     name,
                     shape=(len(arr),),
                     dtype=dtype,
-                    object_codec=self.__codec_cls(),
+                    object_codec=object_codec,
                     **options['io_settings']
                 )
                 dset.attrs['zarr_dtype'] = type_str
@@ -1267,6 +1272,23 @@ class ZarrIO(HDMFIO):
         # Determine the shape from the data if all other cases have not been hit
         else:
             data_shape = get_data_shape(data)
+
+        # Let's check to see if we have a structured array somewhere in the data
+        # If we do, then we are going to resort to pickling the data and
+        # printing a warning.
+        has_structured_array = False
+        if dtype == object:
+            for c in np.ndindex(data_shape):
+                o = data
+                for i in c:
+                    o = o[i]
+                if isinstance(o, np.void) and o.dtype.names is not None:
+                    has_structured_array = True
+        if has_structured_array:
+            object_codec = io_settings.get('object_codec')
+            if not isinstance(object_codec, numcodecs.Pickle):
+                warnings.warn(f'Resorting to Pickle codec for {name} of {parent.name}.')
+                io_settings['object_codec'] = numcodecs.Pickle()
 
         # Create the dataset
         dset = parent.require_dataset(name, shape=data_shape, dtype=dtype, **io_settings)
