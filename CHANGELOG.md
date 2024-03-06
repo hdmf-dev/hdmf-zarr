@@ -4,7 +4,7 @@
 
 ### Enhancements
 
-* Changed default object_codec_class for ZarrIO to numcodecs.JSON. The issue with the old default (numcodecs.Pickle) was that it was not readable outside of Python. Also, exposed the object_codec_class as a parameter to the NWBZarrIO constructor.
+* Changed default object_codec_class for ZarrIO to numcodecs.JSON. The issue with the old default (numcodecs.Pickle) was that it was not readable outside of Python. Exposed the object_codec_class as a parameter to the NWBZarrIO constructor. Resort to Pickle for complex cases such as structured arrays or compound datasets with refs.
 
 ## 0.6.0 (February 21, 2024)
 

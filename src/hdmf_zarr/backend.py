@@ -1052,7 +1052,7 @@ class ZarrIO(HDMFIO):
 
                 object_codec = self.__codec_cls()
                 if not isinstance(object_codec, numcodecs.Pickle):
-                    print(f'Resorting to Pickle codec for dataset {name} of {parent.name}')
+                    warnings.warn(f'Resorting to Pickle codec for dataset {name} of {parent.name}')
                     object_codec = numcodecs.Pickle()
 
                 # cast and store compound dataset
@@ -1287,7 +1287,7 @@ class ZarrIO(HDMFIO):
         if has_structured_array:
             object_codec = io_settings.get('object_codec')
             if not isinstance(object_codec, numcodecs.Pickle):
-                print(f'Warning: Resorting to Pickle codec for {name} of {parent.name}.')
+                warnings.warn(f'Resorting to Pickle codec for {name} of {parent.name}.')
                 io_settings['object_codec'] = numcodecs.Pickle()
 
         # Create the dataset
