@@ -73,6 +73,9 @@ _deprecation_warning_pandas_pyarrow_re = (
     r"\nPyarrow will become a required dependency of pandas.*"
 )
 
+_deprecation_warning_datetime = (
+    r"datetime.datetime.utcfromtimestamp() *"
+)
 
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
@@ -134,6 +137,10 @@ def run_gallery_tests():
                 warnings.filterwarnings(
                     # this warning is triggered from pandas
                     "ignore", message=_deprecation_warning_pandas_pyarrow_re, category=DeprecationWarning
+                )
+                warnings.filterwarnings(
+                    # this is triggered from datetime
+                    "ignore", message=_deprecation_warning_datetime, category=DeprecationWarning
                 )
                 _import_from_file(script_abs)
         except Exception:
