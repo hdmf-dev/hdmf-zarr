@@ -1,5 +1,9 @@
 # HDMF-ZARR Changelog
 
+## 0.7.0 (Upcoming)
+### Enhancements
+* Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
+
 ## 0.6.0 (February 21, 2024)
 
 ### Enhancements
