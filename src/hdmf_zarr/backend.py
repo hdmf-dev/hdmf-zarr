@@ -344,8 +344,9 @@ class ZarrIO(HDMFIO):
         )
 
         if not isinstance(src_io, ZarrIO) and write_args.get('link_data', True):
-            raise UnsupportedOperation("Cannot export from non-Zarr backend %s to Zarr with write argument "
-                                       "link_data=True." % src_io.__class__.__name__)
+            raise UnsupportedOperation(f"Cannot export from non-Zarr backend { src_io.__class__.__name__} " +
+                                       "to Zarr with write argument link_data=True. "
+                                       + "Set write_args={'link_data': False}")
 
         write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
@@ -938,6 +939,11 @@ class ZarrIO(HDMFIO):
         name = builder.name
         data = builder.data if force_data is None else force_data
         options = dict()
+        # Check if data is a h5py.Dataset to infer I/O settings if necessary
+        if ZarrDataIO.is_h5py_dataset(data):
+            # Wrap the h5py.Dataset in ZarrDataIO with chunking and compression settings inferred from the input data
+            data = ZarrDataIO.from_h5py_dataset(h5dataset=data)
+        # Separate data values and io_settings for write
         if isinstance(data, ZarrDataIO):
             options['io_settings'] = data.io_settings
             link_data = data.link_data
@@ -1011,18 +1017,50 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
-                dset = parent.require_dataset(name,
-                                              shape=(len(data), ),
-                                              dtype=object,
-                                              object_codec=self.__codec_cls(),
-                                              **options['io_settings'])
+
                 self._written_builders.set_written(builder)  # record that the builder has been written
-                dset.attrs['zarr_dtype'] = type_str
+
+                # gather items to write
+                new_items = []
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
                         new_item[i] = self.__get_ref(item[i], export_source=export_source)
-                    dset[j] = new_item
+                    new_items.append(tuple(new_item))
+
+                # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
+                # ---
+                # TODO: Replace with a simple one-liner once __resolve_dtype_helper__ is
+                # compatible with zarr's need for fixed-length string dtypes.
+                # dtype = self.__resolve_dtype_helper__(options['dtype'])
+
+                new_dtype = []
+                for field in options['dtype']:
+                    if field['dtype'] is str or field['dtype'] in (
+                            'str', 'text', 'utf', 'utf8', 'utf-8', 'isodatetime'
+                    ):
+                        # Zarr does not support variable length strings
+                        new_dtype.append((field['name'], 'O'))
+                    elif isinstance(field['dtype'], dict):
+                        # eg. for some references, dtype will be of the form
+                        # {'target_type': 'Baz', 'reftype': 'object'}
+                        # which should just get serialized as an object
+                        new_dtype.append((field['name'], 'O'))
+                    else:
+                        new_dtype.append((field['name'], self.__resolve_dtype_helper__(field['dtype'])))
+                dtype = np.dtype(new_dtype)
+
+                # cast and store compound dataset
+                arr = np.array(new_items, dtype=dtype)
+                dset = parent.require_dataset(
+                    name,
+                    shape=(len(arr),),
+                    dtype=dtype,
+                    object_codec=self.__codec_cls(),
+                    **options['io_settings']
+                )
+                dset.attrs['zarr_dtype'] = type_str
+                dset[...] = arr
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
@@ -1099,6 +1137,7 @@ class ZarrIO(HDMFIO):
         "utf8": str,
         "utf-8": str,
         "ascii": bytes,
+        "bytes":  bytes,
         "str": str,
         "isodatetime": str,
         "string_": bytes,
@@ -1147,13 +1186,17 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get(dtype)
         elif isinstance(dtype, dict):
             return cls.__dtypes.get(dtype['reftype'])
-        else:
+        elif isinstance(dtype, list):
             return np.dtype([(x['name'], cls.__resolve_dtype_helper__(x['dtype'])) for x in dtype])
+        else:
+            raise ValueError(f'Cant resolve dtype {dtype}')
 
     @classmethod
     def get_type(cls, data):
         if isinstance(data, str):
-            return str
+            return cls.__dtypes.get("str")
+        elif isinstance(data, bytes):
+            return cls.__dtypes.get("bytes")
         elif not hasattr(data, '__len__'):
             return type(data)
         else:
@@ -1168,9 +1211,8 @@ class ZarrIO(HDMFIO):
         io_settings = dict()
         if options is not None:
             dtype = options.get('dtype')
-            io_settings = options.get('io_settings')
-            if io_settings is None:
-                io_settings = dict()
+            if options.get('io_settings') is not None:
+                io_settings = options.get('io_settings')
         # Determine the dtype
         if not isinstance(dtype, type):
             try:
@@ -1185,9 +1227,16 @@ class ZarrIO(HDMFIO):
         # Determine the shape and update the dtype if necessary when dtype==object
         if 'shape' in io_settings:  # Use the shape set by the user
             data_shape = io_settings.pop('shape')
-        # If we have a numeric numpy array then use its shape
+        # If we have a numeric numpy-like array (e.g., numpy.array or h5py.Dataset) then use its shape
         elif isinstance(dtype, np.dtype) and np.issubdtype(dtype, np.number) or dtype == np.bool_:
-            data_shape = get_data_shape(data)
+            # HDMF's get_data_shape may return the maxshape of an HDF5 dataset which can include None values
+            # which Zarr does not allow for dataset shape. Check for the shape attribute first before falling
+            # back on get_data_shape
+            if hasattr(data, 'shape') and data.shape is not None:
+                data_shape = data.shape
+            # This is a fall-back just in case. However this should not happen for standard numpy and h5py arrays
+            else: # pragma: no cover
+                data_shape = get_data_shape(data) # pragma: no cover
         # Deal with object dtype
         elif isinstance(dtype, np.dtype):
             data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know

@@ -1,5 +1,25 @@
 # HDMF-ZARR Changelog
 
+## 0.7.0 (Upcoming)
+### Enhancements
+* Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
+
+## 0.6.0 (February 21, 2024)
+
+### Enhancements
+* Enhanced `ZarrIO` and `ZarrDataIO` to infer io settings (e.g., chunking and compression) from HDF5 datasets to preserve storage settings on export if possible @oruebel [#153](https://github.com/hdmf-dev/hdmf-zarr/pull/153)
+* Updated writing references in compound datasets to same-sized array, rather than iteratively as an array of lists. @sneakers-the-rat [#146](https://github.com/hdmf-dev/hdmf-zarr/pull/146)
+
+### Bug Fixes
+* Fixed bug when converting HDF5 datasets with unlimited dimensions @oruebel [#155](https://github.com/hdmf-dev/hdmf-zarr/pull/155)
+* Fixed bug resolving bytes dtype when exporting from Zarr to Zarr @oruebel [#161](https://github.com/hdmf-dev/hdmf-zarr/pull/161)
+* Adjusted gallery tests to not fail on deprecation warnings from pandas. @rly [#157](https://github.com/hdmf-dev/hdmf-zarr/pull/157)
+* Fixed bug in `pyproject.toml` where duplicate versions of `numcodec` where specified. @oruebel [#163](https://github.com/hdmf-dev/hdmf-zarr/pull/163)
+
+### Internal Fixes
+* Updated actions in `deploy_release.yml` workflow to avoid use of deprecated Node.js 16. @oruebel [#165](https://github.com/hdmf-dev/hdmf-zarr/pull/165)
+
+
 ## 0.5.0 (December 8, 2023)
 
 ### Enhancements
@@ -32,11 +52,11 @@
 
 ### New Features
 * Added support, tests, and docs for using ``DirectoryStore``, ``TempStore``, and
-  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``. 
+  ``NestedDirectoryStore`` Zarr storage backends with ``ZarrIO`` and ``NWBZarrIO``.
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 
 ### Minor enhancements
-* Updated handling of references on read to simplify future integration of file-based Zarr 
+* Updated handling of references on read to simplify future integration of file-based Zarr
   stores (e.g., ZipStore or database stores). @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Added ``can_read`` classmethod to ``ZarrIO``. @bendichter [#97](https://github.com/hdmf-dev/hdmf-zarr/pull/97)
 
@@ -45,7 +65,7 @@
   @oruebel [#62](https://github.com/hdmf-dev/hdmf-zarr/pull/62)
 * Fixed CI testing of minimum and optional installation requirement. @rly
   [#99](https://github.com/hdmf-dev/hdmf-zarr/pull/99)
-* Updated tests to handle upcoming changes to ``HDMFIO``. @rly 
+* Updated tests to handle upcoming changes to ``HDMFIO``. @rly
   [#102](https://github.com/hdmf-dev/hdmf-zarr/pull/102)
 
 
@@ -66,25 +86,25 @@
   links/reference when moving Zarr files @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bugs in requirements defined in setup.py @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
 * Fixed bug regarding Sphinx external links @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
-* Updated gallery tests to use test_gallery.py and necessary package dependencies 
+* Updated gallery tests to use test_gallery.py and necessary package dependencies
   @mavaylon1 [#53](https://github.com/hdmf-dev/hdmf-zarr/pull/53)
-* Updated dateset used in conversion tutorial, which caused warnings 
+* Updated dateset used in conversion tutorial, which caused warnings
   @oruebel [#56](https://github.com/hdmf-dev/hdmf-zarr/pull/56)
 
 ### Docs
-* Added tutorial illustrating how to create a new NWB file with NWBZarrIO 
+* Added tutorial illustrating how to create a new NWB file with NWBZarrIO
   @oruebel [#46](https://github.com/hdmf-dev/hdmf-zarr/pull/46)
-* Added docs for describing the mapping of HDMF schema to Zarr storage 
+* Added docs for describing the mapping of HDMF schema to Zarr storage
   @oruebel [#48](https://github.com/hdmf-dev/hdmf-zarr/pull/48)
-* Added ``docs/gallery/resources`` for storing local files used by the tutorial galleries 
+* Added ``docs/gallery/resources`` for storing local files used by the tutorial galleries
   @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
-* Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as 
+* Removed dependency on ``dandi`` library for data download in the conversion tutorial by storing the NWB files as
   local resources @oruebel [#61](https://github.com/hdmf-dev/hdmf-zarr/pull/61)
 
 ## 0.1.0 (August 23, 2022)
 
 ### New features
 
-* Created new optional Zarr-based I/O backend for writing files using Zarr's `zarr.store.DirectoryStore` backend, 
-  including support for iterative write, chunking, compression, simple and compound data types, links, object 
+* Created new optional Zarr-based I/O backend for writing files using Zarr's `zarr.store.DirectoryStore` backend,
+  including support for iterative write, chunking, compression, simple and compound data types, links, object
   references, namespace and spec I/O.

@@ -434,6 +434,11 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.read()
         builder = self.createReferenceCompoundBuilder()['ref_dataset']
         read_builder = self.root['ref_dataset']
+
+        # ensure the array was written as a compound array
+        ref_dtype = np.dtype([('id', '<i4'), ('name', 'O'), ('reference', 'O')])
+        self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
+
         # Load the elements of each entry in the compound dataset and compar the index, string, and referenced array
         for i, v in enumerate(read_builder['data']):
             self.assertEqual(v[0], builder['data'][i][0])  # Compare index value from compound tuple
@@ -1579,7 +1584,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         with OtherIO(manager=get_foo_buildmanager()) as read_io:
             with ZarrIO(self.store[1], mode='w') as export_io:
-                msg = "Cannot export from non-Zarr backend OtherIO to Zarr with write argument link_data=True."
+                msg = ("Cannot export from non-Zarr backend OtherIO to Zarr with write argument link_data=True. "
+                       "Set write_args={'link_data': False}")
                 with self.assertRaisesWith(UnsupportedOperation, msg):
                     export_io.export(src_io=read_io, container=foofile)
 

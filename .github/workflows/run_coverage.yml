@@ -28,7 +28,7 @@ jobs:
           - { os: macos-latest  , opt_req: false }
     env:
       OS: ${{ matrix.os }}
-      PYTHON: '3.11'
+      PYTHON: '3.12'
     steps:
       - name: Cancel non-latest runs
         uses: styfle/cancel-workflow-action@0.11.0
@@ -36,12 +36,12 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON }}
 
@@ -60,6 +60,8 @@ jobs:
           python -m coverage xml  # codecov uploader requires xml format
           python -m coverage report -m
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
