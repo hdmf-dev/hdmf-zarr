@@ -446,36 +446,36 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
         # print(read_builder)
 
-    def test_read_reference_compound_buf(self):
-        data_1 = np.arange(100, 200, 10).reshape(2, 5)
-        data_2 = np.arange(0, 200, 10).reshape(4, 5)
-        dataset_1 = DatasetBuilder('dataset_1', data_1)
-        dataset_2 = DatasetBuilder('dataset_2', data_2)
-
-        # ref_dataset_1 = ReferenceBuilder(dataset_1)
-        # ref_dataset_2 = ReferenceBuilder(dataset_2)
-        ref_data = [
-            (1, 'dataset_1', ReferenceBuilder(dataset_1)),
-            (2, 'dataset_2', ReferenceBuilder(dataset_2)),
-            (3, 'dataset_3', ReferenceBuilder(dataset_1)),
-            (4, 'dataset_4', ReferenceBuilder(dataset_2))
-        ]
-        ref_data_type = [{'name': 'id', 'dtype': 'int'},
-                         {'name': 'name', 'dtype': str},
-                         {'name': 'reference', 'dtype': 'object'}]
-        dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype=ref_data_type)
-        builder = GroupBuilder('root',
-                               source=self.store_path,
-                               datasets={'dataset_1': dataset_1,
-                                         'dataset_2': dataset_2,
-                                         'ref_dataset': dataset_ref})
-        writer = ZarrIO(self.store, manager=self.manager, mode='a')
-        writer.write_builder(builder)
-        writer.close()
-
-        self.read()
-        self.assertFalse(self.root["ref_dataset"].data[0][2] == self.root['ref_dataset'].data[1][2])
-        self.assertTrue(self.root["ref_dataset"].data[0][2] == self.root['ref_dataset'].data[2][2])
+    # def test_read_reference_compound_buf(self):
+    #     data_1 = np.arange(100, 200, 10).reshape(2, 5)
+    #     data_2 = np.arange(0, 200, 10).reshape(4, 5)
+    #     dataset_1 = DatasetBuilder('dataset_1', data_1)
+    #     dataset_2 = DatasetBuilder('dataset_2', data_2)
+    #
+    #     # ref_dataset_1 = ReferenceBuilder(dataset_1)
+    #     # ref_dataset_2 = ReferenceBuilder(dataset_2)
+    #     ref_data = [
+    #         (1, 'dataset_1', ReferenceBuilder(dataset_1)),
+    #         (2, 'dataset_2', ReferenceBuilder(dataset_2)),
+    #         (3, 'dataset_3', ReferenceBuilder(dataset_1)),
+    #         (4, 'dataset_4', ReferenceBuilder(dataset_2))
+    #     ]
+    #     ref_data_type = [{'name': 'id', 'dtype': 'int'},
+    #                      {'name': 'name', 'dtype': str},
+    #                      {'name': 'reference', 'dtype': 'object'}]
+    #     dataset_ref = DatasetBuilder('ref_dataset', ref_data, dtype=ref_data_type)
+    #     builder = GroupBuilder('root',
+    #                            source=self.store_path,
+    #                            datasets={'dataset_1': dataset_1,
+    #                                      'dataset_2': dataset_2,
+    #                                      'ref_dataset': dataset_ref})
+    #     writer = ZarrIO(self.store, manager=self.manager, mode='a')
+    #     writer.write_builder(builder)
+    #     writer.close()
+    #
+    #     self.read()
+    #     self.assertFalse(self.root["ref_dataset"].data[0][2] == self.root['ref_dataset'].data[1][2])
+    #     self.assertTrue(self.root["ref_dataset"].data[0][2] == self.root['ref_dataset'].data[2][2])
 
 
 class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):

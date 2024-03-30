@@ -1,0 +1,16 @@
+{
+    "zarr_dtype": [
+        {
+            "dtype": "int32",
+            "name": "id"
+        },
+        {
+            "dtype": "str_",
+            "name": "name"
+        },
+        {
+            "dtype": "object",
+            "name": "reference"
+        }
+    ]
+}

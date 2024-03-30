@@ -121,7 +121,8 @@ class ZarrIO(HDMFIO):
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = None  # Will be initialized on call to io.write
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
-        self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
+        # self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
+        self.__codec_cls = numcodecs.JSON if object_codec_class is None else object_codec_class
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path

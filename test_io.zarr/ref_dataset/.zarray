@@ -1,0 +1,49 @@
+{
+    "chunks": [
+        2
+    ],
+    "compressor": {
+        "blocksize": 0,
+        "clevel": 5,
+        "cname": "lz4",
+        "id": "blosc",
+        "shuffle": 1
+    },
+    "dtype": [
+        [
+            "id",
+            "<i4"
+        ],
+        [
+            "name",
+            "|O"
+        ],
+        [
+            "reference",
+            "|O"
+        ]
+    ],
+    "fill_value": "WzAsIjxpOCIsW11d",
+    "filters": [
+        {
+            "allow_nan": true,
+            "check_circular": true,
+            "encoding": "utf-8",
+            "ensure_ascii": true,
+            "id": "json2",
+            "indent": null,
+            "separators": [
+                ",",
+                ":"
+            ],
+            "skipkeys": false,
+            "sort_keys": true,
+            "strict": true
+        }
+    ],
+    "order": "C",
+    "shape": [
+        2
+    ],
+    "zarr_format": 2
+}
