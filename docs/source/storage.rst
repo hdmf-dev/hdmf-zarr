@@ -55,7 +55,6 @@ Groups
     datasets                      Zarr datasets within the Zarr group
     attributes                    Zarr attributes on the Zarr group
     links                         Stored as JSON formatted attributes on the Zarr Group
-    linkable                      Not mapped; Stored in schema only
     quantity                      Not mapped; Number of appearances of the group
     neurodata_type                Attribute ``neurodata_type`` on the Zarr Group
     namespace ID                  Attribute ``namespace`` on the Zarr Group
@@ -89,7 +88,6 @@ Datasets
     shape                         Shape of the Zarr dataset if the shape is fixed, otherwise shape defines the maxshape
     dims                          Not mapped
     attributes                    Zarr attributes on the Zarr dataset
-    linkable                      Not mapped; Stored in schema only
     quantity                      Not mapped; Number of appearances of the dataset
     neurodata_type                Attribute ``neurodata_type`` on the Zarr dataset
     namespace ID                  Attribute ``namespace`` on the Zarr dataset
@@ -404,7 +402,6 @@ operations when retrieving certain metadata in read mode.
 
 .. note::
 
-    When updating a file, the consolidated metadata will also need to be updated via 
-    `zarr.consolidate_metadata(path)` to ensure the consolidated metadata is consistent 
+    When updating a file, the consolidated metadata will also need to be updated via
+    `zarr.consolidate_metadata(path)` to ensure the consolidated metadata is consistent
     with the file.
-
