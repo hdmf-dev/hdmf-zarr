@@ -4,6 +4,9 @@
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
 
+### Docs
+* Removed `linkable` from the documentation to keep in line with `hdmf-schema-language`. @mavaylon1 [#180](https://github.com/hdmf-dev/hdmf-zarr/pull/180)
+
 ## 0.6.0 (February 21, 2024)
 
 ### Enhancements
