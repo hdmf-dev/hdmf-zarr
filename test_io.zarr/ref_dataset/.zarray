@@ -9,21 +9,8 @@
         "id": "blosc",
         "shuffle": 1
     },
-    "dtype": [
-        [
-            "id",
-            "<i4"
-        ],
-        [
-            "name",
-            "|O"
-        ],
-        [
-            "reference",
-            "|O"
-        ]
-    ],
-    "fill_value": "WzAsIjxpOCIsW11d",
+    "dtype": "|O",
+    "fill_value": 0,
     "filters": [
         {
             "allow_nan": true,

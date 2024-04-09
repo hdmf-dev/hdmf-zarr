@@ -1,0 +1,110 @@
+{
+    "metadata": {
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "dataset_1/.zarray": {
+            "chunks": [
+                2,
+                5
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i8",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2,
+                5
+            ],
+            "zarr_format": 2
+        },
+        "dataset_1/.zattrs": {
+            "zarr_dtype": "int64"
+        },
+        "dataset_2/.zarray": {
+            "chunks": [
+                4,
+                5
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i8",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                4,
+                5
+            ],
+            "zarr_format": 2
+        },
+        "dataset_2/.zattrs": {
+            "zarr_dtype": "int64"
+        },
+        "ref_dataset/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|O",
+            "fill_value": 0,
+            "filters": [
+                {
+                    "allow_nan": true,
+                    "check_circular": true,
+                    "encoding": "utf-8",
+                    "ensure_ascii": true,
+                    "id": "json2",
+                    "indent": null,
+                    "separators": [
+                        ",",
+                        ":"
+                    ],
+                    "skipkeys": false,
+                    "sort_keys": true,
+                    "strict": true
+                }
+            ],
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "ref_dataset/.zattrs": {
+            "zarr_dtype": [
+                {
+                    "dtype": "int32",
+                    "name": "id"
+                },
+                {
+                    "dtype": "str_",
+                    "name": "name"
+                },
+                {
+                    "dtype": "object",
+                    "name": "reference"
+                }
+            ]
+        }
+    },
+    "zarr_consolidated_format": 1
+}

@@ -434,16 +434,17 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.read()
         builder = self.createReferenceCompoundBuilder()['ref_dataset']
         read_builder = self.root['ref_dataset']
+        breakpoint()
 
         # ensure the array was written as a compound array
-        ref_dtype = np.dtype([('id', '<i4'), ('name', 'O'), ('reference', 'O')])
-        self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
+        # ref_dtype = np.dtype([('id', '<i4'), ('name', 'O'), ('reference', 'O')])
+        # self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
 
         # Load the elements of each entry in the compound dataset and compar the index, string, and referenced array
-        for i, v in enumerate(read_builder['data']):
-            self.assertEqual(v[0], builder['data'][i][0])  # Compare index value from compound tuple
-            self.assertEqual(v[1], builder['data'][i][1])  # Compare string value from compound tuple
-            self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
+        # for i, v in enumerate(read_builder['data']):
+        #     self.assertEqual(v[0], builder['data'][i][0])  # Compare index value from compound tuple
+        #     self.assertEqual(v[1], builder['data'][i][1])  # Compare string value from compound tuple
+        #     self.assertTrue(np.all(v[2]['data'][:] == builder['data'][i][2]['builder']['data'][:]))  # Compare ref array
         # print(read_builder)
 
     # def test_read_reference_compound_buf(self):

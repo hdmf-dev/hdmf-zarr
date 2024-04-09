@@ -1053,10 +1053,11 @@ class ZarrIO(HDMFIO):
 
                 # cast and store compound dataset
                 arr = np.array(new_items, dtype=dtype)
+                breakpoint()
                 dset = parent.require_dataset(
                     name,
                     shape=(len(arr),),
-                    dtype=dtype,
+                    dtype=object,
                     object_codec=self.__codec_cls(),
                     **options['io_settings']
                 )
