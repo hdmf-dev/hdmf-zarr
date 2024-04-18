@@ -88,7 +88,8 @@ class ZarrIO(HDMFIO):
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
-             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-")'},
+             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-") '
+                    'the mode r- is used to force open without consolidated metadata in read only mode.'},
             {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
              'default': None},
@@ -161,7 +162,7 @@ class ZarrIO(HDMFIO):
             # As a result, when in other modes, the file will not use consolidated metadata.
             if self.__mode not in ['r', 'r+']:
                 self.__file = zarr.open(store=self.path,
-                                        mode=self.__mode,
+                                        mode=self.__mode if self.__mode is not 'r-' else 'r',
                                         synchronizer=self.__synchronizer,
                                         storage_options=self.__storage_options)
             else:
