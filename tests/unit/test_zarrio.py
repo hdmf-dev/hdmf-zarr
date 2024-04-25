@@ -152,3 +152,33 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         path = ZarrIO._ZarrIO__get_store_path(store)
         expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_io.zarr'))
         self.assertEqual(path, expected_path)
+
+    def test_force_open_without_consolidated(self):
+        """Test that read-mode -r forces a regular read with mode r"""
+        self.create_zarr(consolidate_metadata=True)
+        # Confirm that opening the file 'r' mode indeed uses the consolidated metadata
+        with ZarrIO(self.store, mode='r') as read_io:
+            read_io.open()
+            self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
+        # Confirm that opening the file IN 'r-' mode indeed forces a regular open without consolidated metadata
+        with ZarrIO(self.store, mode='r-') as read_io:
+            read_io.open()
+            self.assertIsInstance(read_io.file.store, zarr.storage.DirectoryStore)
+
+    def test_force_open_without_consolidated_fails(self):
+        """
+        Test that we indeed can't use '_ZarrIO__open_file_consolidated' function in r- read mode, which
+        is used to force read without consolidated metadata.
+        """
+        self.create_zarr(consolidate_metadata=True)
+        with ZarrIO(self.store, mode='r') as read_io:
+            # Check that using 'r-' fails
+            msg = 'Mode r- not allowed for reading with consolidated metadata'
+            with self.assertRaisesWith(ValueError, msg):
+                read_io._ZarrIO__open_file_consolidated(store=self.store, mode='r-')
+            # Check that using 'r' does not fail
+            try:
+                read_io._ZarrIO__open_file_consolidated(store=self.store, mode='r')
+            except ValueError as e:
+                self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+
