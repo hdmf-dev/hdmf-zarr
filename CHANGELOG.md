@@ -8,6 +8,9 @@
 ### Docs
 * Removed `linkable` from the documentation to keep in line with `hdmf-schema-language`. @mavaylon1 [#180](https://github.com/hdmf-dev/hdmf-zarr/pull/180)
 
+### Internal Fixes
+* Fixed minor bug where `ZarrIO.__open_file_consolidated` used properties of `ZarrIO` instead of the provided input parameters. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183) 
+
 ## 0.6.0 (February 21, 2024)
 
 ### Enhancements
