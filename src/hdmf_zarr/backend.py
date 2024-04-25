@@ -161,8 +161,11 @@ class ZarrIO(HDMFIO):
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
             if self.__mode not in ['r', 'r+']:
+                # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
+                # use the regular mode r when r- is specified
+                mode_to_use = self.__mode if self.__mode != 'r-' else 'r'
                 self.__file = zarr.open(store=self.path,
-                                        mode=self.__mode if self.__mode != 'r-' else 'r',
+                                        mode=mode_to_use,
                                         synchronizer=self.__synchronizer,
                                         storage_options=self.__storage_options)
             else:
