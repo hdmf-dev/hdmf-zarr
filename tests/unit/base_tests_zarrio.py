@@ -96,7 +96,8 @@ class ZarrStoreTestCase(TestCase):
         self.store = "tests/unit/test_io.zarr"
 
     def tearDown(self):
-        shutil.rmtree(self.store)
+        if os.path.exists(self.store):
+            shutil.rmtree(self.store)
 
     def createReferenceBuilder(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
