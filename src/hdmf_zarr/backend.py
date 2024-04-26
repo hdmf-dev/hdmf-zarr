@@ -485,12 +485,6 @@ class ZarrIO(HDMFIO):
         # This check is just a safeguard for possible errors in the future. But this should never happen
         if mode == 'r-':
             raise ValueError('Mode r- not allowed for reading with consolidated metadata')
-        # self.path can be both a string or a one of the `SUPPORTED_ZARR_STORES`.
-        if isinstance(self.path, str):
-            path = self.path
-        else:
-            path = self.path.path
-
         try:
             return zarr.open_consolidated(store=store,
                                           mode=mode,
