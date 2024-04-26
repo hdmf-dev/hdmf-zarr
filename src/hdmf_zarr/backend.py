@@ -491,12 +491,12 @@ class ZarrIO(HDMFIO):
         else:
             path = self.path.path
 
-        if os.path.isfile(path+'/.zmetadata'):
+        try:
             return zarr.open_consolidated(store=store,
                                           mode=mode,
                                           synchronizer=synchronizer,
                                           storage_options=storage_options)
-        else:
+        except KeyError:  # A KeyError is raised when the '/.zmetadata' does not exist
             return zarr.open(store=store,
                              mode=mode,
                              synchronizer=synchronizer,
