@@ -4,7 +4,7 @@
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
 * Added support for forcing read of files without consolidated metadata using  `mode=r-` in `ZarrIO`. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
-- Updated testing to not install in editable mode and not run `coverage` by default. @rly [#X](https://github.com/hdmf-dev/hdmf-zarr/pull/X)
+- Updated testing to not install in editable mode and not run `coverage` by default. @rly [#188](https://github.com/hdmf-dev/hdmf-zarr/pull/188)
 
 ### Docs
 * Removed `linkable` from the documentation to keep in line with `hdmf-schema-language`. @mavaylon1 [#180](https://github.com/hdmf-dev/hdmf-zarr/pull/180)
