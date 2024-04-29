@@ -69,7 +69,7 @@ ignore-words-list = "datas"
 
 [tool.coverage.run]
 branch = true
-source = ["src"]
+source = ["hdmf_zarr"]
 
 [tool.coverage.report]
 exclude_lines = [
