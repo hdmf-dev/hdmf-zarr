@@ -62,8 +62,6 @@ exclude = [".git_archival.txt"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/hdmf_zarr"]
 
-[tool.pytest.ini_options]
-addopts = "--cov --cov-report html"
 
 [tool.codespell]
 skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,./docs/_build/*,*.ipynb"
@@ -71,15 +69,15 @@ ignore-words-list = "datas"
 
 [tool.coverage.run]
 branch = true
-source = ["src/"]
-omit = [
-    "src/hdmf_zarr/_due.py",
-]
+source = ["src"]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "@abstract"
+]
+omit = [
+    "*/hdmf_zarr/_due.py",
 ]
 
 [tool.black]
