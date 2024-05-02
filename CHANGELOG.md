@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.7.0 (Upcoming)
+## 0.7.0 (May 2, 2024)
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
 * Added support for forcing read of files without consolidated metadata using  `mode=r-` in `ZarrIO`. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
