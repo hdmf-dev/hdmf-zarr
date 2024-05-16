@@ -1,7 +1,0 @@
-{
-    "description": "sorting quality",
-    "namespace": "hdmf-common",
-    "neurodata_type": "VectorData",
-    "object_id": "5c003166-3662-4f43-87fc-3fdb3158ca8a",
-    "zarr_dtype": "object_"
-}
