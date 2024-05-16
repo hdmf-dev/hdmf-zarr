@@ -161,7 +161,8 @@ class ZarrIO(HDMFIO):
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
             if self.__mode != 'r':
-                # When we consolidate metadata, we use ConsolidatedMetadataStore. This interface does not seem to allow for setting items at all.
+                # When we consolidate metadata, we use ConsolidatedMetadataStore.
+                # This interface does not seem to allow for setting items at all.
                 # In the doc string, it says it is "read only". As a result, we cannot use r+ with consolidate_metadata.
                 # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
                 # use the regular mode r when r- is specified
