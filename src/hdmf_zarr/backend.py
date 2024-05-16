@@ -1451,7 +1451,7 @@ class ZarrIO(HDMFIO):
 
         # Read scalar dataset
         if dtype == 'scalar':
-            data = zarr_obj[0]
+            data = zarr_obj[()]
 
         if isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
