@@ -1,5 +1,9 @@
 # HDMF-ZARR Changelog
 
+## 0.8.0 (Upcoming)
+### Bug Fixes
+* Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
+
 ## 0.7.0 (May 2, 2024)
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
