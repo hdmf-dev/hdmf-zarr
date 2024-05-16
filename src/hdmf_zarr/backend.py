@@ -723,14 +723,15 @@ class ZarrIO(HDMFIO):
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
-
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
+
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
+                breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -817,6 +818,8 @@ class ZarrIO(HDMFIO):
             parent.attrs['zarr_link'] = []
         zarr_link = list(parent.attrs['zarr_link'])
         zarr_link.append({'source': target_source, 'path': target_path, 'name': link_name})
+        # breakpoint()
+
         parent.attrs['zarr_link'] = zarr_link
 
     @docval({'name': 'parent', 'type': Group, 'doc': 'the parent Zarr object'},
@@ -964,7 +967,9 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             if link_data:
+                # breakpoint()
                 path = self.__get_store_path(data.store)
+                # breakpoint()
                 self.__add_link__(parent, path, data.name, name)
                 linked = True
                 dset = None
@@ -1413,6 +1418,7 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
+                breakpoint()
                 target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
