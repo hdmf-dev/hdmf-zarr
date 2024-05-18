@@ -79,6 +79,7 @@ _deprecation_warning_datetime = (
 
 _deprecation_warning_zarr_store = (
     r"The NestedDirectoryStore is deprecated *"
+)
 
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
