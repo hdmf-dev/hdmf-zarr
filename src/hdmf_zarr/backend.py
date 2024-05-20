@@ -731,7 +731,7 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                breakpoint()
+                # breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -967,12 +967,19 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             if link_data:
-                # breakpoint()
-                path = self.__get_store_path(data.store)
-                # breakpoint()
-                self.__add_link__(parent, path, data.name, name)
-                linked = True
-                dset = None
+                if export_source is None: # not exporting
+                    path = self.__get_store_path(data.store)
+                    self.__add_link__(parent, path, data.name, name)
+                    linked = True
+                    dset = None
+                else: # exporting
+                # Note: Recall that export should not create new links, only preserve existing links from the source file.
+                    breakpoint()
+                    # if link exists:
+                    #     do something
+                    # else:
+                    #     zarr.copy(data, parent, name=name)
+                    #     dset = parent[name]
             else:
                 zarr.copy(data, parent, name=name)
                 dset = parent[name]
@@ -1418,7 +1425,7 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                breakpoint()
+                # breakpoint()
                 target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
