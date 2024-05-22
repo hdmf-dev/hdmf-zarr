@@ -1287,8 +1287,8 @@ class ZarrIO(HDMFIO):
         # standard write
         else:
             try:
-                # breakpoint()
-                dset[:] = np.array(data)  # If data is an h5py.Dataset then this will copy the data
+                dset[:] = np.array(data)
+            # If data is an h5py.Dataset then this will copy the data
             # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
             except ValueError:
