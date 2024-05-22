@@ -1099,7 +1099,7 @@ class ZarrIO(HDMFIO):
             self._written_builders.set_written(builder)  # record that the builder has been written
             dset.attrs['zarr_dtype'] = type_str
             if hasattr(refs, '__len__'):
-                dset[:] = refs
+                dset[:] = np.array(refs)
             else:
                 dset[0] = refs
         # write a 'regular' dataset without DatasetIO info
@@ -1290,7 +1290,8 @@ class ZarrIO(HDMFIO):
         # standard write
         else:
             try:
-                dset[:] = data  # If data is an h5py.Dataset then this will copy the data
+                dset[:] = np.array(data)
+            # If data is an h5py.Dataset then this will copy the data
             # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
             except ValueError:

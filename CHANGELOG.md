@@ -5,6 +5,10 @@
 * Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
 
 ## 0.7.0 (May 2, 2024)
+### Bug Fixes
+* Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. Fixed bug on how we write a dataset of references. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
+
+## 0.7.0 (May 2, 2024)
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
 * Added support for forcing read of files without consolidated metadata using  `mode=r-` in `ZarrIO`. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
