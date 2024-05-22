@@ -1096,7 +1096,7 @@ class ZarrIO(HDMFIO):
             self._written_builders.set_written(builder)  # record that the builder has been written
             dset.attrs['zarr_dtype'] = type_str
             if hasattr(refs, '__len__'):
-                dset[:] = refs
+                dset[:] = np.array(refs)
             else:
                 dset[0] = refs
         # write a 'regular' dataset without DatasetIO info
@@ -1453,7 +1453,6 @@ class ZarrIO(HDMFIO):
         # Read scalar dataset
         if dtype == 'scalar':
             data = zarr_obj[()]
-
         if isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
