@@ -2,7 +2,7 @@
 
 ## 0.7.0 (May 2, 2024)
 ### Bug Fixes
-* Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
+* Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. Fixed bug on how we write a dataset of references. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
 
 ## 0.7.0 (May 2, 2024)
 ### Enhancements
