@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.8.0 (Upcoming)
+## 0.8.0 (June 4, 2024)
 ### Bug Fixes
 * Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
 * Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. Fixed bug on how we write a dataset of references. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
