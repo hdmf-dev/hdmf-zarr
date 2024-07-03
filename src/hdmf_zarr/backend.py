@@ -1286,7 +1286,7 @@ class ZarrIO(HDMFIO):
         dset.attrs['zarr_dtype'] = type_str
 
         # Write the data to file
-        if dtype is object:
+        if dtype == object:
             for c in np.ndindex(data_shape):
                 o = data
                 for i in c:
@@ -1320,7 +1320,7 @@ class ZarrIO(HDMFIO):
             except Exception as exc:
                 msg = 'cannot add %s to %s - could not determine type' % (name, parent.name)
                 raise Exception(msg) from exc
-        if dtype is object:
+        if dtype == object:
             io_settings['object_codec'] = self.__codec_cls()
 
         dset = parent.require_dataset(name, shape=(1, ), dtype=dtype, **io_settings)
