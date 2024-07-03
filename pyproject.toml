@@ -109,7 +109,7 @@ force-exclude = '''
 '''
 
 [tool.ruff]
-select = ["E", "F", "T100", "T201", "T203"]
+lint.select = ["E", "F", "T100", "T201", "T203"]
 exclude = [
   ".git",
   ".tox",
@@ -128,5 +128,5 @@ line-length = 120
 "src/*/__init__.py" = ["F401"]
 "test_gallery.py" = ["T201"]
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 17
