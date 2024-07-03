@@ -185,19 +185,19 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
 
 class TestDatasetofReferences(ZarrStoreTestCase):
-    def setUpContainer(self):
-        num_bazs = 10
-        # set up dataset of references
-        bazs = []
-        for i in range(num_bazs):
-            bazs.append(Baz(name='baz%d' % i))
-        baz_data = BazData(name='baz_data1', data=bazs)
-
-        bucket = BazBucket(bazs=bazs, baz_data=baz_data)
-        return bucket
-
-    def get_manager(self):
-        return get_baz_buildmanager()
+    def tearDown(self):
+        """
+        Remove all files and folders defined by self.store_path
+        """
+        paths = self.store_path if isinstance(self.store_path, list) else [self.store_path, ]
+        for path in paths:
+            if os.path.exists(path):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                else:
+                    warnings.warn("Could not remove: %s" % path)
 
     def test_append_references_roundtrip(self):
         # Setup a file container with references
