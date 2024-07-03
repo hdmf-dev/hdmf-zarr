@@ -738,9 +738,10 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object, export_source=None):
+    def __get_ref(self, ref_object, path=None, source_file=None, export_source=None):
         """
         Create a ZarrReference object that points to the given container
+        If source_file is not None, use it to get the source_object_id.
 
         :param ref_object: the object to be referenced
         :type ref_object: Builder, Container, ReferenceBuilder
@@ -757,7 +758,10 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
         else:
             builder = self.manager.build(ref_object)
-        path = self.__get_path(builder)
+        if path is None:
+            path = self.__get_path(builder)
+        else:
+            path = path
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
         #      'doc': 'the region reference indexing object',  'default': None},
@@ -769,18 +773,21 @@ class ZarrIO(HDMFIO):
 
         # determine the object_id of the source by following the parents of the builder until we find the root
         # the root builder should be the same as the source file containing the reference
-        curr = builder
-        while curr is not None and curr.name != ROOT_NAME:
-            curr = curr.parent
-        if curr:
-            source_object_id = curr.get('object_id', None)
-        # We did not find ROOT_NAME as a parent. This should only happen if we have an invalid
-        # file as a source, e.g., if during testing we use an arbitrary builder. We check this
-        # anyways to avoid potential errors just in case
+        if source_file is not None:
+            source_object_id = source_file.object_id
         else:
-            source_object_id = None
-            warn_msg = "Could not determine source_object_id for builder with path: %s" % path
-            warnings.warn(warn_msg)
+            curr = builder
+            while curr is not None and curr.name != ROOT_NAME:
+                curr = curr.parent
+            if curr:
+                source_object_id = curr.get('object_id', None)
+            # We did not find ROOT_NAME as a parent. This should only happen if we have an invalid
+            # file as a source, e.g., if during testing we use an arbitrary builder. We check this
+            # anyways to avoid potential errors just in case
+            else:
+                source_object_id = None
+                warn_msg = "Could not determine source_object_id for builder with path: %s" % path
+                warnings.warn(warn_msg)
 
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
