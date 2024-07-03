@@ -16,6 +16,7 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
+from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 import zarr
 from hdmf_zarr.backend import ZarrIO
 import os
@@ -182,3 +183,44 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+
+class TestDatasetofReferences(ZarrStoreTestCase):
+    def setUpContainer(self):
+        num_bazs = 10
+        # set up dataset of references
+        bazs = []
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data1', data=bazs)
+
+        bucket = BazBucket(bazs=bazs, baz_data=baz_data)
+        return bucket
+
+    def get_manager(self):
+        return get_baz_buildmanager()
+
+    def test_append_references_roundtrip(self):
+        # Setup a file container with references
+        num_bazs = 10
+        bazs = []  # set up dataset of references
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data', data=bazs)
+        container = BazBucket(bazs=bazs, baz_data=baz_data)
+        manager = get_baz_buildmanager()
+        # write to file
+        with ZarrIO(self.store, manager=manager, mode='w') as writer:
+            writer.write(container=container)
+        # read from file and validate references
+        with ZarrIO(self.store, manager=manager, mode='a') as reader:
+            read_container = reader.read()
+            new_baz = Baz(name='baz0')
+            DoR = read_container.baz_data.data
+            DoR.append(new_baz)
+
+            expected =  {'source': '.', 'path': '/bazs/baz0',
+                         'object_id': new_baz.object_id,
+                         'source_object_id': container.object_id}
+
+            self.assertEqual(len(DoR), 11)
+            self.assertDictEqual(DoR.dataset[10], expected)

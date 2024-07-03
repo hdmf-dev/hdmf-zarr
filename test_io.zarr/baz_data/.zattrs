@@ -1,0 +1,6 @@
+{
+    "data_type": "BazData",
+    "namespace": "test_core",
+    "object_id": "e9fa51e1-858f-48b3-881f-de250293e1b1",
+    "zarr_dtype": "object"
+}
