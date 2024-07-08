@@ -20,6 +20,8 @@ from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 import zarr
 from hdmf_zarr.backend import ZarrIO
 import os
+import shutil
+import warnings
 
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -185,6 +187,10 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
 
 class TestDatasetofReferences(ZarrStoreTestCase):
+    def setUp(self):
+        self.store_path = "test_io.zarr"
+        self.store = DirectoryStore(self.store_path)
+
     def tearDown(self):
         """
         Remove all files and folders defined by self.store_path
@@ -212,15 +218,17 @@ class TestDatasetofReferences(ZarrStoreTestCase):
         with ZarrIO(self.store, manager=manager, mode='w') as writer:
             writer.write(container=container)
         # read from file and validate references
-        with ZarrIO(self.store, manager=manager, mode='a') as reader:
-            read_container = reader.read()
+        with ZarrIO(self.store, manager=manager, mode='a') as append_io:
+            read_container = append_io.read()
             new_baz = Baz(name='baz0')
             DoR = read_container.baz_data.data
             DoR.append(new_baz)
 
+        with ZarrIO(self.store, manager=manager, mode='a') as reader:
+            read_container = reader.read()
             expected =  {'source': '.', 'path': '/bazs/baz0',
                          'object_id': new_baz.object_id,
                          'source_object_id': container.object_id}
 
-            self.assertEqual(len(DoR), 11)
-            self.assertDictEqual(DoR.dataset[10], expected)
+            self.assertEqual(len(read_container.baz_data.data), 11)
+            self.assertDictEqual(read_container.baz_data.data.dataset[10], expected)
