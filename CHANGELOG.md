@@ -1,5 +1,9 @@
 # HDMF-ZARR Changelog
 
+## 0.9.0 (Upcoming)
+### Enhancements
+* Added support for appending a dataset of references. @mavaylon1 [#203]([https://github.com/hdmf-dev/hdmf-zarr/pull/172](https://github.com/hdmf-dev/hdmf-zarr/pull/203))
+
 ## 0.8.0 (June 4, 2024)
 ### Bug Fixes
 * Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
