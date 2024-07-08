@@ -197,13 +197,17 @@ class ZarrIO(HDMFIO):
             {'name': 'path',
              'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
-            {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
-    def load_namespaces(cls, namespace_catalog, path, namespaces=None):
+            {'name': 'storage_options', 'type': dict,
+             'doc': 'Zarr storage options to read remote folders',
+             'default': None},
+            {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None}
+            )
+    def load_namespaces(cls, namespace_catalog, path, storage_options, namespaces=None):
         '''
         Load cached namespaces from a file.
         '''
         # TODO: how to use storage_options here?
-        f = zarr.open(path, mode='r')
+        f = zarr.open(path, mode='r', storage_options=storage_options)
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
             warnings.warn(msg)

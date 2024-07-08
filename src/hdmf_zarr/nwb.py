@@ -32,7 +32,7 @@ try:
                         'load_namespaces', 'synchronizer', 'storage_options', kwargs)
             if load_namespaces:
                 tm = get_type_map()
-                super(NWBZarrIO, self).load_namespaces(tm, path)
+                super(NWBZarrIO, self).load_namespaces(tm, path, storage_options)
                 manager = BuildManager(tm)
             else:
                 if manager is not None and extensions is not None:
