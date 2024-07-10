@@ -205,7 +205,7 @@ class TestDatasetofReferences(ZarrStoreTestCase):
                 else:
                     warnings.warn("Could not remove: %s" % path)
 
-    def test_append_references_roundtrip(self):
+    def test_append_references(self):
         # Setup a file container with references
         num_bazs = 10
         bazs = []  # set up dataset of references
@@ -218,16 +218,13 @@ class TestDatasetofReferences(ZarrStoreTestCase):
         with ZarrIO(self.store, manager=manager, mode='w') as writer:
             writer.write(container=container)
         # read from file and validate references
-        with ZarrIO(self.store, manager=manager, mode='a') as append_io:
+        with ZarrIO(self.store, manager=manager, mode='r+') as append_io:
             read_container = append_io.read()
-            new_baz = Baz(name='baz0')
             DoR = read_container.baz_data.data
-            DoR.append(new_baz)
+            DoR.append(DoR[0])
 
-        with ZarrIO(self.store, manager=manager, mode='a') as reader:
-            read_container = reader.read()
             expected =  {'source': '.', 'path': '/bazs/baz0',
-                         'object_id': new_baz.object_id,
+                         'object_id': DoR[0].object_id,
                          'source_object_id': container.object_id}
 
             self.assertEqual(len(read_container.baz_data.data), 11)

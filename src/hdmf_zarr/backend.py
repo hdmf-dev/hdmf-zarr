@@ -738,7 +738,7 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object, path=None, source_file=None, export_source=None):
+    def __get_ref(self, ref_object, source_file=None, export_source=None):
         """
         Create a ZarrReference object that points to the given container
         If source_file is not None, use it to get the source_object_id.
@@ -758,10 +758,9 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
         else:
             builder = self.manager.build(ref_object)
-        if path is None:
-            path = self.__get_path(builder)
-        else:
-            path = path
+
+        path = self.__get_path(builder)
+
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
         #      'doc': 'the region reference indexing object',  'default': None},

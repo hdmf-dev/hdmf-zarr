@@ -82,11 +82,8 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         f_builder = self.invert().io.read_builder()
         source_file = self.invert().io.manager.construct(f_builder)
 
-        # Get path
-        path = self.dataset[0]['path']
-
         # Create ZarrReference
-        ref = self.invert().io._ZarrIO__get_ref(builder,path=path, source_file=source_file)
+        ref = self.invert().io._ZarrIO__get_ref(builder, source_file=source_file)
         append_data(self.dataset, ref)
 
 
