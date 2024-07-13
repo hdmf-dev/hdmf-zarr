@@ -738,10 +738,9 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object, source_file=None, export_source=None):
+    def __get_ref(self, ref_object, export_source=None):
         """
         Create a ZarrReference object that points to the given container
-        If source_file is not None, use it to get the source_object_id.
 
         :param ref_object: the object to be referenced
         :type ref_object: Builder, Container, ReferenceBuilder
