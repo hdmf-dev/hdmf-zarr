@@ -78,12 +78,8 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         # Create Builder
         builder = self.io.manager.build(arg)
 
-        # Get File/Source Object ID
-        f_builder = self.io.read_builder()
-        source_file = self.io.manager.construct(f_builder)
-
         # Create ZarrReference
-        ref = self.io._ZarrIO__get_ref(builder, source_file=source_file)
+        ref = self.io._ZarrIO__get_ref(builder)
         append_data(self.dataset, ref)
 
 
