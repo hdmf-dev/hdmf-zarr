@@ -818,7 +818,6 @@ class ZarrIO(HDMFIO):
             parent.attrs['zarr_link'] = []
         zarr_link = list(parent.attrs['zarr_link'])
         zarr_link.append({'source': target_source, 'path': target_path, 'name': link_name})
-        # breakpoint()
 
         parent.attrs['zarr_link'] = zarr_link
 
@@ -966,20 +965,38 @@ class ZarrIO(HDMFIO):
         dset = None
         if isinstance(data, Array):
             # copy the dataset
+            data_filename = self.__get_store_path(data.store)
             if link_data:
                 if export_source is None: # not exporting
-                    path = self.__get_store_path(data.store)
-                    self.__add_link__(parent, path, data.name, name)
+                    self.__add_link__(parent, data_filename, data.name, name)
                     linked = True
                     dset = None
                 else: # exporting
-                # Note: Recall that export should not create new links, only preserve existing links from the source file.
                     breakpoint()
-                    # if link exists:
-                    #     do something
-                    # else:
-                    #     zarr.copy(data, parent, name=name)
-                    #     dset = parent[name]
+                    parent_filename = parent.store.path
+                    parent_name = ''.join(char for char in parent.name if char.isalpha()) # zarr parent name has '/'
+                    ###############
+                    # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
+                    ###############
+                    if data_filename != export_source:
+                        breakpoint()
+                        relative_path = os.path.relpath(data_filename, os.path.dirname(parent_filename))
+
+                    ###############
+                    # Case 2: The dataset is in the export source and has a DIFFERENT path as the builder, create a link.
+                    ###############
+                    elif builder.parent.name != parent_name:
+                        pass
+
+                    ###############
+                    # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
+                    ###############
+                    else:
+                        zarr.copy(data, parent, name=name)
+                        dset = parent[name]
+
+
+
             else:
                 zarr.copy(data, parent, name=name)
                 dset = parent[name]
