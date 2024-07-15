@@ -972,25 +972,23 @@ class ZarrIO(HDMFIO):
                     linked = True
                     dset = None
                 else: # exporting
-                    breakpoint()
                     parent_filename = parent.store.path
                     parent_name = ''.join(char for char in parent.name if char.isalpha()) # zarr parent name has '/'
                     ###############
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
-                    ###############
-                    if data_filename != export_source:
-                        breakpoint()
-                        relative_path = os.path.relpath(data_filename, os.path.dirname(parent_filename))
 
-                    ###############
                     # Case 2: The dataset is in the export source and has a DIFFERENT path as the builder, create a link.
-                    # # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
+                    # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # INTERNAL link. This case preserves the link to also be in FileB.
+
+                    # In HDMF-Zarr, external links and internal links are the same mechanism.
                     ###############
-                    elif builder.parent.name != parent_name:
-                        pass
+                    if data_filename != export_source or builder.parent.name != parent_name:
+                        self.__add_link__(parent, data_filename, data.name, name)
+                        linked = True
+                        dset = None
 
                     ###############
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
@@ -998,8 +996,6 @@ class ZarrIO(HDMFIO):
                     else:
                         zarr.copy(data, parent, name=name)
                         dset = parent[name]
-
-
 
             else:
                 zarr.copy(data, parent, name=name)
