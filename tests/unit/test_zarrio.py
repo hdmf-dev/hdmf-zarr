@@ -182,3 +182,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+    def test_s3_open_with_consolidated_(self):
+        s3_path = "https://dandiarchive.s3.amazonaws.com/zarr/ccefbc9f-30e7-4a4c-b044-5b59d300040b/"
+        with ZarrIO(s3_path, mode='r') as read_io:
+            self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
