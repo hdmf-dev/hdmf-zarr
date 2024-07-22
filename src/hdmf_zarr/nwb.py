@@ -22,7 +22,7 @@ try:
         @docval(*get_docval(ZarrIO.__init__),
                 {'name': 'load_namespaces', 'type': bool,
                  'doc': 'whether or not to load cached namespaces from given path - not applicable in write mode',
-                 'default': False},
+                 'default': True},
                 {'name': 'extensions', 'type': (str, TypeMap, list),
                  'doc': 'a path to a namespace, a TypeMap, or a list consisting paths  to namespaces and TypeMaps',
                  'default': None})
@@ -30,17 +30,14 @@ try:
             path, mode, manager, extensions, load_namespaces, synchronizer, storage_options = \
                 popargs('path', 'mode', 'manager', 'extensions',
                         'load_namespaces', 'synchronizer', 'storage_options', kwargs)
-            if load_namespaces:
-                if manager is not None:
-                    warn("loading namespaces from file - ignoring 'manager'")
-                if extensions is not None:
-                    warn("loading namespaces from file - ignoring 'extensions' argument")
-                # namespaces are not loaded when creating an NWBZarrIO object in write mode
-                if 'w' in mode or mode == 'x':
-                    raise ValueError("cannot load namespaces from file when writing to it")
 
+            io_modes_that_create_file = ['w', 'w-', 'x']
+            if mode in io_modes_that_create_file or manager is not None or extensions is not None:
+                load_namespaces = False
+
+            if load_namespaces:
                 tm = get_type_map()
-                super(NWBZarrIO, self).load_namespaces(tm, path)
+                super(NWBZarrIO, self).load_namespaces(tm, path, storage_options)
                 manager = BuildManager(tm)
             else:
                 if manager is not None and extensions is not None:
