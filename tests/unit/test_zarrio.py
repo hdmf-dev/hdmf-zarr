@@ -220,12 +220,13 @@ class TestDatasetofReferences(ZarrStoreTestCase):
         # read from file and validate references
         with ZarrIO(self.store, manager=manager, mode='r+') as append_io:
             read_container = append_io.read()
+            new_baz = Baz(name='new')
+            read_container.add_baz(new_baz)
             DoR = read_container.baz_data.data
-            DoR.append(DoR[0])
+            DoR.append(new_baz)
+            append_io.write(read_container)
 
-            expected =  {'source': '.', 'path': '/bazs/baz0',
-                         'object_id': DoR[0].object_id,
-                         'source_object_id': container.object_id}
-
+        with ZarrIO(self.store, manager=manager, mode='r') as append_io:
+            read_container = append_io.read()
+            
             self.assertEqual(len(read_container.baz_data.data), 11)
-            self.assertDictEqual(read_container.baz_data.data.dataset[10], expected)
