@@ -214,19 +214,20 @@ class TestDatasetofReferences(ZarrStoreTestCase):
         baz_data = BazData(name='baz_data', data=bazs)
         container = BazBucket(bazs=bazs, baz_data=baz_data)
         manager = get_baz_buildmanager()
-        # write to file
+
         with ZarrIO(self.store, manager=manager, mode='w') as writer:
             writer.write(container=container)
-        # read from file and validate references
-        with ZarrIO(self.store, manager=manager, mode='r+') as append_io:
+
+        with ZarrIO(self.store, manager=manager, mode='a') as append_io:
             read_container = append_io.read()
             new_baz = Baz(name='new')
             read_container.add_baz(new_baz)
+
             DoR = read_container.baz_data.data
             DoR.append(new_baz)
+
             append_io.write(read_container)
 
         with ZarrIO(self.store, manager=manager, mode='r') as append_io:
             read_container = append_io.read()
-            
             self.assertEqual(len(read_container.baz_data.data), 11)
