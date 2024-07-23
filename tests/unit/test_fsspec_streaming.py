@@ -29,7 +29,13 @@ class TestFSSpecStreaming(unittest.TestCase):
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_s3_open_with_consolidated_(self):
+        """
+        The file is a Zarr file with consolidated metadata.
+        """
         s3_path = "https://dandiarchive.s3.amazonaws.com/zarr/ccefbc9f-30e7-4a4c-b044-5b59d300040b/"
         with NWBZarrIO(s3_path, mode='r') as read_io:
             read_io.open()
             self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
+        with NWBZarrIO(s3_path, mode='-r') as read_io:
+            read_io.open()
+            self.assertIsInstance(read_io.file.store, zarr.storage.FSStore)
