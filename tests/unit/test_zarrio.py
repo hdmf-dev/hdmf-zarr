@@ -214,3 +214,4 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
         with ZarrIO(self.store, manager=self.manager, mode='r') as io:
             file = io.read()
             self.assertEqual(file.bar_datas[0].data.attrs['_ARRAY_DIMENSIONS'], ['a', 'b'])
+
