@@ -186,7 +186,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
 
-class TestBuildDatasetDimensionLabelsOneOption(BuildDatasetShapeMixin):
+class TestDimensionLabels(BuildDatasetShapeMixin):
     def tearDown(self):
         shutil.rmtree(self.store)
 
