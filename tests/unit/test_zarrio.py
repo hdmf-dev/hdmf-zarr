@@ -18,7 +18,10 @@ from zarr.storage import (DirectoryStore,
                           NestedDirectoryStore)
 import zarr
 from hdmf_zarr.backend import ZarrIO
+from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
+from hdmf.spec import DatasetSpec
 import os
+import shutil
 
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -182,3 +185,32 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+
+class TestBuildDatasetDimensionLabelsOneOption(BuildDatasetShapeMixin):
+    def tearDown(self):
+        shutil.rmtree(self.store)
+
+    def get_base_shape_dims(self):
+        return [None, None], ['a', 'b']
+
+    def get_dataset_inc_spec(self):
+        dataset_inc_spec = DatasetSpec(
+            doc='A BarData',
+            data_type_inc='BarData',
+            quantity='*',
+        )
+        return dataset_inc_spec
+
+    def test_build(self):
+        bar_data_inst = BarData(name='my_bar', data=[[1, 2, 3], [4, 5, 6]], attr1='a string')
+        bar_data_holder_inst = BarDataHolder(
+            name='my_bar_holder',
+            bar_datas=[bar_data_inst],
+        )
+
+        with ZarrIO(self.store, manager=self.manager, mode='w') as io:
+            io.write(bar_data_holder_inst)
+
+        with ZarrIO(self.store, manager=self.manager, mode='r') as io:
+            file = io.read()
+            self.assertEqual(file.bar_datas[0].data.attrs['_ARRAY_DIMENSIONS'], ['a', 'b'])
