@@ -231,3 +231,4 @@ class TestDatasetofReferences(ZarrStoreTestCase):
         with ZarrIO(self.store, manager=manager, mode='r') as append_io:
             read_container = append_io.read()
             self.assertEqual(len(read_container.baz_data.data), 11)
+            self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
