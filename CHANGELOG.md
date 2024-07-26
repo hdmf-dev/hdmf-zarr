@@ -2,7 +2,7 @@
 
 ## 0.9.0 (Upcoming)
 ### Enhancements
-* Added support for appending a dataset of references. @mavaylon1 [#203]([https://github.com/hdmf-dev/hdmf-zarr/pull/172](https://github.com/hdmf-dev/hdmf-zarr/pull/203))
+* Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
 * NWBZarrIO load_namespaces=True by default. @mavaylon1 [#204](https://github.com/hdmf-dev/hdmf-zarr/pull/204)
 * Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
 
