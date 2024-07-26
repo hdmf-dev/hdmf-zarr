@@ -763,7 +763,6 @@ class ZarrIO(HDMFIO):
             builder = self.manager.build(ref_object)
 
         path = self.__get_path(builder)
-        # breakpoint()
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
         #      'doc': 'the region reference indexing object',  'default': None},
