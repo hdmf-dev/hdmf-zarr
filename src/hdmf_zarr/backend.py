@@ -629,7 +629,6 @@ class ZarrIO(HDMFIO):
         determines the path by constructing it iteratively from the parents of the
         builder.
         """
-        # breakpoint()
         if builder.location is not None:
             path = os.path.normpath(os.path.join(builder.location, builder.name)).replace("\\", "/")
         else:
