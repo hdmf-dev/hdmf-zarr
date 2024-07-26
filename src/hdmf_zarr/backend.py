@@ -734,7 +734,6 @@ class ZarrIO(HDMFIO):
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
-        # breakpoint()
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
