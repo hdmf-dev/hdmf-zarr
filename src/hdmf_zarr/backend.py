@@ -519,7 +519,6 @@ class ZarrIO(HDMFIO):
         parent, builder, link_data, exhaust_dci, export_source = getargs(
             'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
         )
-        # breakpoint()
 
         if self.get_written(builder):
             group = parent[builder.name]
