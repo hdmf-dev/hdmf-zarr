@@ -440,7 +440,6 @@ class ZarrIO(HDMFIO):
         f_builder, link_data, exhaust_dci, export_source, consolidate_metadata = getargs(
             'builder', 'link_data', 'exhaust_dci', 'export_source', 'consolidate_metadata', kwargs
         )
-        # breakpoint()
         for name, gbldr in f_builder.groups.items():
             self.write_group(
                 parent=self.__file,
