@@ -750,7 +750,6 @@ class ZarrIO(HDMFIO):
         :type ref_object: Builder, Container, ReferenceBuilder
         :returns: ZarrReference object
         """
-        # breakpoint()
         if isinstance(ref_object, RegionBuilder):  # or region is not None: TODO: Add to support regions
             raise NotImplementedError("Region references are currently not supported by ZarrIO")
         if isinstance(ref_object, Builder):
