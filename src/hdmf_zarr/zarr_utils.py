@@ -75,7 +75,9 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self._get_ref(super().__next__())
 
     def append(self, arg):
-        # Create Builder
+        # Building the parent first will build the new child.
+        # This correctly sets the parent of the child builder, which is needed to create the reference.
+        self.io.manager.build(arg.parent)
         builder = self.io.manager.build(arg)
 
         # Create ZarrReference
