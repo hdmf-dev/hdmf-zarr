@@ -87,8 +87,9 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
                 parent = child.parent
                 child = parent
             else:
+                parent = child
                 break
-        self.io.manager.build(arg.parent)
+        self.io.manager.build(parent)
         builder = self.io.manager.build(arg)
 
         # Create ZarrReference
