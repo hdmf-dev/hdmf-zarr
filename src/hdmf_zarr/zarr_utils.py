@@ -75,8 +75,19 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self._get_ref(super().__next__())
 
     def append(self, arg):
-        # Building the parent first will build the new child.
+        # Building the root parent first.
         # This correctly sets the parent of the child builder, which is needed to create the reference.
+        # Note: If the arg is a nested child such that objB is the parent of arg and objA is the parent of objB
+        # (and objA is not the root), then we need to have objA already added to the root as a child. Otherwise,
+        # the loop will use objA as the root. This might not raise an error, but having it added to the root ensures
+        # correct functionality.
+        child = arg
+        while True:
+            if child.parent is not None:
+                parent = child.parent
+                child = parent
+            else:
+                break
         self.io.manager.build(arg.parent)
         builder = self.io.manager.build(arg)
 
