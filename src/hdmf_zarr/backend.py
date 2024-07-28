@@ -440,7 +440,6 @@ class ZarrIO(HDMFIO):
         f_builder, link_data, exhaust_dci, export_source, consolidate_metadata = getargs(
             'builder', 'link_data', 'exhaust_dci', 'export_source', 'consolidate_metadata', kwargs
         )
-        # breakpoint()
         for name, gbldr in f_builder.groups.items():
             self.write_group(
                 parent=self.__file,
@@ -520,7 +519,6 @@ class ZarrIO(HDMFIO):
         parent, builder, link_data, exhaust_dci, export_source = getargs(
             'parent', 'builder', 'link_data', 'exhaust_dci', 'export_source', kwargs
         )
-        # breakpoint()
 
         if self.get_written(builder):
             group = parent[builder.name]
@@ -631,7 +629,6 @@ class ZarrIO(HDMFIO):
         determines the path by constructing it iteratively from the parents of the
         builder.
         """
-        # breakpoint()
         if builder.location is not None:
             path = os.path.normpath(os.path.join(builder.location, builder.name)).replace("\\", "/")
         else:
@@ -737,7 +734,6 @@ class ZarrIO(HDMFIO):
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
-        # breakpoint()
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -754,7 +750,6 @@ class ZarrIO(HDMFIO):
         :type ref_object: Builder, Container, ReferenceBuilder
         :returns: ZarrReference object
         """
-        # breakpoint()
         if isinstance(ref_object, RegionBuilder):  # or region is not None: TODO: Add to support regions
             raise NotImplementedError("Region references are currently not supported by ZarrIO")
         if isinstance(ref_object, Builder):
@@ -768,7 +763,6 @@ class ZarrIO(HDMFIO):
             builder = self.manager.build(ref_object)
 
         path = self.__get_path(builder)
-        # breakpoint()
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
         #      'doc': 'the region reference indexing object',  'default': None},
