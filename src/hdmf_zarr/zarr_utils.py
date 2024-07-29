@@ -76,11 +76,12 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
 
     def append(self, arg):
         # Building the root parent first.
-        # Doing so will correctly sets the parent of the child builder, which is needed to create the reference.
+        # (Doing so will correctly set the parent of the child builder, which is needed to create the reference)
         # Note: If the arg is a nested child such that objB is the parent of arg and objA is the parent of objB
         # (and objA is not the root), then we need to have objA already added to the root as a child. Otherwise,
-        # the loop will use objA as the root. This might not raise an error, but it could lead to having an
-        # incorrect path for the reference. Having objA not be an orphaned container ensures correct functionality.
+        # the loop will use objA as the root. This might not raise an error (meaning the path could be correct),
+        # but it could lead to having an incorrect path for the reference.
+        # Having objA NOT be an orphaned container ensures correct functionality.
         child = arg
         while True:
             if child.parent is not None:
