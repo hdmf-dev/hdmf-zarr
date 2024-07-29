@@ -187,6 +187,14 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
 
 class TestDimensionLabels(BuildDatasetShapeMixin):
+    """
+    This is to test setting the dimension_labels as a zarr attribute '_ARRAY_DIMENSIONS'.
+
+    Workflow:
+    i) We need to define a `get_dataset_inc_spec` to set the dim in the spec (via BuildDatasetShapeMixin)
+    ii) Create and write a BarDataHolder with a BarData.
+    iii) Read and check that the _ARRAY_DIMENSIONS attribute is set. 
+    """
     def tearDown(self):
         shutil.rmtree(self.store)
 
@@ -214,4 +222,3 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
         with ZarrIO(self.store, manager=self.manager, mode='r') as io:
             file = io.read()
             self.assertEqual(file.bar_datas[0].data.attrs['_ARRAY_DIMENSIONS'], ['a', 'b'])
-
