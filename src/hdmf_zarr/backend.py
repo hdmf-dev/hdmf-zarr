@@ -738,7 +738,6 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                # breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
