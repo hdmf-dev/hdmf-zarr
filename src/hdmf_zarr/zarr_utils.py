@@ -10,6 +10,7 @@ import numpy as np
 from zarr import Array as ZarrArray
 
 from hdmf.build import DatasetBuilder
+from hdmf.data_utils import append_data
 from hdmf.array import Array
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
 from hdmf.utils import docval, popargs, get_docval
@@ -72,6 +73,29 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
 
     def __next__(self):
         return self._get_ref(super().__next__())
+
+    def append(self, arg):
+        # Building the root parent first.
+        # (Doing so will correctly set the parent of the child builder, which is needed to create the reference)
+        # Note: If the arg is a nested child such that objB is the parent of arg and objA is the parent of objB
+        # (and objA is not the root), then we need to have objA already added to the root as a child. Otherwise,
+        # the loop will use objA as the root. This might not raise an error (meaning the path could be correct),
+        # but it could lead to having an incorrect path for the reference.
+        # Having objA NOT be an orphaned container ensures correct functionality.
+        child = arg
+        while True:
+            if child.parent is not None:
+                parent = child.parent
+                child = parent
+            else:
+                parent = child
+                break
+        self.io.manager.build(parent)
+        builder = self.io.manager.build(arg)
+
+        # Create ZarrReference
+        ref = self.io._create_ref(builder)
+        append_data(self.dataset, ref)
 
 
 class BuilderResolverMixin(BuilderResolver):  # refactor to backend/utils.py

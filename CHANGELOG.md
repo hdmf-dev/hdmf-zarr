@@ -1,7 +1,14 @@
 # HDMF-ZARR Changelog
 
-## 0.7.0 (May 2, 2024)
+## 0.9.0 (Upcoming)
+### Enhancements
+* Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
+* NWBZarrIO load_namespaces=True by default. @mavaylon1 [#204](https://github.com/hdmf-dev/hdmf-zarr/pull/204)
+* Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
+
+## 0.8.0 (June 4, 2024)
 ### Bug Fixes
+* Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
 * Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. Fixed bug on how we write a dataset of references. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
 
 ## 0.7.0 (May 2, 2024)

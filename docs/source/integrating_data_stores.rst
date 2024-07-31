@@ -36,7 +36,7 @@ Updating ZarrIO
    :py:meth:`~hdmf_zarr.backend.ZarrIO.get_builder_exists_on_disk`
    method may need to be updated to ensure
    references are opened correctly on read for files stored with your new store. The
-   :py:meth:`~hdmf_zarr.backend.ZarrIO.__get_ref` function may also need to be updated, in
+   :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` function may also need to be updated, in
    particular in case the links to your store also modify the storage schema for links
    (e.g., if you need to store additional metadata in order to resolve links to your store).
 

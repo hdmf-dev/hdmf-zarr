@@ -160,7 +160,10 @@ class ZarrIO(HDMFIO):
         if self.__file is None:
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
-            if self.__mode not in ['r', 'r+']:
+            if self.__mode != 'r':
+                # When we consolidate metadata, we use ConsolidatedMetadataStore.
+                # This interface does not allow for setting items.
+                # In the doc string, it says it is "read only". As a result, we cannot use r+ with consolidate_metadata.
                 # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
                 # use the regular mode r when r- is specified
                 mode_to_use = self.__mode if self.__mode != 'r-' else 'r'
@@ -194,13 +197,17 @@ class ZarrIO(HDMFIO):
             {'name': 'path',
              'type': (str, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
-            {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None})
-    def load_namespaces(cls, namespace_catalog, path, namespaces=None):
+            {'name': 'storage_options', 'type': dict,
+             'doc': 'Zarr storage options to read remote folders',
+             'default': None},
+            {'name': 'namespaces', 'type': list, 'doc': 'the namespaces to load', 'default': None}
+            )
+    def load_namespaces(cls, namespace_catalog, path, storage_options, namespaces=None):
         '''
         Load cached namespaces from a file.
         '''
         # TODO: how to use storage_options here?
-        f = zarr.open(path, mode='r')
+        f = zarr.open(path, mode='r', storage_options=storage_options)
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
             warnings.warn(msg)
@@ -588,13 +595,13 @@ class ZarrIO(HDMFIO):
                 # TODO: Region References are not yet supported
                 # if isinstance(value, RegionBuilder):
                 #     type_str = 'region'
-                #     refs = self.__get_ref(value.builder)
+                #     refs = self._create_ref(value.builder)
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     if isinstance(value, Builder):
-                        refs = self.__get_ref(value, export_source)
+                        refs = self._create_ref(value, export_source)
                     else:
-                        refs = self.__get_ref(value.builder, export_source)
+                        refs = self._create_ref(value.builder, export_source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -736,7 +743,7 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def __get_ref(self, ref_object, export_source=None):
+    def _create_ref(self, ref_object, export_source=None):
         """
         Create a ZarrReference object that points to the given container
 
@@ -755,6 +762,7 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
         else:
             builder = self.manager.build(ref_object)
+
         path = self.__get_path(builder)
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
@@ -833,7 +841,7 @@ class ZarrIO(HDMFIO):
         name = builder.name
         target_builder = builder.builder
         # Get the reference
-        zarr_ref = self.__get_ref(target_builder)
+        zarr_ref = self._create_ref(target_builder)
         # EXPORT WITH LINKS: Fix link source
         # if the target and source are both the same, then we need to ALWAYS use ourselves as a source
         # When exporting from one source to another, the LinkBuilders.source are not updated, i.e,. the
@@ -1004,7 +1012,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(data, HDMFDataset):
             # If we have a dataset of containers we need to make the references to the containers
             if len(data) > 0 and isinstance(data[0], Container):
-                ref_data = [self.__get_ref(data[i], export_source=export_source) for i in range(len(data))]
+                ref_data = [self._create_ref(data[i], export_source=export_source) for i in range(len(data))]
                 shape = (len(data), )
                 type_str = 'object'
                 dset = parent.require_dataset(name,
@@ -1037,7 +1045,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self.__get_ref(data[0][i], export_source=export_source)
+                    ref_tmp = self._create_ref(data[0][i], export_source=export_source)
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
@@ -1057,7 +1065,7 @@ class ZarrIO(HDMFIO):
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
-                        new_item[i] = self.__get_ref(item[i], export_source=export_source)
+                        new_item[i] = self._create_ref(item[i], export_source=export_source)
                     new_items.append(tuple(new_item))
 
                 # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
@@ -1102,20 +1110,20 @@ class ZarrIO(HDMFIO):
             #  if isinstance(data, RegionBuilder):
             #      shape = (1,)
             #      type_str = 'region'
-            #      refs = self.__get_ref(data.builder, data.region)
+            #      refs = self._create_ref(data.builder, data.region)
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
-                refs = self.__get_ref(data.builder, export_source=export_source)
+                refs = self._create_ref(data.builder, export_source=export_source)
             # TODO: Region References are not yet supported
             # elif options['dtype'] == 'region':
             #     shape = (len(data), )
             #     type_str = 'region'
-            #     refs = [self.__get_ref(item.builder, item.region) for item in data]
+            #     refs = [self._create_ref(item.builder, item.region) for item in data]
             else:
                 shape = (len(data), )
                 type_str = 'object'
-                refs = [self.__get_ref(item, export_source=export_source) for item in data]
+                refs = [self._create_ref(item, export_source=export_source) for item in data]
 
             dset = parent.require_dataset(name,
                                           shape=shape,
@@ -1305,7 +1313,7 @@ class ZarrIO(HDMFIO):
         dset.attrs['zarr_dtype'] = type_str
 
         # Write the data to file
-        if dtype == object:
+        if dtype == object: # noqa: E721
             for c in np.ndindex(data_shape):
                 o = data
                 for i in c:
@@ -1339,7 +1347,7 @@ class ZarrIO(HDMFIO):
             except Exception as exc:
                 msg = 'cannot add %s to %s - could not determine type' % (name, parent.name)
                 raise Exception(msg) from exc
-        if dtype == object:
+        if dtype == object: # noqa: E721
             io_settings['object_codec'] = self.__codec_cls()
 
         dset = parent.require_dataset(name, shape=(1, ), dtype=dtype, **io_settings)
@@ -1483,6 +1491,7 @@ class ZarrIO(HDMFIO):
         # Read scalar dataset
         if dtype == 'scalar':
             data = zarr_obj[()]
+
         if isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
