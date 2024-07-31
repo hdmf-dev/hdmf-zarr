@@ -16,12 +16,14 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
+from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 import zarr
 from hdmf_zarr.backend import ZarrIO
 from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
 import shutil
+import warnings
 
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -222,3 +224,51 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
         with ZarrIO(self.store, manager=self.manager, mode='r') as io:
             file = io.read()
             self.assertEqual(file.bar_datas[0].data.attrs['_ARRAY_DIMENSIONS'], ['a', 'b'])
+
+
+class TestDatasetofReferences(ZarrStoreTestCase):
+    def setUp(self):
+        self.store_path = "test_io.zarr"
+        self.store = DirectoryStore(self.store_path)
+
+    def tearDown(self):
+        """
+        Remove all files and folders defined by self.store_path
+        """
+        paths = self.store_path if isinstance(self.store_path, list) else [self.store_path, ]
+        for path in paths:
+            if os.path.exists(path):
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                else:
+                    warnings.warn("Could not remove: %s" % path)
+
+    def test_append_references(self):
+        # Setup a file container with references
+        num_bazs = 10
+        bazs = []  # set up dataset of references
+        for i in range(num_bazs):
+            bazs.append(Baz(name='baz%d' % i))
+        baz_data = BazData(name='baz_data', data=bazs)
+        container = BazBucket(bazs=bazs, baz_data=baz_data)
+        manager = get_baz_buildmanager()
+
+        with ZarrIO(self.store, manager=manager, mode='w') as writer:
+            writer.write(container=container)
+
+        with ZarrIO(self.store, manager=manager, mode='a') as append_io:
+            read_container = append_io.read()
+            new_baz = Baz(name='new')
+            read_container.add_baz(new_baz)
+
+            DoR = read_container.baz_data.data
+            DoR.append(new_baz)
+
+            append_io.write(read_container)
+
+        with ZarrIO(self.store, manager=manager, mode='r') as append_io:
+            read_container = append_io.read()
+            self.assertEqual(len(read_container.baz_data.data), 11)
+            self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
