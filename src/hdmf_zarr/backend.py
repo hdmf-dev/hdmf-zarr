@@ -1001,6 +1001,7 @@ class ZarrIO(HDMFIO):
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
                     ###############
                     else:
+                        breakpoint()
                         zarr.copy(data, parent, name=name)
                         dset = parent[name]
 
