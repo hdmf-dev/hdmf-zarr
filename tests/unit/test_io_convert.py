@@ -991,7 +991,6 @@ class TestHDF5toZarrWithFilters(TestCase):
 
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source
-"""
 class TestFooExternalLinkHDF5ToZarr(MixinTestCaseConvert, TestCase):
     IGNORE_NAME = True
     IGNORE_HDMF_ATTRS = True
@@ -1027,7 +1026,6 @@ class TestFooExternalLinkHDF5ToZarr(MixinTestCaseConvert, TestCase):
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
-"""
 
 # TODO: Fails because ZarrIO fails to properly create the external link
 """

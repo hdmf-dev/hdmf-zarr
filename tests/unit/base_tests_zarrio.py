@@ -13,7 +13,7 @@ import warnings
 import zarr
 from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO, ZarrReference
-from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
+from tests.unit.utils import (Baz, BazData, BazCpdData, BazBucket, get_baz_buildmanager)
 
 # Try to import numcodecs and disable compression tests if it is not available
 try:
@@ -1326,199 +1326,38 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(OrphanContainerBuildError, msg):
                     export_io.export(src_io=read_io, container=read_foofile)
 
-    def test_append_data(self):
-        """Test that exporting a written container after adding groups, links, and references to it works."""
-        # TODO: This test currently fails because I do not understand how the link to my_data is expected to be
-        #       created here and currently fails. I.e,. it fails in list_fill but instead we should actually
-        #       create an external link instead
-        pass
-        """
-        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
-        foobucket = FooBucket('bucket1', [foo1])
-        foofile = FooFile(buckets=[foobucket])
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile)
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='r') as read_io:
-            read_foofile = read_io.read()
-            # create a foo with link to existing dataset my_data, add the foo to new foobucket
-            # this should make a soft link within the exported file
-            # TODO Assigning my_data is the problem. Which in turn causes the export to fail because the Zarr
-            # DataType is not being understood. This is where the External link should be created instead?
-            foo2 = Foo('foo2', read_foofile.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
-            foobucket2 = FooBucket('bucket2', [foo2])
-            read_foofile.add_bucket(foobucket2)
-            # also add link from foofile to new foo2 container
-            read_foofile.foo_link = foo2
-            # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
-            read_foofile.foofile_data = foo2.my_data
-            # also add reference from foofile to new foo2
-            read_foofile.foo_ref_attr = foo2
-            with ZarrIO(self.store_paths[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_foofile)
-        with ZarrIO(self.store_paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
-            read_foofile2 = read_io.read()
-            # test new soft link to dataset in file
-            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data,
-                          read_foofile2.buckets['bucket2'].foos['foo2'].my_data)
-            # test new soft link to group in file
-            self.assertIs(read_foofile2.foo_link, read_foofile2.buckets['bucket2'].foos['foo2'])
-            # test new soft link to new soft link to dataset in file
-            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data, read_foofile2.foofile_data)
-            # test new attribute reference to new group in file
-            self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket2'].foos['foo2'])
-        #with File(self.store_paths[1], 'r') as f:
-        #    self.assertEqual(f['foofile_data'].file.filename, self.store_paths[1])
-        #    self.assertIsInstance(f.attrs['foo_ref_attr'], h5py.Reference)
-        """
-
-    def test_append_external_link_data(self):
-        """Test that exporting a written container after adding a link with link_data=True creates external links."""
-        pass  # TODO: This test currently fails
-        """
-        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
-        foobucket = FooBucket('bucket1', [foo1])
-        foofile = FooFile(buckets=[foobucket])
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile)
-        foofile2 = FooFile(buckets=[])
-        with ZarrIO(self.store_paths[1], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile2)
-        manager = get_foo_buildmanager()
-        with ZarrIO(self.store_paths[0], manager=manager, mode='r') as read_io1:
-            read_foofile1 = read_io1.read()
-            with ZarrIO(self.store_paths[1], manager=manager, mode='r') as read_io2:
-                read_foofile2 = read_io2.read()
-                # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
-                # this should make an external link within the exported file
-                foo2 = Foo('foo2', read_foofile1.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
-                foobucket2 = FooBucket('bucket2', [foo2])
-                read_foofile2.add_bucket(foobucket2)
-                # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
-                # this should make an external link within the exported file
-                read_foofile2.foofile_data = foo2.my_data
-                with ZarrIO(self.store_paths[2], mode='w') as export_io:
-                    export_io.export(src_io=read_io2, container=read_foofile2)
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='r') as read_io1:
-            read_foofile3 = read_io1.read()
-            with ZarrIO(self.store_paths[2], manager=get_foo_buildmanager(), mode='r') as read_io2:
-                read_foofile4 = read_io2.read()
-                self.assertEqual(read_foofile4.buckets['bucket2'].foos['foo2'].my_data,
-                                 read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-                self.assertEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-        #with File(self.source_paths[2], 'r') as f:
-        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.source_paths[0])
-        #    self.assertEqual(f['foofile_data'].file.filename, self.souce_paths[0])
-        #    self.assertIsInstance(f.get('buckets/bucket2/foo_holder/foo2/my_data', getlink=True),
-        #                          h5py.ExternalLink)
-        #    self.assertIsInstance(f.get('foofile_data', getlink=True), h5py.ExternalLink)
-        """
-
-    def test_append_external_link_copy_data(self):
-        """Test that exporting a written container after adding a link with link_data=False copies the data."""
-        pass  # TODO: This test currently fails
-        """
-        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
-        foobucket = FooBucket('bucket1', [foo1])
-        foofile = FooFile(buckets=[foobucket])
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile)
-        foofile2 = FooFile(buckets=[])
-        with ZarrIO(self.store_paths[1], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile2)
-        manager = get_foo_buildmanager()
-        with ZarrIO(self.store_paths[0], manager=manager, mode='r') as read_io1:
-            read_foofile1 = read_io1.read()
-            with ZarrIO(self.store_paths[1], manager=manager, mode='r') as read_io2:
-                read_foofile2 = read_io2.read()
-                # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
-                # this would normally make an external link but because link_data=False, data will be copied
-                foo2 = Foo('foo2', read_foofile1.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
-                foobucket2 = FooBucket('bucket2', [foo2])
-                read_foofile2.add_bucket(foobucket2)
-                # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
-                # this would normally make an external link but because link_data=False, data will be copied
-                read_foofile2.foofile_data = foo2.my_data
-                with ZarrIO(self.store_paths[2], mode='w') as export_io:
-                    export_io.export(src_io=read_io2, container=read_foofile2, write_args={'link_data': False})
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='r') as read_io1:
-            read_foofile3 = read_io1.read()
-            with ZarrIO(self.store_paths[2], manager=get_foo_buildmanager(), mode='r') as read_io2:
-                read_foofile4 = read_io2.read()
-                # check that file can be read
-                self.assertNotEqual(read_foofile4.buckets['bucket2'].foos['foo2'].my_data,
-                                    read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-                self.assertNotEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-                self.assertNotEqual(read_foofile4.foofile_data, read_foofile4.buckets['bucket2'].foos['foo2'].my_data)
-        # with File(self.source_paths[2], 'r') as f:
-        #    self.assertEqual(f['buckets/bucket2/foo_holder/foo2/my_data'].file.filename, self.source_paths[2])
-        #    self.assertEqual(f['foofile_data'].file.filename, self.source_paths[2])
-        """
-
-    def test_export_dset_refs(self):
-        """Test that exporting a written container with a dataset of references works."""
-        pass  # TODO: This test currently fails
-        """
-        bazs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            bazs.append(Baz(name='baz%d' % i))
-        baz_data = BazData(name='baz_data1', data=bazs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_data=baz_data)
-        with ZarrIO(self.store_paths[0], manager=_get_baz_manager(), mode='w') as write_io:
-            write_io.write(bucket)
-        with ZarrIO(self.store_paths[0], manager=_get_baz_manager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-            with ZarrIO(self.store_paths[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1)
-        with ZarrIO(self.store_paths[1], manager=_get_baz_manager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz('baz000')
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertIs(read_bucket2.baz_data.data[i], read_bucket2.bazs[baz_name])
-        """
-
-    def test_export_cpd_dset_refs(self):
-        """Test that exporting a written container with a compound dataset with references works."""
-        pass  # TODO: This test currently fails
-        """
-        bazs = []
-        baz_pairs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            b = Baz(name='baz%d' % i)
-            bazs.append(b)
-            baz_pairs.append((i, b))
-        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
-        with ZarrIO(self.store_paths[0], manager=_get_baz_manager(), mode='w') as write_io:
-            write_io.write(bucket)
-        with ZarrIO(self.store_paths[0], manager=_get_baz_manager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-            with ZarrIO(self.store_paths[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1)
-        with ZarrIO(self.store_paths[1], manager=_get_baz_manager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz(new_baz.name)
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
-        """
+    # def test_export_cpd_dset_refs(self):
+    #     """Test that exporting a written container with a compound dataset with references works."""
+    #     # pass  # TODO: This test currently fails
+    #     bazs = []
+    #     baz_pairs = []
+    #     num_bazs = 10
+    #     for i in range(num_bazs):
+    #         b = Baz(name='baz%d' % i)
+    #         bazs.append(b)
+    #         baz_pairs.append((i, b))
+    #     baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+    #     bucket = BazBucket(name='bucket1', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+    #     with ZarrIO(self.store[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+    #         write_io.write(bucket)
+    #     with ZarrIO(self.store[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket1 = read_io.read()
+    #         # NOTE: reference IDs might be the same between two identical files
+    #         # adding a Baz with a smaller name should change the reference IDs on export
+    #         new_baz = Baz(name='baz000')
+    #         read_bucket1.add_baz(new_baz)
+    #         with ZarrIO(self.store[1], mode='w') as export_io:
+    #             export_io.export(src_io=read_io, container=read_bucket1)
+    #     with ZarrIO(self.store[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+    #         read_bucket2 = read_io.read()
+    #         # remove and check the appended child, then compare the read container with the original
+    #         read_new_baz = read_bucket2.remove_baz(new_baz.name)
+    #         self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+    #         self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+    #         for i in range(num_bazs):
+    #             baz_name = 'baz%d' % i
+    #             self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+    #             self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
 
     def test_non_manager_container(self):
         """Test that exporting with a src_io without a manager raises an error."""
