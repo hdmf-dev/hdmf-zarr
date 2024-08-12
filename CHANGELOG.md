@@ -5,6 +5,7 @@
 * Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
 * NWBZarrIO load_namespaces=True by default. @mavaylon1 [#204](https://github.com/hdmf-dev/hdmf-zarr/pull/204)
 * Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
+* Add dimension labels compatible with xarray. @mavaylon1 [#207](https://github.com/hdmf-dev/hdmf-zarr/pull/207)
 
 ## 0.8.0 (June 4, 2024)
 ### Bug Fixes

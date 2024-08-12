@@ -29,9 +29,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
-    'hdmf>=3.14.2',
+    'hdmf>=3.14.3',
     'zarr>=2.11.0, <3.0', # pin below 3.0 until HDMF-zarr supports zarr 3.0
-    'numpy>=1.24, <2.0', # pin below 2.0 until HDMF supports numpy 2.0
+    'numpy>=1.24, <2.0', # pin below 2.0 until HDMF-zarr supports numpy 2.0
     'numcodecs>=0.9.1',
     'pynwb>=2.5.0',
     'threadpoolctl>=3.1.0',

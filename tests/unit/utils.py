@@ -1,14 +1,16 @@
 import os
 import tempfile
 from copy import copy, deepcopy
+from abc import ABCMeta, abstractmethod
 
 from hdmf.build import (ObjectMapper, TypeMap, BuildManager)
 from hdmf.container import (Container, Data)
 from hdmf.spec import (GroupSpec, DatasetSpec, AttributeSpec, LinkSpec,
                        RefSpec, DtypeSpec, NamespaceCatalog, SpecCatalog,
-                       SpecNamespace, NamespaceBuilder)
+                       SpecNamespace, NamespaceBuilder, Spec)
 from hdmf.spec.spec import (ZERO_OR_MANY, ONE_OR_MANY, ZERO_OR_ONE)
 from hdmf.utils import (docval, getargs, get_docval)
+from hdmf.testing import TestCase
 from hdmf_zarr.backend import ROOT_NAME
 
 CORE_NAMESPACE = 'test_core'
@@ -591,3 +593,120 @@ class CustomSpecNamespace(SpecNamespace):
     @classmethod
     def types_key(cls):
         return cls.__types_key
+
+
+class BarData(Data):
+
+    @docval({'name': 'name', 'type': str, 'doc': 'the name of this BarData'},
+            {'name': 'data', 'type': ('data', 'array_data'), 'doc': 'the data'},
+            {'name': 'attr1', 'type': str, 'doc': 'a string attribute', 'default': None},
+            {'name': 'attr2', 'type': 'int', 'doc': 'an int attribute', 'default': None},
+            {'name': 'ext_attr', 'type': bool, 'doc': 'a boolean attribute', 'default': True})
+    def __init__(self, **kwargs):
+        name, data, attr1, attr2, ext_attr = getargs('name', 'data', 'attr1', 'attr2', 'ext_attr', kwargs)
+        super().__init__(name=name, data=data)
+        self.__attr1 = attr1
+        self.__attr2 = attr2
+        self.__ext_attr = kwargs['ext_attr']
+
+    @property
+    def data_type(self):
+        return 'BarData'
+
+    @property
+    def attr1(self):
+        return self.__attr1
+
+    @property
+    def attr2(self):
+        return self.__attr2
+
+    @property
+    def ext_attr(self):
+        return self.__ext_attr
+
+
+class BarDataHolder(Container):
+
+    @docval({'name': 'name', 'type': str, 'doc': 'the name of this BarDataHolder'},
+            {'name': 'bar_datas', 'type': ('data', 'array_data'), 'doc': 'bar_datas', 'default': list()})
+    def __init__(self, **kwargs):
+        name, bar_datas = getargs('name', 'bar_datas', kwargs)
+        super().__init__(name=name)
+        self.__bar_datas = bar_datas
+        for b in bar_datas:
+            if b is not None and b.parent is None:
+                b.parent = self
+
+    @property
+    def data_type(self):
+        return 'BarDataHolder'
+
+    @property
+    def bar_datas(self):
+        return self.__bar_datas
+
+
+class ExtBarDataMapper(ObjectMapper):
+
+    @docval({"name": "spec", "type": Spec, "doc": "the spec to get the attribute value for"},
+            {"name": "container", "type": BarData, "doc": "the container to get the attribute value from"},
+            {"name": "manager", "type": BuildManager, "doc": "the BuildManager used for managing this build"},
+            returns='the value of the attribute')
+    def get_attr_value(self, **kwargs):
+        ''' Get the value of the attribute corresponding to this spec from the given container '''
+        spec, container, manager = getargs('spec', 'container', 'manager', kwargs)
+        # handle custom mapping of field 'ext_attr' within container
+        # BardataHolder/BarData -> spec BarDataHolder/BarData.ext_attr
+        if isinstance(container.parent, BarDataHolder):
+            if spec.name == 'ext_attr':
+                return container.ext_attr
+        return super().get_attr_value(**kwargs)
+
+
+class BuildDatasetShapeMixin(TestCase, metaclass=ABCMeta):
+
+    def setUp(self):
+        self.store = "tests/unit/test_io.zarr"
+        self.set_up_specs()
+        spec_catalog = SpecCatalog()
+        spec_catalog.register_spec(self.bar_data_spec, 'test.yaml')
+        spec_catalog.register_spec(self.bar_data_holder_spec, 'test.yaml')
+        namespace = SpecNamespace(
+            doc='a test namespace',
+            name=CORE_NAMESPACE,
+            schema=[{'source': 'test.yaml'}],
+            version='0.1.0',
+            catalog=spec_catalog
+        )
+        namespace_catalog = NamespaceCatalog()
+        namespace_catalog.add_namespace(CORE_NAMESPACE, namespace)
+        type_map = TypeMap(namespace_catalog)
+        type_map.register_container_type(CORE_NAMESPACE, 'BarData', BarData)
+        type_map.register_container_type(CORE_NAMESPACE, 'BarDataHolder', BarDataHolder)
+        type_map.register_map(BarData, ExtBarDataMapper)
+        type_map.register_map(BarDataHolder, ObjectMapper)
+        self.manager = BuildManager(type_map)
+
+    def set_up_specs(self):
+        shape, dims = self.get_base_shape_dims()
+        self.bar_data_spec = DatasetSpec(
+            doc='A test dataset specification with a data type',
+            data_type_def='BarData',
+            dtype='int',
+            shape=shape,
+            dims=dims,
+        )
+        self.bar_data_holder_spec = GroupSpec(
+            doc='A container of multiple extended BarData objects',
+            data_type_def='BarDataHolder',
+            datasets=[self.get_dataset_inc_spec()],
+        )
+
+    @abstractmethod
+    def get_base_shape_dims(self):
+        pass
+
+    @abstractmethod
+    def get_dataset_inc_spec(self):
+        pass
