@@ -456,7 +456,7 @@ class ZarrIO(HDMFIO):
                 exhaust_dci=exhaust_dci,
                 export_source=export_source,
             )
-        self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
+        self.write_attributes(self.__file, f_builder.attributes, export_source)  # the same as set_attributes in HDMF
         self.__dci_queue.exhaust_queue()  # Write any remaining DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
@@ -533,6 +533,7 @@ class ZarrIO(HDMFIO):
                     builder=sub_builder,
                     link_data=link_data,
                     exhaust_dci=exhaust_dci,
+                    export_source=export_source
                 )
 
         datasets = builder.datasets
@@ -553,7 +554,7 @@ class ZarrIO(HDMFIO):
                 self.write_link(group, sub_builder)
 
         attributes = builder.attributes
-        self.write_attributes(group, attributes)
+        self.write_attributes(group, attributes, export_source)
         self._written_builders.set_written(builder)  # record that the builder has been written
         return group
 
@@ -566,7 +567,6 @@ class ZarrIO(HDMFIO):
     def write_attributes(self, **kwargs):
         """Set (i.e., write) the attributes on a given Zarr Group or Array."""
         obj, attributes, export_source = getargs('obj', 'attributes', 'export_source', kwargs)
-
         for key, value in attributes.items():
             # Case 1: list, set, tuple type attributes
             if isinstance(value, (set, list, tuple)) or (isinstance(value, np.ndarray) and np.ndim(value) != 0):
@@ -592,10 +592,12 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
+                # breakpoint()
                 # TODO: Region References are not yet supported
                 # if isinstance(value, RegionBuilder):
                 #     type_str = 'region'
                 #     refs = self._create_ref(value.builder)
+
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     if isinstance(value, Builder):
@@ -712,6 +714,7 @@ class ZarrIO(HDMFIO):
                  2) the target zarr object within the target file
         """
         # Extract the path as defined in the zarr_ref object
+        # breakpoint()
         if zarr_ref.get('source', None) is None:
             source_file = str(zarr_ref['path'])
         else:
@@ -789,10 +792,8 @@ class ZarrIO(HDMFIO):
 
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
-        source = (builder.source
-                  if (builder.source is not None and os.path.isdir(builder.source))
-                  else self.source)
-
+        source = (builder.source if (builder.source is not None and os.path.isdir(builder.source)) else self.source)
+        # breakpoint()
         # Make the source relative to the current file
         # TODO: This check assumes that all links are internal links on export.
         # Need to deal with external links on export.
@@ -802,12 +803,15 @@ class ZarrIO(HDMFIO):
             source = '.'
         else:
             source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+        # breakpoint()
         # Return the ZarrReference object
         ref = ZarrReference(
             source=source,
             path=path,
             object_id=object_id,
             source_object_id=source_object_id)
+        # breakpoint()
+
         return ref
 
     def __add_link__(self, parent, target_source, target_path, link_name):
@@ -974,7 +978,6 @@ class ZarrIO(HDMFIO):
         # Write a regular Zarr array
         dset = None
         if isinstance(data, Array):
-            # copy the dataset
             data_filename = self.__get_store_path(data.store)
             if link_data:
                 if export_source is None: # not exporting
@@ -983,7 +986,7 @@ class ZarrIO(HDMFIO):
                     dset = None
                 else: # exporting
                     parent_filename = parent.store.path
-                    parent_name = ''.join(char for char in parent.name if char.isalpha()) # zarr parent name has '/'
+                    parent_name = parent.name.split('/')[-1] # The parent is a zarr object whose name is a relative path.
                     ###############
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
@@ -995,6 +998,7 @@ class ZarrIO(HDMFIO):
 
                     # In HDMF-Zarr, external links and internal links are the same mechanism.
                     ###############
+                    # breakpoint()
                     if data_filename != export_source or builder.parent.name != parent_name:
                         self.__add_link__(parent, data_filename, data.name, name)
                         linked = True
@@ -1004,7 +1008,7 @@ class ZarrIO(HDMFIO):
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
                     ###############
                     else:
-                        breakpoint()
+                        # breakpoint()
                         zarr.copy(data, parent, name=name)
                         dset = parent[name]
 
@@ -1152,7 +1156,7 @@ class ZarrIO(HDMFIO):
             else:
                 dset = self.__scalar_fill__(parent, name, data, options)
         if not linked:
-            self.write_attributes(dset, attributes)
+            self.write_attributes(dset, attributes, export_source)
         # record that the builder has been written
         self._written_builders.set_written(builder)
         # Exhaust the DataChunkIterator if the dataset was given this way. Note this is a no-op
@@ -1454,7 +1458,6 @@ class ZarrIO(HDMFIO):
             links = zarr_obj.attrs['zarr_link']
             for link in links:
                 link_name = link['name']
-                # breakpoint()
                 target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built
                 if isinstance(target_zarr_obj, Group):
