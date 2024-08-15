@@ -962,6 +962,9 @@ class ZarrIO(HDMFIO):
         else:
             options['io_settings'] = {}
 
+        if builder.dimension_labels is not None:
+            builder.attributes['_ARRAY_DIMENSIONS'] = builder.dimension_labels
+
         attributes = builder.attributes
         options['dtype'] = builder.dtype
 

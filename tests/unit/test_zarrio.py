@@ -19,6 +19,8 @@ from zarr.storage import (DirectoryStore,
 from tests.unit.utils import (Baz, BazData, BazBucket, get_baz_buildmanager)
 import zarr
 from hdmf_zarr.backend import ZarrIO
+from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
+from hdmf.spec import DatasetSpec
 import os
 import shutil
 import warnings
@@ -184,6 +186,44 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
                 read_io._ZarrIO__open_file_consolidated(store=self.store, mode='r')
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+
+
+class TestDimensionLabels(BuildDatasetShapeMixin):
+    """
+    This is to test setting the dimension_labels as a zarr attribute '_ARRAY_DIMENSIONS'.
+
+    Workflow:
+    i) We need to define a `get_dataset_inc_spec` to set the dim in the spec (via BuildDatasetShapeMixin)
+    ii) Create and write a BarDataHolder with a BarData.
+    iii) Read and check that the _ARRAY_DIMENSIONS attribute is set. 
+    """
+    def tearDown(self):
+        shutil.rmtree(self.store)
+
+    def get_base_shape_dims(self):
+        return [None, None], ['a', 'b']
+
+    def get_dataset_inc_spec(self):
+        dataset_inc_spec = DatasetSpec(
+            doc='A BarData',
+            data_type_inc='BarData',
+            quantity='*',
+        )
+        return dataset_inc_spec
+
+    def test_build(self):
+        bar_data_inst = BarData(name='my_bar', data=[[1, 2, 3], [4, 5, 6]], attr1='a string')
+        bar_data_holder_inst = BarDataHolder(
+            name='my_bar_holder',
+            bar_datas=[bar_data_inst],
+        )
+
+        with ZarrIO(self.store, manager=self.manager, mode='w') as io:
+            io.write(bar_data_holder_inst)
+
+        with ZarrIO(self.store, manager=self.manager, mode='r') as io:
+            file = io.read()
+            self.assertEqual(file.bar_datas[0].data.attrs['_ARRAY_DIMENSIONS'], ['a', 'b'])
 
 
 class TestDatasetofReferences(ZarrStoreTestCase):
