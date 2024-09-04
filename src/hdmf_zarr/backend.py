@@ -527,6 +527,7 @@ class ZarrIO(HDMFIO):
 
         subgroups = builder.groups
         if subgroups:
+            # breakpoint()
             for subgroup_name, sub_builder in subgroups.items():
                 self.write_group(
                     parent=group,
@@ -603,6 +604,7 @@ class ZarrIO(HDMFIO):
                     if isinstance(value, Builder):
                         refs = self._create_ref(value, export_source)
                     else:
+                        # breakpoint()
                         refs = self._create_ref(value.builder, export_source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
@@ -714,7 +716,6 @@ class ZarrIO(HDMFIO):
                  2) the target zarr object within the target file
         """
         # Extract the path as defined in the zarr_ref object
-        # breakpoint()
         if zarr_ref.get('source', None) is None:
             source_file = str(zarr_ref['path'])
         else:
@@ -743,6 +744,7 @@ class ZarrIO(HDMFIO):
             except Exception:
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
+        # breakpoint()
         return target_name, target_zarr_obj
 
     def _create_ref(self, ref_object, export_source=None):
@@ -764,7 +766,7 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
         else:
             builder = self.manager.build(ref_object)
-
+        breakpoint()
         path = self.__get_path(builder)
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
@@ -825,6 +827,7 @@ class ZarrIO(HDMFIO):
         :param link_name: Name of the link
         :type link_name: str
         """
+        breakpoint()
         if 'zarr_link' not in parent.attrs:
             parent.attrs['zarr_link'] = []
         zarr_link = list(parent.attrs['zarr_link'])
@@ -986,21 +989,26 @@ class ZarrIO(HDMFIO):
                     dset = None
                 else: # exporting
                     parent_filename = parent.store.path
-                    parent_name = parent.name.split('/')[-1] # The parent is a zarr object whose name is a relative path.
-                    ###############
+                    parent_name = ''.join(char for char in parent.name if char.isalpha()) # zarr parent name has '/'                    ###############
+                    data_parent = '/'.join(data.name.split('/')[:-1])
+
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
-
+                    if data_filename != export_source:
+                        self.__add_link__(parent, data_filename, data.name, name)
+                        linked = True
+                        dset = None
                     # Case 2: The dataset is in the export source and has a DIFFERENT path as the builder, create a link.
-                    # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
+                    # I have two files: FileA and FileB. I want to export FileA to FileB. FileA has an
                     # INTERNAL link. This case preserves the link to also be in FileB.
 
                     # In HDMF-Zarr, external links and internal links are the same mechanism.
                     ###############
                     # breakpoint()
-                    if data_filename != export_source or builder.parent.name != parent_name:
-                        self.__add_link__(parent, data_filename, data.name, name)
+                    elif parent.name != data_parent:
+                        # breakpoint()
+                        self.__add_link__(parent, os.path.abspath(self.path), data.name, name)
                         linked = True
                         dset = None
 
@@ -1464,6 +1472,7 @@ class ZarrIO(HDMFIO):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
+                # breakpoint()
                 link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
@@ -1520,6 +1529,7 @@ class ZarrIO(HDMFIO):
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
+        # breakpoint()
         ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
         ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written
