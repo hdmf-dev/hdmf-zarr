@@ -61,7 +61,7 @@ jobs:
           tox -e wheelinstall --recreate --installpkg dist/*-none-any.whl
       - name: Upload distribution as a workspace artifact
         if: ${{ matrix.upload-wheels }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: distributions
           path: dist
