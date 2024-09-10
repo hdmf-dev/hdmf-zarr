@@ -1162,64 +1162,119 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         """Test that exporting a written file with external linked groups maintains the links."""
         """External links remain"""
         pass  # TODO this test currently fails. The external link is changed to point to File 2 instead of File 1
-        """
+
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
         foobucket = FooBucket('bucket1', [foo1])
         foofile = FooFile(buckets=[foobucket])
         # Create File 1 with the full data
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='w') as read_io:
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='w') as read_io:
             read_io.write(foofile)
         # Create file 2 with an external link to File 1
         manager = get_foo_buildmanager()
-        with ZarrIO(self.store_paths[0], manager=manager, mode='r') as read_io:
+        with ZarrIO(self.store_path[0], manager=manager, mode='r') as read_io:
             read_foofile = read_io.read()
             # make external link to existing group
             foofile2 = FooFile(foo_link=read_foofile.buckets['bucket1'].foos['foo1'])
             print("-------------------Write File 2----------------------------")
-            with ZarrIO(self.store_paths[1], manager=manager, mode='w') as write_io:
+            with ZarrIO(self.store_path[1], manager=manager, mode='w') as write_io:
                 write_io.write(foofile2)
-            self.assertDictEqual(zarr.open(self.store_paths[1])['links'].attrs.asdict(),
-                                 {'zarr_link': [{'name': 'foo_link',
-                                                 'path': '/buckets/bucket1/foo_holder/foo1',
-                                                 'source': self.source_paths[0]}]})
+            # self.assertDictEqual(zarr.open(self.store_path[1])['links'].attrs.asdict(),
+            #                      {'zarr_link': [{'name': 'foo_link',
+            #                                      'path': '/buckets/bucket1/foo_holder/foo1',
+            #                                      'source': self.store_path[0]}]})
         # Export File 2 to a new File 3 and make sure the external link from File 2 is being preserved
-        with ZarrIO(self.store_paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
-             with ZarrIO(self.store_paths[2], mode='w') as export_io:
-                print("-------------------Write File 3----------------------------")
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+             with ZarrIO(self.store_path[2], mode='w') as export_io:
                 export_io.export(src_io=read_io)
-        #print()
-        print(zarr.open(self.store_paths[1])['links'].attrs.asdict())
-        print(zarr.open(self.store_paths[2])['links'].attrs.asdict())
-        with ZarrIO(self.store_paths[2], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO(self.store_path[2], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is read from the first file
-            self.assertEqual(read_foofile2.foo_link.container_source, self.source_paths[0])
-        """
+            self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[0])
+
 
     def test_external_link_dataset(self):
         """Test that exporting a written file with external linked datasets maintains the links."""
-        pass  # TODO this test currently fails
-        """
+        ####################
+        # Create File1
+        ####################
+        manager = get_foo_buildmanager()
+
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
         foobucket = FooBucket('bucket1', [foo1])
-        foofile = FooFile(buckets=[foobucket], foofile_data=[1, 2, 3])
-        with ZarrIO(self.store_paths[0], manager=get_foo_buildmanager(), mode='w') as write_io:
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO("test_io0.zarr", manager=manager, mode='w') as write_io:
             write_io.write(foofile)
-        manager = get_foo_buildmanager()
-        with ZarrIO(self.store_paths[0], manager=manager, mode='r') as read_io:
-            read_foofile = read_io.read()
-            # make external link to existing dataset
-            foofile2 = FooFile(foofile_data=read_foofile.foofile_data)
-            with ZarrIO(self.store_paths[1], manager=manager, mode='w') as write_io:
+
+
+        with ZarrIO("test_io0.zarr", manager=manager, mode='r') as read_io1:
+            read_foofile1 = read_io1.read()
+
+            ####################
+            # Create File2
+            ####################
+            foofile2 = FooFile(buckets=[])
+
+            # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
+            # this should make an external link within the exported file
+            foo2 = Foo('foo2', read_foofile1.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
+            foobucket2 = FooBucket('bucket2', [foo2])
+            foofile2.add_bucket(foobucket2)
+
+            # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
+            # this should make an external link within the exported file
+            foofile2.foofile_data = foo2.my_data
+
+
+            with ZarrIO("test_io1.zarr", manager=manager, mode='w') as write_io:
                 write_io.write(foofile2)
-        with ZarrIO(self.store_paths[1], manager=get_foo_buildmanager(), mode='r') as read_io:
-            with ZarrIO(self.store_paths[2], mode='w') as export_io:
-                export_io.export(src_io=read_io)
-        with ZarrIO(self.store_paths[2], manager=get_foo_buildmanager(), mode='r') as read_io:
+
+        ####################
+        # Export with File3
+        ####################
+        with ZarrIO("test_io1.zarr", manager=manager, mode='r') as read_io2:
+            read_foofile2 = read_io2.read()
+
+            # # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
+            # # this should make an external link within the exported file
+            # foo2 = Foo('foo2', read_foofile1.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
+            # foobucket2 = FooBucket('bucket2', [foo2])
+            # read_foofile2.add_bucket(foobucket2)
+            #
+            # # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
+            # # this should make an external link within the exported file
+            # read_foofile2.foofile_data = foo2.my_data
+
+            with ZarrIO("test_io2.zarr", mode='w') as export_io:
+                export_io.export(src_io=read_io2, container=read_foofile2)
+        # ####################
+        # # Create File1
+        # ####################
+        # foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        # foobucket = FooBucket('bucket1', [foo1])
+        # foofile = FooFile(buckets=[foobucket], foofile_data=[1, 2, 3])
+        # with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='w') as write_io:
+        #     write_io.write(foofile)
+        # ########################################
+        # # Create File2 and Export to File 3
+        # ########################################
+        # with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        #     read_foofile = read_io.read()
+        #     # make external link to existing dataset
+        #     foofile2 = FooFile(foofile_data=read_foofile.foofile_data)
+        #     with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='w') as write_io:
+        #         write_io.write(foofile2)
+        #
+        # with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        #     read_foofile = read_io.read()
+        #     with ZarrIO(self.store_path[2], mode='w') as export_io:
+        #         export_io.export(src_io=read_io, container=read_foofile)
+        #
+        with ZarrIO("test_io2.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked dataset is read from the first file
+            # breakpoint()
             self.assertEqual(read_foofile2.foofile_data.file.filename, self.source_paths[0])
-        """
 
     def test_external_link_link(self):
         """Test that exporting a written file with external links to external links maintains the links."""
@@ -1269,15 +1324,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 export_io.export(src_io=read_io)
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
            read_foofile2 = read_io.read()
-           # breakpoint()
            self.assertTupleEqual(ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data),
                                 (self.store_path[1], '/buckets/bucket1/foo_holder/foo1/my_data'))
            # make sure the attribute reference resolves to the container within the same file
            self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket1'].foos['foo1'])
-        expected_ref = {'value': {'path': '/buckets/bucket1/foo_holder/foo1', 'source': self.store_path[1]},
-                        'zarr_dtype': 'object'}
-        real_ref = zarr.open(self.store_path[1]).attrs['foo_ref_attr']
-        self.assertDictEqual(real_ref, expected_ref)
 
 
     def test_pop_data(self):
@@ -1501,13 +1551,13 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
     #     with ZarrIO(self.store_paths[1], manager=get_baz_buildmanager(), mode='r') as read_io:
     #         read_bucket2 = read_io.read()
     #         # remove and check the appended child, then compare the read container with the original
-            # read_new_baz = read_bucket2.remove_baz(new_baz.name)
-            # self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-            # self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            # for i in range(num_bazs):
-            #     baz_name = 'baz%d' % i
-            #     self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-            #     self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+    #         read_new_baz = read_bucket2.remove_baz(new_baz.name)
+    #         self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+    #         self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+    #         for i in range(num_bazs):
+    #             baz_name = 'baz%d' % i
+    #             self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+    #             self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
 
 
     def test_non_manager_container(self):

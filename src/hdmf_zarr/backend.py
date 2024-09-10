@@ -524,7 +524,8 @@ class ZarrIO(HDMFIO):
             group = parent[builder.name]
         else:
             group = parent.require_group(builder.name)
-
+        # if export_source is not None:
+        #     breakpoint()
         subgroups = builder.groups
         if subgroups:
             # breakpoint()
@@ -742,6 +743,7 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
+                breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         # breakpoint()
@@ -759,7 +761,7 @@ class ZarrIO(HDMFIO):
             raise NotImplementedError("Region references are currently not supported by ZarrIO")
         if isinstance(ref_object, Builder):
             if isinstance(ref_object, LinkBuilder):
-                builder = ref_object.target_builder
+                builder = ref_object.builder
             else:
                 builder = ref_object
         elif isinstance(ref_object, ReferenceBuilder):
@@ -795,7 +797,7 @@ class ZarrIO(HDMFIO):
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source if (builder.source is not None and os.path.isdir(builder.source)) else self.source)
-        # breakpoint()
+        breakpoint()
         # Make the source relative to the current file
         # TODO: This check assumes that all links are internal links on export.
         # Need to deal with external links on export.
@@ -845,48 +847,13 @@ class ZarrIO(HDMFIO):
             return
         self.logger.debug("Writing LinkBuilder '%s' to parent group '%s'" % (builder.name, parent.name))
         name = builder.name
-        target_builder = builder.builder
+        # target_builder = builder.builder
         # Get the reference
-        zarr_ref = self._create_ref(target_builder)
-        # EXPORT WITH LINKS: Fix link source
-        # if the target and source are both the same, then we need to ALWAYS use ourselves as a source
-        # When exporting from one source to another, the LinkBuilders.source are not updated, i.e,. the
-        # builder.source and target_builder.source are not being updated and point to the old file, but
-        # for internal links (a.k.a, SoftLinks) they will be the same and our target will be part of
-        # our new file, so we can safely replace the source
-        if builder.source == target_builder.source:
-            zarr_ref.source = "."  # Link should be relative to self
-        # EXPORT WITH LINKS: Make sure target is written. If is not then if the target points to a
-        #                    non-Zarr source, then we need to copy the data instead of writing a
-        #                    link to the data
-        # When exporting from a different backend, then we may encounter external links to
-        # other datasets, groups (or links) in another file. Since they are from another
-        # backend, we must ensure that those targets are copied as well, so we check here
-        # if our target_builder has been written and write it if it doesn't
-        # TODO: Review the logic for when we need to copy data and when to link it. We may need the export_source?
-        """
-        skip_link = False
-        if not self.get_written(target_builder):
-            if not self.is_zarr_file(target_builder.source):
-                # We need to copy the target in place of the link so we need to
-                # change the name of target_builder to match the link instead
-                temp = copy(target_builder.name)
-                target_builder._Builder__name = name
-                # Skip writing the link since we copied the data into place
-                skip_link = True
-                if isinstance(target_builder, DatasetBuilder):
-                    self.write_dataset(parent=parent, builder=target_builder)
-                elif isinstance(target_builder, GroupBuilder):
-                    self.write_group(parent=parent, builder=target_builder)
-                elif isinstance(target_builder, LinkBuilder):
-                    self.write_link(parent=parent, builder=target_builder)
-                target_builder._Builder__name = temp
-        # REGULAR LINK I/O:
-        # Write the actual link as we should in most cases. Skip it only if we copied the
-        # data from an external source in place instead
-        if not skip_link:
-            self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
-        """
+        zarr_ref = self._create_ref(builder)
+
+        # source needs to be where the target lives
+        zarr_ref.source = builder.builder.source
+
         self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
         self._written_builders.set_written(builder)  # record that the builder has been written
 
@@ -977,7 +944,7 @@ class ZarrIO(HDMFIO):
         options['dtype'] = builder.dtype
 
         linked = False
-
+        # breakpoint()
         # Write a regular Zarr array
         dset = None
         if isinstance(data, Array):
@@ -996,6 +963,7 @@ class ZarrIO(HDMFIO):
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
                     if data_filename != export_source:
+                        breakpoint()
                         self.__add_link__(parent, data_filename, data.name, name)
                         linked = True
                         dset = None
@@ -1007,7 +975,7 @@ class ZarrIO(HDMFIO):
                     ###############
                     # breakpoint()
                     elif parent.name != data_parent:
-                        # breakpoint()
+                        breakpoint()
                         self.__add_link__(parent, os.path.abspath(self.path), data.name, name)
                         linked = True
                         dset = None
@@ -1016,11 +984,12 @@ class ZarrIO(HDMFIO):
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
                     ###############
                     else:
-                        # breakpoint()
+                        breakpoint()
                         zarr.copy(data, parent, name=name)
                         dset = parent[name]
 
             else:
+                breakpoint()
                 zarr.copy(data, parent, name=name)
                 dset = parent[name]
         # When converting data between backends we may see an HDMFDataset, e.g., a H55ReferenceDataset, with references
@@ -1472,7 +1441,7 @@ class ZarrIO(HDMFIO):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
-                # breakpoint()
+                breakpoint()
                 link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
