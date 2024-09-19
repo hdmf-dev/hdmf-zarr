@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.9.0 (Upcoming)
+## 0.9.0 (September 16, 2024)
 ### Enhancements
 * Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
 * NWBZarrIO load_namespaces=True by default. @mavaylon1 [#204](https://github.com/hdmf-dev/hdmf-zarr/pull/204)
