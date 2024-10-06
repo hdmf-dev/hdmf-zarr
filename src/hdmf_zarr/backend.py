@@ -12,7 +12,8 @@ from zarr.hierarchy import Group
 from zarr.core import Array
 from zarr.storage import (DirectoryStore,
                           TempStore,
-                          NestedDirectoryStore)
+                          NestedDirectoryStore,
+                          ConsolidatedMetadataStore)
 import numcodecs
 
 # HDMF-ZARR imports
@@ -498,6 +499,7 @@ class ZarrIO(HDMFIO):
                                           synchronizer=synchronizer,
                                           storage_options=storage_options)
         except KeyError:  # A KeyError is raised when the '/.zmetadata' does not exist
+            breakpoint()
             return zarr.open(store=store,
                              mode=mode,
                              synchronizer=synchronizer,
@@ -723,7 +725,9 @@ class ZarrIO(HDMFIO):
             source_file = str(zarr_ref['source'])
         # Resolve the path relative to the current file
         if not self.is_remote():
-            source_file = os.path.abspath(os.path.join(self.source, source_file))
+            if source_file == '.':
+                # breakpoint()
+                source_file = os.path.relpath(os.path.abspath(os.path.join(self.source, source_file)))
         else:
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
@@ -738,12 +742,12 @@ class ZarrIO(HDMFIO):
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
-
+# self._ZarrIO__open_file_consolidated(store='tests/unit/test_io1.zarr', mode='r',storage_options=self.__storage_options)
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                breakpoint()
+                # breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         # breakpoint()
@@ -768,7 +772,7 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
         else:
             builder = self.manager.build(ref_object)
-        breakpoint()
+        # breakpoint()
         path = self.__get_path(builder)
         # TODO Add to get region for region references.
         #      Also add  {'name': 'region', 'type': (slice, list, tuple),
@@ -797,7 +801,7 @@ class ZarrIO(HDMFIO):
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
         source = (builder.source if (builder.source is not None and os.path.isdir(builder.source)) else self.source)
-        breakpoint()
+        # breakpoint()
         # Make the source relative to the current file
         # TODO: This check assumes that all links are internal links on export.
         # Need to deal with external links on export.
@@ -806,7 +810,7 @@ class ZarrIO(HDMFIO):
             # and not the original source when exporting.
             source = '.'
         else:
-            source = os.path.relpath(os.path.abspath(source), start=self.abspath)
+            source = os.path.relpath(os.path.abspath(source))
         # breakpoint()
         # Return the ZarrReference object
         ref = ZarrReference(
@@ -829,7 +833,7 @@ class ZarrIO(HDMFIO):
         :param link_name: Name of the link
         :type link_name: str
         """
-        breakpoint()
+        # breakpoint()
         if 'zarr_link' not in parent.attrs:
             parent.attrs['zarr_link'] = []
         zarr_link = list(parent.attrs['zarr_link'])
@@ -850,9 +854,6 @@ class ZarrIO(HDMFIO):
         # target_builder = builder.builder
         # Get the reference
         zarr_ref = self._create_ref(builder)
-
-        # source needs to be where the target lives
-        zarr_ref.source = builder.builder.source
 
         self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
         self._written_builders.set_written(builder)  # record that the builder has been written
@@ -963,7 +964,7 @@ class ZarrIO(HDMFIO):
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
                     if data_filename != export_source:
-                        breakpoint()
+                        # breakpoint()
                         self.__add_link__(parent, data_filename, data.name, name)
                         linked = True
                         dset = None
@@ -975,8 +976,7 @@ class ZarrIO(HDMFIO):
                     ###############
                     # breakpoint()
                     elif parent.name != data_parent:
-                        breakpoint()
-                        self.__add_link__(parent, os.path.abspath(self.path), data.name, name)
+                        self.__add_link__(parent, self.path, data.name, name)
                         linked = True
                         dset = None
 
@@ -984,12 +984,12 @@ class ZarrIO(HDMFIO):
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
                     ###############
                     else:
-                        breakpoint()
+                        # breakpoint()
                         zarr.copy(data, parent, name=name)
                         dset = parent[name]
 
             else:
-                breakpoint()
+                # breakpoint()
                 zarr.copy(data, parent, name=name)
                 dset = parent[name]
         # When converting data between backends we may see an HDMFDataset, e.g., a H55ReferenceDataset, with references
@@ -1400,9 +1400,13 @@ class ZarrIO(HDMFIO):
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
 
+        if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
+            source = zarr_obj.store.store.path
+        else:
+            source = zarr_obj.store.path
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
-        ret = GroupBuilder(name=name, source=self.source, attributes=attributes)
+        ret = GroupBuilder(name=name, source=source, attributes=attributes)
         ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
 
         # read sub groups
@@ -1441,7 +1445,7 @@ class ZarrIO(HDMFIO):
                     builder = self.__read_group(target_zarr_obj, target_name)
                 else:
                     builder = self.__read_dataset(target_zarr_obj, target_name)
-                breakpoint()
+                # breakpoint()
                 link_builder = LinkBuilder(builder=builder, name=link_name, source=self.source)
                 link_builder.location = os.path.join(parent.location, parent.name)
                 self._written_builders.set_written(link_builder)  # record that the builder has been written
@@ -1461,12 +1465,16 @@ class ZarrIO(HDMFIO):
             )
         else:
             raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
-
+        # breakpoint()
+        if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
+            source = zarr_obj.store.store.path
+        else:
+            source = zarr_obj.store.path
         kwargs = {"attributes": self.__read_attrs(zarr_obj),
                   "dtype": zarr_dtype,
                   "maxshape": zarr_obj.shape,
                   "chunks": not (zarr_obj.shape == zarr_obj.chunks),
-                  "source": self.source}
+                  "source": source}
         dtype = kwargs['dtype']
 
         # By default, use the zarr.core.Array as data for lazy data load
@@ -1498,7 +1506,6 @@ class ZarrIO(HDMFIO):
         kwargs['data'] = data
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
-        # breakpoint()
         ret = DatasetBuilder(name, **kwargs)  # create builder object for dataset
         ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
         self._written_builders.set_written(ret)  # record that the builder has been written

@@ -1,0 +1,28 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "data_type": "FooFile",
+            "namespace": "test_core",
+            "object_id": "6442cffd-1d1b-4015-b515-8069153279f8"
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/.zgroup": {
+            "zarr_format": 2
+        },
+        "links/.zattrs": {
+            "zarr_link": [
+                {
+                    "name": "foo_link",
+                    "path": "/buckets/bucket1/foo_holder/foo1",
+                    "source": "test_io0.zarr"
+                }
+            ]
+        },
+        "links/.zgroup": {
+            "zarr_format": 2
+        }
+    },
+    "zarr_consolidated_format": 1
+}
