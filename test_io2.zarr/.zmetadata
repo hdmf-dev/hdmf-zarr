@@ -3,7 +3,7 @@
         ".zattrs": {
             "data_type": "FooFile",
             "namespace": "test_core",
-            "object_id": "6442cffd-1d1b-4015-b515-8069153279f8"
+            "object_id": "ac0cd188-78cd-4eeb-a437-52d5ba7062e3"
         },
         ".zgroup": {
             "zarr_format": 2

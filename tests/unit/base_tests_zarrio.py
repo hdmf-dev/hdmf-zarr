@@ -1125,10 +1125,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
         with ZarrIO("test_io0.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             with ZarrIO("test_io1.zarr", mode='w') as export_io:
-                export_io.export(src_io=read_io,
-                                 write_args=dict(link_data=False))
+                export_io.export(src_io=read_io)
         with ZarrIO("test_io1.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
+            # breakpoint()
             # make sure the linked group is within the same file
             self.assertEqual(read_foofile2.foo_link.container_source, "test_io1.zarr")
             # zarr_linkspec1 = zarr.open(self.store_path[0])['links'].attrs.asdict()['zarr_link'][0]
@@ -1164,7 +1164,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO("test_io2.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is read from the first file
-            self.assertEqual(read_foofile2.foo_link.container_source, '/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr')
+            self.assertEqual(read_foofile2.foo_link.container_source, 'test_io0.zarr')
 
 
     def test_external_link_dataset(self):
