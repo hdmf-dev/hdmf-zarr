@@ -3,7 +3,7 @@
         ".zattrs": {
             "data_type": "FooFile",
             "namespace": "test_core",
-            "object_id": "27d9b554-421a-4cb7-8c24-66b5747b86df"
+            "object_id": "20283a8a-00e6-414a-8dd4-4125364c03a5"
         },
         ".zgroup": {
             "zarr_format": 2
@@ -14,7 +14,7 @@
         "buckets/bucket1/.zattrs": {
             "data_type": "FooBucket",
             "namespace": "test_core",
-            "object_id": "464e00d7-11dd-4466-afda-def0b44bb2c9"
+            "object_id": "732346eb-b4a1-4eb6-aee1-2d64cfe8c165"
         },
         "buckets/bucket1/.zgroup": {
             "zarr_format": 2
@@ -27,7 +27,7 @@
             "attr3": 3.14,
             "data_type": "Foo",
             "namespace": "test_core",
-            "object_id": "4ad02d31-07cf-4b31-ab8b-eecca3ffb26d"
+            "object_id": "7d47b7b1-ab86-462d-a8fc-0ae0fbf37315"
         },
         "buckets/bucket1/foo_holder/foo1/.zgroup": {
             "zarr_format": 2

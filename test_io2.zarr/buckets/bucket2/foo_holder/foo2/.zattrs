@@ -1,11 +1,12 @@
 {
-    ".specloc": "specifications",
-    "data_type": "FooFile",
+    "attr1": "I am foo2",
+    "attr3": 3.14,
+    "data_type": "Foo",
     "namespace": "test_core",
-    "object_id": "2ad0d2b0-dd51-4c5e-84d3-e561330a4f6f",
+    "object_id": "4bf361c1-b731-4f2c-8b53-22aab97d5276",
     "zarr_link": [
         {
-            "name": "foofile_data",
+            "name": "my_data",
             "path": "/buckets/bucket1/foo_holder/foo1/my_data",
             "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
         }

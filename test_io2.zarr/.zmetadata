@@ -3,7 +3,14 @@
         ".zattrs": {
             "data_type": "FooFile",
             "namespace": "test_core",
-            "object_id": "ac0cd188-78cd-4eeb-a437-52d5ba7062e3"
+            "object_id": "2ad0d2b0-dd51-4c5e-84d3-e561330a4f6f",
+            "zarr_link": [
+                {
+                    "name": "foofile_data",
+                    "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+                    "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+                }
+            ]
         },
         ".zgroup": {
             "zarr_format": 2
@@ -11,14 +18,33 @@
         "buckets/.zgroup": {
             "zarr_format": 2
         },
-        "links/.zattrs": {
+        "buckets/bucket2/.zattrs": {
+            "data_type": "FooBucket",
+            "namespace": "test_core",
+            "object_id": "7f8154fa-8bdb-407d-9173-3653cbb3229e"
+        },
+        "buckets/bucket2/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket2/foo_holder/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket2/foo_holder/foo2/.zattrs": {
+            "attr1": "I am foo2",
+            "attr3": 3.14,
+            "data_type": "Foo",
+            "namespace": "test_core",
+            "object_id": "4bf361c1-b731-4f2c-8b53-22aab97d5276",
             "zarr_link": [
                 {
-                    "name": "foo_link",
-                    "path": "/buckets/bucket1/foo_holder/foo1",
-                    "source": "test_io0.zarr"
+                    "name": "my_data",
+                    "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+                    "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
                 }
             ]
+        },
+        "buckets/bucket2/foo_holder/foo2/.zgroup": {
+            "zarr_format": 2
         },
         "links/.zgroup": {
             "zarr_format": 2

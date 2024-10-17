@@ -744,7 +744,7 @@ class ZarrIO(HDMFIO):
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
-        breakpoint()
+
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
@@ -752,7 +752,6 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -848,45 +847,7 @@ class ZarrIO(HDMFIO):
 
         self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
         self._written_builders.set_written(builder)  # record that the builder has been written
-# @docval({'name': 'parent', 'type': Group, 'doc': 'the parent HDF5 object'},
-#             {'name': 'builder', 'type': LinkBuilder, 'doc': 'the LinkBuilder to write'},
-#             {'name': 'export_source', 'type': str,
-#              'doc': 'The source of the builders when exporting', 'default': None},
-#             returns='the Link that was created', rtype=(SoftLink, ExternalLink))
-#     def write_link(self, **kwargs):
-#         parent, builder, export_source = getargs('parent', 'builder', 'export_source', kwargs)
-#         self.logger.debug("Writing LinkBuilder '%s' to parent group '%s'" % (builder.name, parent.name))
-#         if self.get_written(builder):
-#             self.logger.debug("    LinkBuilder '%s' is already written" % builder.name)
-#             return None
-#         name = builder.name
-#         target_builder = builder.builder
-#         path = self.__get_path(target_builder)
-#         # source will indicate target_builder's location
-#         if export_source is None:
-#             write_source = builder.source
-#         else:
-#             write_source = export_source
-#
-#         parent_filename = os.path.abspath(parent.file.filename)
-#         if target_builder.source in (write_source, parent_filename):
-#             link_obj = SoftLink(path)
-#             self.logger.debug("    Creating SoftLink '%s/%s' to '%s'"
-#                               % (parent.name, name, link_obj.path))
-#         elif target_builder.source is not None:
-#             target_filename = os.path.abspath(target_builder.source)
-#             relative_path = os.path.relpath(target_filename, os.path.dirname(parent_filename))
-#             if target_builder.location is not None:
-#                 path = target_builder.location + "/" + target_builder.name
-#             link_obj = ExternalLink(relative_path, path)
-#             self.logger.debug("    Creating ExternalLink '%s/%s' to '%s://%s'"
-#                               % (parent.name, name, link_obj.filename, link_obj.path))
-#         else:
-#             msg = 'cannot create external link to %s' % path
-#             raise ValueError(msg)
-#         parent[name] = link_obj
-#         self.__set_written(builder)
-#         return link_obj
+
     @classmethod
     def __setup_chunked_dataset__(cls, parent, name, data, options=None):
         """
