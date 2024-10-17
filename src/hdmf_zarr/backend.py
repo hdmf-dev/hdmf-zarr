@@ -605,16 +605,19 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
-                # TODO: Region References are not yet supported
-                # if isinstance(value, RegionBuilder):
-                #     type_str = 'region'
-                #     refs = self._create_ref(value.builder)
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
-                    if isinstance(value, Builder):
-                        refs = self._create_ref(value, export_source)
+                    obj_filename = self.__get_store_path(obj.store)
+                    if obj_filename != export_source:
+                        if not isinstance(value, Builder):
+                            value = value.builder
+                        if value.source in (obj_filename, export_source):
+                            source = obj_filename
+                        else:
+                            source = None
                     else:
-                        refs = self._create_ref(value.builder, export_source)
+                        source = export_source
+                    refs = self._create_ref(value, source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -752,6 +755,7 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
+                breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj

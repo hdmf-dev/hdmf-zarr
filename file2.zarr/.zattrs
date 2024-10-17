@@ -1,0 +1,22 @@
+{
+    ".specloc": "specifications",
+    "data_type": "FooFile",
+    "foo_ref_attr": {
+        "value": {
+            "object_id": "2a36d892-ab46-4b0c-bd6b-31ce6533d071",
+            "path": "/buckets/bucket2/foo_holder/foo2",
+            "source": "file2.zarr",
+            "source_object_id": "660f1c92-d141-40d2-995f-2bb46c87c017"
+        },
+        "zarr_dtype": "object"
+    },
+    "namespace": "test_core",
+    "object_id": "660f1c92-d141-40d2-995f-2bb46c87c017",
+    "zarr_link": [
+        {
+            "name": "foofile_data",
+            "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+            "source": "file2.zarr"
+        }
+    ]
+}

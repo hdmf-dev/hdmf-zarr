@@ -2,7 +2,7 @@
     ".specloc": "specifications",
     "data_type": "FooFile",
     "namespace": "test_core",
-    "object_id": "2ad0d2b0-dd51-4c5e-84d3-e561330a4f6f",
+    "object_id": "c29b1609-23b6-4f0e-9ced-73380f4e84f5",
     "zarr_link": [
         {
             "name": "foofile_data",

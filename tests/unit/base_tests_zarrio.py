@@ -1331,10 +1331,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         foobucket = FooBucket('bucket1', [foo1])
         foofile = FooFile(buckets=[foobucket])
 
-        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='w') as write_io:
+        with ZarrIO("file1.zarr", manager=get_foo_buildmanager(), mode='w') as write_io:
             write_io.write(foofile)
 
-        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO("file1.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile = read_io.read()
 
             # create a foo with link to existing dataset my_data, add the foo to new foobucket
@@ -1352,10 +1352,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             # also add reference from foofile to new foo2
             read_foofile.foo_ref_attr = foo2
 
-            with ZarrIO(self.store_path[1], mode='w') as export_io:
+            with ZarrIO("file2.zarr", mode='w') as export_io:
                 export_io.export(src_io=read_io, container=read_foofile)
 
-        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+        with ZarrIO("file2.zarr", manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
 
             # test new soft link to dataset in file

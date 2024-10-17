@@ -3,7 +3,7 @@
     "attr3": 3.14,
     "data_type": "Foo",
     "namespace": "test_core",
-    "object_id": "4bf361c1-b731-4f2c-8b53-22aab97d5276",
+    "object_id": "694cd193-1d6c-4244-a15b-b87c544c3a2d",
     "zarr_link": [
         {
             "name": "my_data",

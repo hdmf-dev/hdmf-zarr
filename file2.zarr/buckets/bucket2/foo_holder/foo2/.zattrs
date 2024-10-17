@@ -3,12 +3,12 @@
     "attr3": 3.14,
     "data_type": "Foo",
     "namespace": "test_core",
-    "object_id": "0bca54c6-cc60-4039-b110-544d3a106a9f",
+    "object_id": "2a36d892-ab46-4b0c-bd6b-31ce6533d071",
     "zarr_link": [
         {
             "name": "my_data",
             "path": "/buckets/bucket1/foo_holder/foo1/my_data",
-            "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+            "source": "file2.zarr"
         }
     ]
 }
