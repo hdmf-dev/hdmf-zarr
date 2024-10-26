@@ -804,11 +804,9 @@ class ZarrIO(HDMFIO):
                       if (builder.source is not None and os.path.isdir(builder.source))
                       else self.source)
         else:
-            # breakpoint()
             source = export_source
 
         source = os.path.relpath(source)
-        # breakpoint()
         # Return the ZarrReference object
         ref = ZarrReference(
             source=source,
