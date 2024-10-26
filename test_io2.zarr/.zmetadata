@@ -1,0 +1,54 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "data_type": "FooFile",
+            "namespace": "test_core",
+            "object_id": "4f446c90-a1bb-4ab8-9deb-919da8876d8a",
+            "zarr_link": [
+                {
+                    "name": "foofile_data",
+                    "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+                    "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+                }
+            ]
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket2/.zattrs": {
+            "data_type": "FooBucket",
+            "namespace": "test_core",
+            "object_id": "347e15de-4848-4197-81a8-2ccfd5d84516"
+        },
+        "buckets/bucket2/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket2/foo_holder/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket2/foo_holder/foo2/.zattrs": {
+            "attr1": "I am foo2",
+            "attr3": 3.14,
+            "data_type": "Foo",
+            "namespace": "test_core",
+            "object_id": "ff308d0e-4298-48b6-95fa-8de8084e6e4d",
+            "zarr_link": [
+                {
+                    "name": "my_data",
+                    "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+                    "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+                }
+            ]
+        },
+        "buckets/bucket2/foo_holder/foo2/.zgroup": {
+            "zarr_format": 2
+        },
+        "links/.zgroup": {
+            "zarr_format": 2
+        }
+    },
+    "zarr_consolidated_format": 1
+}

@@ -1,0 +1,14 @@
+{
+    "attr1": "I am foo2",
+    "attr3": 3.14,
+    "data_type": "Foo",
+    "namespace": "test_core",
+    "object_id": "085a677d-054f-4e18-a4a1-2bf816f89f52",
+    "zarr_link": [
+        {
+            "name": "my_data",
+            "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+            "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+        }
+    ]
+}

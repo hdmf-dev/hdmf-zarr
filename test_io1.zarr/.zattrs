@@ -1,0 +1,13 @@
+{
+    ".specloc": "specifications",
+    "data_type": "FooFile",
+    "namespace": "test_core",
+    "object_id": "4f446c90-a1bb-4ab8-9deb-919da8876d8a",
+    "zarr_link": [
+        {
+            "name": "foofile_data",
+            "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+            "source": "/Users/mavaylon/Research/NWB/hdmf-zarr/test_io0.zarr"
+        }
+    ]
+}

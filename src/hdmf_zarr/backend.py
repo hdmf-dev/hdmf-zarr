@@ -548,7 +548,6 @@ class ZarrIO(HDMFIO):
                     export_source=export_source,
                 )
 
-        # write all links (haven implemented)
         links = builder.links
         if links:
             for link_name, sub_builder in links.items():
@@ -804,8 +803,12 @@ class ZarrIO(HDMFIO):
                       if (builder.source is not None and os.path.isdir(builder.source))
                       else self.source)
         else:
-            source = export_source
-
+            if builder.source == export_source:
+                source = self.path
+            else:
+                source = export_source
+        if not isinstance(source, str):
+            source = source.path
         source = os.path.relpath(source)
         # Return the ZarrReference object
         ref = ZarrReference(
@@ -962,8 +965,6 @@ class ZarrIO(HDMFIO):
                     # Case 2: The dataset is in the export source and has a DIFFERENT path as the builder, create a link.
                     # I have two files: FileA and FileB. I want to export FileA to FileB. FileA has an
                     # INTERNAL link. This case preserves the link to also be in FileB.
-
-                    # In HDMF-Zarr, external links and internal links are the same mechanism.
                     ###############
                     elif parent.name != data_parent:
                         self.__add_link__(parent, self.path, data.name, name)
@@ -1077,20 +1078,10 @@ class ZarrIO(HDMFIO):
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
-            # TODO Region references are not yet support, but here how the code should look
-            #  if isinstance(data, RegionBuilder):
-            #      shape = (1,)
-            #      type_str = 'region'
-            #      refs = self._create_ref(data.builder, data.region)
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
                 refs = self._create_ref(data.builder, export_source=export_source)
-            # TODO: Region References are not yet supported
-            # elif options['dtype'] == 'region':
-            #     shape = (len(data), )
-            #     type_str = 'region'
-            #     refs = [self._create_ref(item.builder, item.region) for item in data]
             else:
                 shape = (len(data), )
                 type_str = 'object'
@@ -1426,7 +1417,6 @@ class ZarrIO(HDMFIO):
         if 'zarr_link' in zarr_obj.attrs:
             links = zarr_obj.attrs['zarr_link']
             for link in links:
-                # breakpoint()
                 link_name = link['name']
                 target_name, target_zarr_obj = self.resolve_ref(link)
                 # NOTE: __read_group and __read_dataset return the cached builders if the target has already been built

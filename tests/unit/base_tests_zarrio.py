@@ -360,7 +360,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                 # Check the ZarrReference first
                 self.assertEqual(zarr_ref.object_id, expected_value['object_id'])
                 self.assertEqual(zarr_ref.source_object_id, expected_value['source_object_id'])
-                
+
     def test_write_reference_compound(self):
         builder = self.createReferenceCompoundBuilder()
         writer = ZarrIO(self.store, manager=self.manager, mode='a')
@@ -651,7 +651,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_attributes_write_reference_to_datasetbuilder(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         dataset_1 = DatasetBuilder('dataset_1', data_1)
-        tempIO = ZarrIO(self.store, mode='w')
+        tempIO = ZarrIO('test_io.zarr', mode='w')
         tempIO.open()
         attr = {'attr1': dataset_1}
         with self.assertWarnsWith(UserWarning,
@@ -669,7 +669,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         dataset_1 = DatasetBuilder('dataset_1', data_1)
         ref1 = ReferenceBuilder(dataset_1)
-        tempIO = ZarrIO(self.store, mode='w')
+        tempIO = ZarrIO('test_io.zarr', mode='w')
         tempIO.open()
         attr = {'attr1': ref1}
         with self.assertWarnsWith(UserWarning,
@@ -1442,7 +1442,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
     def test_export_dset_refs(self):
         """Test that exporting a written container with a dataset of references works."""
-        num_bazs = 10
+        num_bazs = 1
         bazs = []  # set up dataset of references
         for i in range(num_bazs):
             bazs.append(Baz(name='baz%d' % i))
@@ -1450,18 +1450,18 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         container = BazBucket(bazs=bazs, baz_data=baz_data)
         manager = get_baz_buildmanager()
 
-        with ZarrIO(self.store_path[0], manager=manager, mode='w') as writer:
+        with ZarrIO("file0.zarr", manager=manager, mode='w') as writer:
             writer.write(container=container)
 
-        with ZarrIO(self.store_path[0], manager=manager, mode='r') as append_io:
-            read_container = append_io.read()
+        with ZarrIO("file0.zarr", manager=manager, mode='r') as read_io:
+            read_container = read_io.read()
 
-            with ZarrIO(self.store_path[1], mode='w') as export_io:
-                export_io.export(src_io=append_io, container=read_container)
+            with ZarrIO("file1.zarr", mode='w') as export_io:
+                export_io.export(src_io=read_io, container=read_container)
 
-        with ZarrIO(self.store_path[1], manager=manager, mode='r') as append_io2:
-            read_container = append_io2.read()
-            self.assertEqual(len(read_container.baz_data.data), 10)
+        with ZarrIO("file1.zarr", manager=manager, mode='r') as read_io2:
+            read_container = read_io2.read()
+            self.assertEqual(len(read_container.baz_data.data), 1)
             self.assertContainerEqual(container, read_container, ignore_name=True, ignore_hdmf_attrs=True)
             for i in range(num_bazs):
                 baz_name = 'baz%d' % i

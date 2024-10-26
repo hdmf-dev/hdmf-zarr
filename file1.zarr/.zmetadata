@@ -1,0 +1,55 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "data_type": "BazBucket",
+            "namespace": "test_core",
+            "object_id": "d8046338-3097-4ec8-8c95-08042062915c"
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "baz_data/.zarray": {
+            "chunks": [
+                1
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|O",
+            "fill_value": 0,
+            "filters": [
+                {
+                    "id": "pickle",
+                    "protocol": 5
+                }
+            ],
+            "order": "C",
+            "shape": [
+                1
+            ],
+            "zarr_format": 2
+        },
+        "baz_data/.zattrs": {
+            "data_type": "BazData",
+            "namespace": "test_core",
+            "object_id": "18b7997c-2fae-46f9-9f86-cc24b8bf5438",
+            "zarr_dtype": "object"
+        },
+        "bazs/.zgroup": {
+            "zarr_format": 2
+        },
+        "bazs/baz0/.zattrs": {
+            "data_type": "Baz",
+            "namespace": "test_core",
+            "object_id": "272ffba8-f554-46c2-9c05-9d6240170f67"
+        },
+        "bazs/baz0/.zgroup": {
+            "zarr_format": 2
+        }
+    },
+    "zarr_consolidated_format": 1
+}

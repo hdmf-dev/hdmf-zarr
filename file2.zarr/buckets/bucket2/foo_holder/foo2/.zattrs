@@ -1,0 +1,14 @@
+{
+    "attr1": "I am foo2",
+    "attr3": 3.14,
+    "data_type": "Foo",
+    "namespace": "test_core",
+    "object_id": "0596fdab-61c7-462e-ad02-26f40547394f",
+    "zarr_link": [
+        {
+            "name": "my_data",
+            "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+            "source": "file2.zarr"
+        }
+    ]
+}
