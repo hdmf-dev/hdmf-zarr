@@ -754,7 +754,6 @@ class ZarrIO(HDMFIO):
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
             except Exception:
-                breakpoint()
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
@@ -832,6 +831,8 @@ class ZarrIO(HDMFIO):
         if 'zarr_link' not in parent.attrs:
             parent.attrs['zarr_link'] = []
         zarr_link = list(parent.attrs['zarr_link'])
+        if not isinstance(target_source, str): # a store
+            target_source = target_source.path
         zarr_link.append({'source': target_source, 'path': target_path, 'name': link_name})
         parent.attrs['zarr_link'] = zarr_link
 

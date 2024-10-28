@@ -989,6 +989,40 @@ class TestHDF5toZarrWithFilters(TestCase):
         self.assertTupleEqual((10,), read_array.chunks)
 
 
+# class TestFooExternalLinkHDF5ToZarr(TestCase):
+#     def test_external_link_group(self):
+        # """Test that exporting a written file with external linked groups maintains the links."""
+        # """External links remain"""
+        #
+        # foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        # foobucket = FooBucket('bucket1', [foo1])
+        # foofile = FooFile(buckets=[foobucket])
+        # # Create File 1 with the full data
+        # with HDF5IO('nwbfile1.nwb', manager=get_foo_buildmanager(), mode='w') as read_io:
+        #     read_io.write(foofile)
+        # # Create file 2 with an external link to File 1
+        # manager = get_foo_buildmanager()
+        # with HDF5IO('nwbfile1.nwb', manager=manager, mode='r') as read_io:
+        #     read_foofile = read_io.read()
+        #     # make external link to existing group
+        #     foofile2 = FooFile(foo_link=read_foofile.buckets['bucket1'].foos['foo1'])
+        #     with HDF5IO('nwbfile2.nwb', manager=manager, mode='w') as write_io:
+        #         write_io.write(foofile2)
+        # # Export File 2 to a new File 3 and make sure the external link from File 2 is being preserved
+        # with HDF5IO('nwbfile2.nwb', manager=get_foo_buildmanager(), mode='r') as read_io:
+        #      with ZarrIO('zarr_nwbfile.zarr', mode='w') as export_io:
+        #         export_io.export(src_io=read_io, write_args={'link_data': False})
+        # with ZarrIO('zarr_nwbfile.zarr', manager=get_foo_buildmanager(), mode='r') as read_io:
+        #     read_foofile2 = read_io.read()
+        #     # make sure the linked group is read from the first file
+        #     if isinstance('nwbfile1.nwb', str):
+        #         self.assertEqual(read_foofile2.foo_link.container_source, self.store[0])
+        #     else:
+        #         self.assertEqual(read_foofile2.foo_link.container_source, self.store[0].path)
+
+    # def test_external_link_dataset(self):
+        # pass
+
 
 # TODO: Fails because we need to copy the data from the ExternalLink as it points to a non-Zarr source
 # class TestFooExternalLinkHDF5ToZarr(MixinTestCaseConvert, TestCase):
@@ -997,36 +1031,38 @@ class TestHDF5toZarrWithFilters(TestCase):
 #     IGNORE_STRING_TO_BYTE = False
 #     def get_manager(self):
 #         return get_foo_buildmanager()
-#     def setUpContainer(self):
-#         # Create the first file container. We will overwrite this later with the external link container
-#         foo1 = Foo('foo1', [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
-#         bucket1 = FooBucket('bucket1', [foo1])
-#         foofile1 = FooFile(buckets=[bucket1])
-#         return foofile1
-#     def roundtripExportContainer(self, container, write_path, export_path):
-#         # Write the HDF5 file
-#         container_type = container.__class__.__name__
-#         first_filename = 'test_firstfile_%s.hdmf' % container_type
-#         self.filenames.append(first_filename)
-#         with HDF5IO(first_filename, manager=self.get_manager(), mode='w') as write_io:
-#             write_io.write(container, cache_spec=True)
-#         # Create the second file with an external link added (which is the file we use as reference_
-#         with HDF5IO(first_filename, manager=self.get_manager(), mode='r') as read_io:
-#             read_foo = read_io.read()
-#             foo2 = Foo('foo2', read_foo.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 34, 6.28)
-#             bucket2 = FooBucket('bucket2', [foo2])
-#             foofile2 = FooFile(buckets=[bucket2])
-#             container = foofile2  # This is what we need to compare against
-#             with HDF5IO(self.filename, manager=self.get_manager(), mode='w') as write_io:
-#                 write_io.write(foofile2, cache_spec=True)
-#         # Export the file with the external link to Zarr
-#         with HDF5IO(self.filename, manager=self.get_manager(), mode='r') as read_io:
-#             with ZarrIO(self.export_filename, mode='w') as export_io:
-#                 export_io.export(src_io=read_io, write_args={'link_data': False})
-#         read_io = ZarrIO(self.export_filename, manager=self.get_manager(), mode='r')
-#         self.ios.append(read_io)
-#         exportContainer = read_io.read()
-#         return exportContainer
+    # def setUpContainer(self):
+    #     # Create the first file container. We will overwrite this later with the external link container
+    #     foo1 = Foo('foo1', [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+    #     bucket1 = FooBucket('bucket1', [foo1])
+    #     foofile1 = FooFile(buckets=[bucket1])
+    #     return foofile1
+    # def roundtripExportContainer(self, container, write_path, export_path):
+    #     # Write the HDF5 file
+    #     container_type = container.__class__.__name__
+    #     nwbfile1 = 'nwbfile1.nwb'
+    #     nwbfile2 = 'nwbfile2.nwb'
+    #     zarr_nwbfile = 'zarr_nwbfile.nwb.zarr'
+    #     self.filenames.append(nwbfile1)
+    #     with HDF5IO(nwbfile1, manager=self.get_manager(), mode='w') as write_io:
+    #         write_io.write(container, cache_spec=True)
+    #     # Create the second file with an external link added (which is the file we use as reference_
+    #     with HDF5IO(nwbfile1, manager=self.get_manager(), mode='r') as read_io:
+    #         read_foo = read_io.read()
+    #         foo2 = Foo('foo2', read_foo.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 34, 6.28)
+    #         bucket2 = FooBucket('bucket2', [foo2])
+    #         foofile2 = FooFile(buckets=[bucket2])
+    #         container = foofile2  # This is what we need to compare against
+    #         with HDF5IO(nwbfile2, manager=self.get_manager(), mode='w') as write_io:
+    #             write_io.write(foofile2, cache_spec=True)
+    #     # Export the file with the external link to Zarr
+    #     with HDF5IO(nwbfile2, manager=self.get_manager(), mode='r') as read_io:
+    #         with ZarrIO(zarr_nwbfile, mode='w') as export_io:
+    #             export_io.export(src_io=read_io, write_args={'link_data': False})
+    #     read_io = ZarrIO(zarr_nwbfile, manager=self.get_manager(), mode='r')
+    #     self.ios.append(read_io)
+    #     exportContainer = read_io.read()
+    #     return exportContainer
 
 # TODO: Fails because ZarrIO fails to properly create the external link
 """
