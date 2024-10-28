@@ -553,13 +553,10 @@ class ZarrIO(HDMFIO):
             for link_name, sub_builder in links.items():
                 group_filename = self.__get_store_path(group.store)
                 if export_source is not None:
-                    if group_filename != export_source:
-                        if sub_builder.builder.source in (group_filename, export_source):
-                            source = group_filename
-                        else:
-                            source = None
+                    if sub_builder.builder.source in (group_filename, export_source):
+                        source = group_filename
                     else:
-                        source = export_source
+                        source = None
                 else:
                     source = export_source
                 self.write_link(group, sub_builder, source)
