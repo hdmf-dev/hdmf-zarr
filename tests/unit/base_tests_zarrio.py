@@ -1128,6 +1128,24 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             else:
                 self.assertEqual(read_foofile2.foo_link.container_source, self.store[1].path)
 
+    def test_soft_link_dataset(self):
+        """Test that exporting a written file with soft linked datasets keeps links within the file."""
+        """Link to a dataset in the same file should have a link to the same new dataset in the new file """
+        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket('bucket1', [foo1])
+        foofile = FooFile(buckets=[foobucket], foofile_data=foo1.my_data)
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='w') as write_io:
+            write_io.write(foofile, link_data=True)
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+            with ZarrIO(self.store_path[1], mode='w') as export_io:
+                export_io.export(src_io=read_io, write_args=dict(link_data=False))
+
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+            read_foofile2 = read_io.read()
+            # make sure the linked dataset is within the same file
+            self.assertEqual(read_foofile2.foofile_data.store.store.path, self.store_path[1])
+
     def test_external_link_group(self):
         """Test that exporting a written file with external linked groups maintains the links."""
         """External links remain"""
