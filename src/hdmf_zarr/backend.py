@@ -39,7 +39,6 @@ from hdmf.build import (Builder,
                         DatasetBuilder,
                         LinkBuilder,
                         BuildManager,
-                        RegionBuilder,
                         ReferenceBuilder,
                         TypeMap)
 from hdmf.data_utils import AbstractDataChunkIterator
@@ -950,8 +949,6 @@ class ZarrIO(HDMFIO):
                     linked = True
                     dset = None
                 else: # exporting
-                    parent_filename = parent.store.path
-                    parent_name = ''.join(char for char in parent.name if char.isalpha()) # zarr parent name has '/'
                     data_parent = '/'.join(data.name.split('/')[:-1])
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
@@ -960,7 +957,8 @@ class ZarrIO(HDMFIO):
                         self.__add_link__(parent, data_filename, data.name, name)
                         linked = True
                         dset = None
-                    # Case 2: The dataset is in the export source and has a DIFFERENT path as the builder, create a link.
+                    # Case 2: If the dataset is in the export source and has a DIFFERENT path as the builder,
+                    # then create a link.
                     # I have two files: FileA and FileB. I want to export FileA to FileB. FileA has an
                     # INTERNAL link. This case preserves the link to also be in FileB.
                     ###############

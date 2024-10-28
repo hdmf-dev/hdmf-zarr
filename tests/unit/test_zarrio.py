@@ -16,9 +16,9 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
 from zarr.storage import (DirectoryStore,
                           TempStore,
                           NestedDirectoryStore)
-from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager, Baz, BazData, BazBucket, get_baz_buildmanager)
+from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
+                              Baz, BazData, BazBucket, get_baz_buildmanager)
 from hdmf.testing import TestCase
-from hdmf.backends.hdf5 import HDF5IO
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
