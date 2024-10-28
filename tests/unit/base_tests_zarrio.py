@@ -1128,24 +1128,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             else:
                 self.assertEqual(read_foofile2.foo_link.container_source, self.store[1].path)
 
-    def test_soft_link_dataset(self):
-        """Test that exporting a written file with soft linked datasets keeps links within the file."""
-        """Link to a dataset in the same file should have a link to the same new dataset in the new file """
-        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
-        foobucket = FooBucket('bucket1', [foo1])
-        foofile = FooFile(buckets=[foobucket], foofile_data=foo1.my_data)
-        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='w') as write_io:
-            write_io.write(foofile, link_data=True)
-
-        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode='r') as read_io:
-            with ZarrIO(self.store_path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, write_args=dict(link_data=False))
-
-        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode='r') as read_io:
-            read_foofile2 = read_io.read()
-            # make sure the linked dataset is within the same file
-            self.assertEqual(read_foofile2.foofile_data.store.store.path, self.store_path[1])
-
     def test_external_link_group(self):
         """Test that exporting a written file with external linked groups maintains the links."""
         """External links remain"""
@@ -1286,7 +1268,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
            # make sure the attribute reference resolves to the container within the same file
            self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket1'].foos['foo1'])
 
-
     def test_pop_data(self):
         """Test that exporting a written container after removing an element from it works."""
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
@@ -1314,7 +1295,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         dirsize2 = total_size(self.store_path[1])
         self.assertTrue(dirsize1 > dirsize2)
 
-
     def test_pop_linked_group(self):
         """Test that exporting a written container after removing a linked element from it works."""
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
@@ -1334,8 +1314,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(OrphanContainerBuildError, msg):
                     export_io.export(src_io=read_io, container=read_foofile)
 
-
-    def test_append_data_export(self):
+    def test_soft_links_export(self):
         """
         Test that exporting a written container after adding
         groups, links, and references to it works.
@@ -1387,7 +1366,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             # test new attribute reference to new group in file
             self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket2'].foos['foo2'])
 
-
     def test_append_external_link_data(self):
         """Test that exporting a written container after adding a link with link_data=True creates external links."""
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
@@ -1420,7 +1398,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 self.assertEqual(read_foofile4.buckets['bucket2'].foos['foo2'].my_data,
                                  read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
                 self.assertEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
-
 
     def test_append_external_link_copy_data(self):
         """Test that exporting a written container after adding a link with link_data=False copies the data."""
@@ -1457,7 +1434,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 self.assertNotEqual(read_foofile4.foofile_data, read_foofile3.buckets['bucket1'].foos['foo1'].my_data)
                 self.assertNotEqual(read_foofile4.foofile_data, read_foofile4.buckets['bucket2'].foos['foo2'].my_data)
 
-
     def test_export_dset_refs(self):
         """Test that exporting a written container with a dataset of references works."""
         num_bazs = 1
@@ -1484,7 +1460,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             for i in range(num_bazs):
                 baz_name = 'baz%d' % i
                 self.assertIs(read_container.baz_data.data[i], read_container.bazs[baz_name])
-
 
     # def test_export_cpd_dset_refs(self):
     #     """Test that exporting a written container with a compound dataset with references works."""
@@ -1515,7 +1490,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
     #             baz_name = 'baz%d' % i
     #             self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
     #             self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
-
 
     def test_non_manager_container(self):
         """Test that exporting with a src_io without a manager raises an error."""
