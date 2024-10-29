@@ -1153,7 +1153,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO('file2.zarr', manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked group is read from the first file
-            breakpoint()
+            # breakpoint()
             self.assertEqual(read_foofile2.foo_link.container_source, 'file0.zarr')
 
     def test_external_link_dataset(self):

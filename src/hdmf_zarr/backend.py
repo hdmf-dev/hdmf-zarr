@@ -549,14 +549,35 @@ class ZarrIO(HDMFIO):
 
         links = builder.links
         if links:
+            # Note: In HDMF, we simply call write_link (within write_group) which contains a similar logic as seen
+            # below. This is not the case here (until a refactor).
             for link_name, sub_builder in links.items():
                 group_filename = self.__get_store_path(group.store)
                 if export_source is not None:
-                    if sub_builder.builder.source in (group_filename, export_source):
+                    if sub_builder.builder.source == group_filename:
+                        # Note: This just means the target builder is in the same file as the group.
+                        # Ensure we do a internal link, i.e. "SoftLink".
+                        # This is more of a "fix" because we are essentially ignoring the export_source.
+                        # Within export() we define:
+                        # write_args['export_source'] = src_io.source
+                        # Just because we are exporting from src_io.source, that does not mean the source of the target
+                        # is in src_io.source. This will probably get refactored.
                         source = group_filename
                     else:
+                        # Note: Create an ExternalLink to whatever file that has what we are targeting.
+
+                        # Note: This might change during the refactor, but the idea goes as follows:
+                        # write link calls _create_ref, which internally has a conditional if the source
+                        # is None. If None, it will use the source from the provided builder. In the case
+                        # where sub_builder is a LinkBuilder, it will be the builder within that we source
+                        # the source.
+
+                        # TODO: Alternatively, we can just set this sub_builder.builder.source because _create_ref
+                        # does that anyways if we set it to None.
+
                         source = None
                 else:
+                    # Note: Use the export_source to create an ExternalLink to the src_io.source.
                     source = export_source
                 self.write_link(group, sub_builder, source)
 
@@ -809,9 +830,17 @@ class ZarrIO(HDMFIO):
             str_path = self.path.path
         else:
             str_path = self.path
+
+        # Note: We want want to construct the relative path with
+        # os.path.relpath(<absolute_path_to_the_target>, <absolute_path_to_the_file_that_is_being_exported_to>)
+        # That being said, I want to avoid a reference being defined as '.' because '.' means whatever file you
+        # are in. This does not help if you are trying to access a link/ref in another file and the source says
+        # '.' so look in yourself. That is why the dirname is there.
+
+        # Note2: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
+        # path relative to the working directory. We want it relative to where it lives in the file system.
         rel_source = os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(str_path)))
-        # os.path.relpath(source)
-        # breakpoint()
+
         # Return the ZarrReference object
         ref = ZarrReference(
             source=rel_source,
