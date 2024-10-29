@@ -1,0 +1,13 @@
+{
+    ".specloc": "specifications",
+    "data_type": "FooFile",
+    "namespace": "test_core",
+    "object_id": "5bf8cdd0-c2a1-4c63-ad42-469a4f8c6b84",
+    "zarr_link": [
+        {
+            "name": "foofile_data",
+            "path": "/buckets/bucket1/foo_holder/foo1/my_data",
+            "source": "foo/file0.zarr"
+        }
+    ]
+}

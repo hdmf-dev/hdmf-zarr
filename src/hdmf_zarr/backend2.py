@@ -806,12 +806,21 @@ class ZarrIO(HDMFIO):
             source = source.path
 
         if not isinstance(self.path, str):
-            str_path = self.path.path
+            path = self.path.path
         else:
-            str_path = self.path
-        rel_source = os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(str_path)))
-        # os.path.relpath(source)
-        # breakpoint()
+            path = self.path
+
+        # Note: We want want to construct the relative path with
+        # os.path.relpath(<absolute_path_to_the_target>, <absolute_path_to_the_file_that_is_being_exported_to>)
+        # That being said, I want to avoid a reference being defined as '.' because '.' means whatever file you
+        # are in. This does not help if you are trying to access a link/ref in another file and the source says
+        # '.' so look in yourself. That is why the dirname is there.
+
+        # Note2: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
+        # path relative to the working directory. We want it relative to where it lives in the file system.
+
+        rel_source = os.path.relpath(source)
+        # os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(path)))
         # Return the ZarrReference object
         ref = ZarrReference(
             source=rel_source,
@@ -956,6 +965,8 @@ class ZarrIO(HDMFIO):
                     linked = True
                     dset = None
                 else: # exporting
+                    # Note:
+
                     data_parent = '/'.join(data.name.split('/')[:-1])
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an

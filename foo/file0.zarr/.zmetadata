@@ -1,0 +1,64 @@
+{
+    "metadata": {
+        ".zattrs": {
+            "data_type": "FooFile",
+            "namespace": "test_core",
+            "object_id": "f21fdd6f-edcb-4dba-a07f-d30a9061374d"
+        },
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket1/.zattrs": {
+            "data_type": "FooBucket",
+            "namespace": "test_core",
+            "object_id": "4c0070e4-94b2-428e-89a1-8633c5d0a3b0"
+        },
+        "buckets/bucket1/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket1/foo_holder/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket1/foo_holder/foo1/.zattrs": {
+            "attr1": "I am foo1",
+            "attr3": 3.14,
+            "data_type": "Foo",
+            "namespace": "test_core",
+            "object_id": "e8743f2b-6cc1-463a-b8d0-672002205a6a"
+        },
+        "buckets/bucket1/foo_holder/foo1/.zgroup": {
+            "zarr_format": 2
+        },
+        "buckets/bucket1/foo_holder/foo1/my_data/.zarray": {
+            "chunks": [
+                5
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i8",
+            "fill_value": 0,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                5
+            ],
+            "zarr_format": 2
+        },
+        "buckets/bucket1/foo_holder/foo1/my_data/.zattrs": {
+            "attr2": 17,
+            "zarr_dtype": "int64"
+        },
+        "links/.zgroup": {
+            "zarr_format": 2
+        }
+    },
+    "zarr_consolidated_format": 1
+}
