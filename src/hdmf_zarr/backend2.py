@@ -819,8 +819,7 @@ class ZarrIO(HDMFIO):
         # Note2: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
 
-        rel_source = os.path.relpath(source)
-        # os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(path)))
+        rel_source = os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(path)))
         # Return the ZarrReference object
         ref = ZarrReference(
             source=rel_source,
