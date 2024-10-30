@@ -556,7 +556,8 @@ class ZarrIO(HDMFIO):
                 if export_source is not None:
                     if sub_builder.builder.source in (group_filename, export_source):
 
-
+                        # if sub_builder.builder.source in (export_source):
+                        #     breakpoint()
                         # TODO: rewrite notes to include export_source
                         # Note: This just means the target builder is in the same file as the group.
                         # Ensure we do a internal link, i.e. "SoftLink".
