@@ -1256,12 +1256,13 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 export_io.export(src_io=read_io)
         with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
            read_foofile2 = read_io.read()
+           expected = ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data)
            if isinstance(self.store[1], str):
-               self.assertTupleEqual(ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data, True),
-                                    (self.store[1], '/buckets/bucket1/foo_holder/foo1/my_data'))
+               self.assertTupleEqual((os.path.normpath(expected[0]), expected[1]),
+                                    (os.path.normpath(self.store[1]), '/buckets/bucket1/foo_holder/foo1/my_data'))
            else:
-               self.assertTupleEqual(ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data),
-                                    (self.store[1].path, '/buckets/bucket1/foo_holder/foo1/my_data'))
+               self.assertTupleEqual((os.path.normpath(expected[0]), expected[1]),
+                                    (os.path.normpath(self.store[1].path), '/buckets/bucket1/foo_holder/foo1/my_data'))
            # make sure the attribute reference resolves to the container within the same file
            self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket1'].foos['foo1'])
 
