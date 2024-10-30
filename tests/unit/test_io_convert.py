@@ -53,7 +53,7 @@ from hdmf.common import CSRMatrix
 
 from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
                               Baz, BazData, BazBucket, get_baz_buildmanager,
-                              BazCpdData, get_temp_filepath)
+                              get_temp_filepath)
 
 from zarr.storage import (DirectoryStore,
                           NestedDirectoryStore)

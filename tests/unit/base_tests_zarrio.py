@@ -37,8 +37,7 @@ from tests.unit.utils import (Foo,
                               FooBucket,
                               FooFile,
                               get_foo_buildmanager,
-                              CacheSpecTestHelper,
-                              get_temp_filepath)
+                              CacheSpecTestHelper)
 
 from abc import ABCMeta, abstractmethod
 
@@ -1259,10 +1258,12 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
            expected = ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data)
            if isinstance(self.store[1], str):
                self.assertTupleEqual((os.path.normpath(expected[0]), expected[1]),
-                                    (os.path.normpath(self.store[1]), '/buckets/bucket1/foo_holder/foo1/my_data'))
+                                    (os.path.normpath(os.path.abspath(self.store[1])),
+                                     '/buckets/bucket1/foo_holder/foo1/my_data'))
            else:
                self.assertTupleEqual((os.path.normpath(expected[0]), expected[1]),
-                                    (os.path.normpath(self.store[1].path), '/buckets/bucket1/foo_holder/foo1/my_data'))
+                                    (os.path.normpath(os.path.abspath(self.store[1])),
+                                     '/buckets/bucket1/foo_holder/foo1/my_data'))
            # make sure the attribute reference resolves to the container within the same file
            self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket1'].foos['foo1'])
 
