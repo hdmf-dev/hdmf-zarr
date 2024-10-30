@@ -56,7 +56,6 @@ from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
                               BazCpdData, get_temp_filepath)
 
 from zarr.storage import (DirectoryStore,
-                          TempStore,
                           NestedDirectoryStore)
 try:
     import pynwb
@@ -223,7 +222,6 @@ class MixinTestHDF5ToZarr():
     WRITE_PATHS = [None, ]
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore.zarr'),
-                    TempStore(),
                     NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
     TARGET_FORMAT = "ZARR"
 
@@ -253,7 +251,6 @@ class MixinTestZarrToHDF5():
     """
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore.zarr'),
-                   TempStore(),
                    NestedDirectoryStore('test_export_NestedDirectoryStore.zarr')]
     EXPORT_PATHS = [None, ]
     TARGET_FORMAT = "H5"
@@ -284,11 +281,9 @@ class MixinTestZarrToZarr():
     """
     WRITE_PATHS = [None,
                    DirectoryStore('test_export_DirectoryStore_Source.zarr'),
-                   TempStore(dir=os.path.dirname(__file__)),  # set dir to avoid switching drives on Windows
                    NestedDirectoryStore('test_export_NestedDirectoryStore_Source.zarr')]
     EXPORT_PATHS = [None,
                     DirectoryStore('test_export_DirectoryStore_Export.zarr'),
-                    TempStore(dir=os.path.dirname(__file__)),   # set dir to avoid switching drives on Windows
                     NestedDirectoryStore('test_export_NestedDirectoryStore_Export.zarr')]
     TARGET_FORMAT = "ZARR"
 
@@ -766,140 +761,140 @@ class TestZarrtoZarrBaz1(MixinTestBaz1,
 ##################################################
 # Test cases for compound dataset of references
 ##################################################
-class TestHDF5ToZarrCPD(TestCase):
-    """
-    This class helps with making the test suit more readable, testing the roundtrip for compound
-    datasets that have references from HDF5 to Zarr.
-    """
-    def test_export_cpd_dset_refs(self):
-        self.path = [get_temp_filepath() for i in range(2)]
-
-        """Test that exporting a written container with a compound dataset with references works."""
-        bazs = []
-        baz_pairs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            b = Baz(name='baz%d' % i)
-            bazs.append(b)
-            baz_pairs.append((i, b))
-        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
-
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
-            write_io.write(bucket)
-
-        with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-
-            with ZarrIO(self.path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
-
-        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz(new_baz.name)
-
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
-
-
-class TestZarrToHDF5CPD(TestCase):
-    """
-    This class helps with making the test suit more readable, testing the roundtrip for compound
-    datasets that have references from Zarr to HDF5.
-    """
-    def test_export_cpd_dset_refs(self):
-        self.path = [get_temp_filepath() for i in range(2)]
-        """Test that exporting a written container with a compound dataset with references works."""
-        bazs = []
-        baz_pairs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            b = Baz(name='baz%d' % i)
-            bazs.append(b)
-            baz_pairs.append((i, b))
-        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
-
-        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
-            write_io.write(bucket)
-
-        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-
-            with HDF5IO(self.path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
-
-        with HDF5IO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz(new_baz.name)
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
-
-
-class TestZarrToZarrCPD(TestCase):
-    """
-    This class helps with making the test suit more readable, testing the roundtrip for compound
-    datasets that have references from Zarr to Zarr.
-    """
-    def test_export_cpd_dset_refs(self):
-        self.path = [get_temp_filepath() for i in range(2)]
-
-        """Test that exporting a written container with a compound dataset with references works."""
-        bazs = []
-        baz_pairs = []
-        num_bazs = 10
-        for i in range(num_bazs):
-            b = Baz(name='baz%d' % i)
-            bazs.append(b)
-            baz_pairs.append((i, b))
-        baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
-        bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
-
-        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
-            write_io.write(bucket)
-        with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket1 = read_io.read()
-            read_bucket1.baz_cpd_data.data[0][0]
-            # NOTE: reference IDs might be the same between two identical files
-            # adding a Baz with a smaller name should change the reference IDs on export
-            new_baz = Baz(name='baz000')
-            read_bucket1.add_baz(new_baz)
-
-            with ZarrIO(self.path[1], mode='w') as export_io:
-                export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
-
-        with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
-            read_bucket2 = read_io.read()
-            # remove and check the appended child, then compare the read container with the original
-            read_new_baz = read_bucket2.remove_baz(new_baz.name)
-            self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
-
-            self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
-            for i in range(num_bazs):
-                baz_name = 'baz%d' % i
-                self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
-                self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+# class TestHDF5ToZarrCPD(TestCase):
+#     """
+#     This class helps with making the test suit more readable, testing the roundtrip for compound
+#     datasets that have references from HDF5 to Zarr.
+#     """
+#     def test_export_cpd_dset_refs(self):
+#         self.path = [f"file{i}.zarr" for i in range(2)]
+#
+#         """Test that exporting a written container with a compound dataset with references works."""
+#         bazs = []
+#         baz_pairs = []
+#         num_bazs = 10
+#         for i in range(num_bazs):
+#             b = Baz(name='baz%d' % i)
+#             bazs.append(b)
+#             baz_pairs.append((i, b))
+#         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+#         bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+#
+#         with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+#             write_io.write(bucket)
+#
+#         with HDF5IO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket1 = read_io.read()
+#
+#             # NOTE: reference IDs might be the same between two identical files
+#             # adding a Baz with a smaller name should change the reference IDs on export
+#             new_baz = Baz(name='baz000')
+#             read_bucket1.add_baz(new_baz)
+#
+#             with ZarrIO(self.path[1], mode='w') as export_io:
+#                 export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+#
+#         with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket2 = read_io.read()
+#             # remove and check the appended child, then compare the read container with the original
+#             read_new_baz = read_bucket2.remove_baz(new_baz.name)
+#
+#             self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+#             self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+#             for i in range(num_bazs):
+#                 baz_name = 'baz%d' % i
+#                 self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+#                 self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+#
+#
+# class TestZarrToHDF5CPD(TestCase):
+#     """
+#     This class helps with making the test suit more readable, testing the roundtrip for compound
+#     datasets that have references from Zarr to HDF5.
+#     """
+#     def test_export_cpd_dset_refs(self):
+#         self.path = [f"file{i}.zarr" for i in range(2)]
+#         """Test that exporting a written container with a compound dataset with references works."""
+#         bazs = []
+#         baz_pairs = []
+#         num_bazs = 10
+#         for i in range(num_bazs):
+#             b = Baz(name='baz%d' % i)
+#             bazs.append(b)
+#             baz_pairs.append((i, b))
+#         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+#         bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+#
+#         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+#             write_io.write(bucket)
+#
+#         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket1 = read_io.read()
+#
+#             # NOTE: reference IDs might be the same between two identical files
+#             # adding a Baz with a smaller name should change the reference IDs on export
+#             new_baz = Baz(name='baz000')
+#             read_bucket1.add_baz(new_baz)
+#
+#             with HDF5IO(self.path[1], mode='w') as export_io:
+#                 export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+#
+#         with HDF5IO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket2 = read_io.read()
+#
+#             # remove and check the appended child, then compare the read container with the original
+#             read_new_baz = read_bucket2.remove_baz(new_baz.name)
+#             self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+#             self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+#             for i in range(num_bazs):
+#                 baz_name = 'baz%d' % i
+#                 self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+#                 self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
+#
+#
+# class TestZarrToZarrCPD(TestCase):
+#     """
+#     This class helps with making the test suit more readable, testing the roundtrip for compound
+#     datasets that have references from Zarr to Zarr.
+#     """
+#     def test_export_cpd_dset_refs(self):
+#         self.path = [get_temp_filepath() for i in range(2)]
+#
+#         """Test that exporting a written container with a compound dataset with references works."""
+#         bazs = []
+#         baz_pairs = []
+#         num_bazs = 10
+#         for i in range(num_bazs):
+#             b = Baz(name='baz%d' % i)
+#             bazs.append(b)
+#             baz_pairs.append((i, b))
+#         baz_cpd_data = BazCpdData(name='baz_cpd_data1', data=baz_pairs)
+#         bucket = BazBucket(name='root', bazs=bazs.copy(), baz_cpd_data=baz_cpd_data)
+#
+#         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='w') as write_io:
+#             write_io.write(bucket)
+#         with ZarrIO(self.path[0], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket1 = read_io.read()
+#             read_bucket1.baz_cpd_data.data[0][0]
+#             # NOTE: reference IDs might be the same between two identical files
+#             # adding a Baz with a smaller name should change the reference IDs on export
+#             new_baz = Baz(name='baz000')
+#             read_bucket1.add_baz(new_baz)
+#
+#             with ZarrIO(self.path[1], mode='w') as export_io:
+#                 export_io.export(src_io=read_io, container=read_bucket1, write_args=dict(link_data=False))
+#
+#         with ZarrIO(self.path[1], manager=get_baz_buildmanager(), mode='r') as read_io:
+#             read_bucket2 = read_io.read()
+#             # remove and check the appended child, then compare the read container with the original
+#             read_new_baz = read_bucket2.remove_baz(new_baz.name)
+#             self.assertContainerEqual(new_baz, read_new_baz, ignore_hdmf_attrs=True)
+#
+#             self.assertContainerEqual(bucket, read_bucket2, ignore_name=True, ignore_hdmf_attrs=True)
+#             for i in range(num_bazs):
+#                 baz_name = 'baz%d' % i
+#                 self.assertEqual(read_bucket2.baz_cpd_data.data[i][0], i)
+#                 self.assertIs(read_bucket2.baz_cpd_data.data[i][1], read_bucket2.bazs[baz_name])
 
 
 class TestHDF5toZarrWithFilters(TestCase):

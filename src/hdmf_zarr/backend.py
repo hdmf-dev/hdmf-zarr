@@ -554,7 +554,10 @@ class ZarrIO(HDMFIO):
             for link_name, sub_builder in links.items():
                 group_filename = self.__get_store_path(group.store)
                 if export_source is not None:
-                    if sub_builder.builder.source == group_filename:
+                    if sub_builder.builder.source in (group_filename, export_source):
+
+
+                        # TODO: rewrite notes to include export_source
                         # Note: This just means the target builder is in the same file as the group.
                         # Ensure we do a internal link, i.e. "SoftLink".
                         # This is more of a "fix" because we are essentially ignoring the export_source.
@@ -674,7 +677,7 @@ class ZarrIO(HDMFIO):
         return path
 
     @staticmethod
-    def get_zarr_paths(zarr_object):
+    def get_zarr_paths(zarr_object, relative=False):
         """
         For a Zarr object find 1) the path to the main zarr file it is in and 2) the path to the object within the file
         :param zarr_object: Object for which we are looking up the path
@@ -696,6 +699,9 @@ class ZarrIO(HDMFIO):
         # path from the filepath to the object
         objectpath = "/" + os.path.relpath(fullpath, filepath)
         # return the result
+        if relative:
+            # when testing, we want the relative path with respect to the working dir.
+            filepath = os.path.relpath(filepath)
         return filepath, objectpath
 
     @staticmethod

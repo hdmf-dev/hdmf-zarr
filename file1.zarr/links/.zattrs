@@ -1,9 +1,0 @@
-{
-    "zarr_link": [
-        {
-            "name": "foo_link",
-            "path": "/buckets/bucket1/foo_holder/foo1",
-            "source": "file0.zarr"
-        }
-    ]
-}

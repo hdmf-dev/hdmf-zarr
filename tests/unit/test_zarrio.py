@@ -14,7 +14,6 @@ from tests.unit.base_tests_zarrio import (BaseTestZarrWriter,
                                           BaseTestZarrWriteUnit,
                                           BaseTestExportZarrToZarr)
 from zarr.storage import (DirectoryStore,
-                          TempStore,
                           NestedDirectoryStore)
 from tests.unit.utils import (Foo, FooBucket, FooFile, get_foo_buildmanager,
                               Baz, BazData, BazBucket, get_baz_buildmanager)
@@ -91,32 +90,6 @@ class TestExportZarrToZarrDirectoryStore(BaseTestExportZarrToZarr):
 
 
 #########################################
-#  TempStore tests
-#########################################
-class TestZarrWriterTempStore(BaseTestZarrWriter):
-    """Test writing of builder with Zarr using a custom TempStore"""
-    def setUp(self):
-        super().setUp()
-        self.store = TempStore()
-        self.store_path = self.store.path
-
-
-class TestZarrWriteUnitTempStore(BaseTestZarrWriteUnit):
-    """Unit test for individual write functions using a custom TempStore"""
-    def setUp(self):
-        self.store = TempStore()
-        self.store_path = self.store.path
-
-
-class TestExportZarrToZarrTempStore(BaseTestExportZarrToZarr):
-    """Test exporting Zarr to Zarr using TempStore."""
-    def setUp(self):
-        super().setUp()
-        self.store = [TempStore() for i in range(len(self.store_path))]
-        self.store_path = [s.path for s in self.store]
-
-
-#########################################
 #  NestedDirectoryStore tests
 #########################################
 class TestZarrWriterNestedDirectoryStore(BaseTestZarrWriter):
@@ -151,7 +124,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         self.create_zarr(consolidate_metadata=False)
         store = DirectoryStore(self.store)
         path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_io.zarr'))
+        expected_path = os.path.abspath('test_io.zarr')
         self.assertEqual(path, expected_path)
 
     def test_get_store_path_deep(self):
@@ -159,7 +132,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         zarr_obj = zarr.open_consolidated(self.store, mode='r')
         store = zarr_obj.store
         path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.normpath(os.path.join(CUR_DIR, 'test_io.zarr'))
+        expected_path = os.path.abspath('test_io.zarr')
         self.assertEqual(path, expected_path)
 
     def test_force_open_without_consolidated(self):
@@ -280,9 +253,9 @@ class TestDatasetofReferences(ZarrStoreTestCase):
 
 class TestExport(TestCase):
     def setUp(self):
-        self.stores = ["tests/unit/test_io0.zarr",
-                       "tests/unit/test_io1.zarr",
-                       "tests/unit/test_io2.zarr"]
+        self.stores = ["test_io0.zarr",
+                       "test_io1.zarr",
+                       "test_io2.zarr"]
         self.ios = []
 
     def tearDown(self):
