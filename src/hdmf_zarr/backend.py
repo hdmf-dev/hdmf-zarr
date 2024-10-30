@@ -555,29 +555,28 @@ class ZarrIO(HDMFIO):
                 group_filename = self.__get_store_path(group.store)
                 if export_source is not None:
                     if sub_builder.builder.source in (group_filename, export_source):
-
-                        # if sub_builder.builder.source in (export_source):
-                        #     breakpoint()
-                        # TODO: rewrite notes to include export_source
-                        # Note: This just means the target builder is in the same file as the group.
-                        # Ensure we do a internal link, i.e. "SoftLink".
-                        # This is more of a "fix" because we are essentially ignoring the export_source.
-                        # Within export() we define:
-                        # write_args['export_source'] = src_io.source
-                        # Just because we are exporting from src_io.source, that does not mean the source of the target
-                        # is in src_io.source. This will probably get refactored.
+                        # Case 1:
+                        # sub_builder.builder.source == export_source
+                        # This means we have a SoftLink for a group and so we want the exported link to
+                        # also point "inwards" in the file being created.
+                        #################################
+                        # Case 2:
+                        # sub_builder.builder.source == group_filename
+                        # This is still a SoftLink; however, it is from adding a link to a group after FileA
+                        # has been read and we are exporting that to FileB. We still want the link to be "inwards".
                         source = group_filename
                     else:
-                        # Note: Create an ExternalLink to whatever file that has what we are targeting.
+                        # Purpose: Create an ExternalLink to whatever file that has what we are targeting.
 
                         # Note: This might change during the refactor, but the idea goes as follows:
-                        # write link calls _create_ref, which internally has a conditional if the source
+                        # write_link calls _create_ref, which internally has a conditional if the source
                         # is None. If None, it will use the source from the provided builder. In the case
                         # where sub_builder is a LinkBuilder, it will be the builder within that we source
                         # the source.
 
-                        # TODO: Alternatively, we can just set this sub_builder.builder.source because _create_ref
-                        # does that anyways if we set it to None.
+                        # Alternatively, we can just set this sub_builder.builder.source because _create_ref
+                        # does that anyways if we set it to None. Different ways to do the same thing. This
+                        # again will most likely change during the refactor.
 
                         source = None
                 else:
