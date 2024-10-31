@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## 1.0.0 (Upcoming)
+### Enhancements
+# Add initial refactor of export, supporting references and internal/external links from Zarr to Zarr. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
+
+
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
 * Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
@@ -22,8 +27,8 @@
 * Removed `linkable` from the documentation to keep in line with `hdmf-schema-language`. @mavaylon1 [#180](https://github.com/hdmf-dev/hdmf-zarr/pull/180)
 
 ### Bug Fixes
-* Fixed bug in `ZarrIO.__open_file_consolidated` that led to remote files being opened without consolidated metadata. @oruebel  [#184](https://github.com/hdmf-dev/hdmf-zarr/pull/184) 
-* Fixed minor bug where `ZarrIO.__open_file_consolidated` used properties of `ZarrIO` instead of the provided input parameters. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183) 
+* Fixed bug in `ZarrIO.__open_file_consolidated` that led to remote files being opened without consolidated metadata. @oruebel  [#184](https://github.com/hdmf-dev/hdmf-zarr/pull/184)
+* Fixed minor bug where `ZarrIO.__open_file_consolidated` used properties of `ZarrIO` instead of the provided input parameters. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
 
 ## 0.6.0 (February 21, 2024)
 

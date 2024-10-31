@@ -1418,6 +1418,8 @@ class ZarrIO(HDMFIO):
         if name is None:
             name = str(os.path.basename(zarr_obj.name))
 
+        # Note: The source should be from the zarr object and not assumed to be
+        # from the file being read. 
         if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
             source = zarr_obj.store.store.path
         else:
