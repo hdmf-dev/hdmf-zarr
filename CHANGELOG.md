@@ -2,7 +2,7 @@
 
 ## 1.0.0 (Upcoming)
 ### Enhancements
-# Add initial refactor of export, supporting references and internal/external links from Zarr to Zarr. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
+* Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
 
 
 ## 0.9.0 (September 16, 2024)
