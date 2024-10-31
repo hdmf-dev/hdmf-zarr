@@ -32,7 +32,8 @@ from hdmf.utils import (docval,
                         getargs,
                         popargs,
                         get_docval,
-                        get_data_shape)
+                        get_data_shape,
+                        generate_array_html_repr)
 from hdmf.build import (Builder,
                         GroupBuilder,
                         DatasetBuilder,
@@ -1518,3 +1519,13 @@ class ZarrIO(HDMFIO):
                 else:
                     ret[k] = v
         return ret
+    
+    @staticmethod
+    def generate_dataset_html(dataset):
+        """Generates an html representation for a dataset for the ZarrIO class"""
+        
+        # get info from zarr array and generate html repr
+        zarr_info_dict = {k:v for k, v in dataset.info_items()}
+        repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
+
+        return repr_html
