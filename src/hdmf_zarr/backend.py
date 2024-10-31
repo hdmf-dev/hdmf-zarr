@@ -778,7 +778,7 @@ class ZarrIO(HDMFIO):
         # Return the create path
         return target_name, target_zarr_obj
 
-    def _create_ref(self, ref_object, export_source=None):
+    def _create_ref(self, ref_object, ref_link_source=None):
         """
         Create a ZarrReference object that points to the given container
 
@@ -817,18 +817,18 @@ class ZarrIO(HDMFIO):
 
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
-        if export_source is None:
+        if ref_link_source is None:
             source = (builder.source
                       if (builder.source is not None and os.path.isdir(builder.source))
                       else self.source)
         else:
-            if builder.source == export_source:
+            if builder.source == ref_link_source:
                 # Note: This case comes up when exporting a dataset of references (each point to say a group).
                 # _create_ref is called on each item (group). We do not support external references, so the source
                 # maybe an external file, but we need to point inwards because they're actually in the file.
                 source = self.path
             else:
-                source = export_source
+                source = ref_link_source
 
         if not isinstance(source, str):
             source = source.path
@@ -877,10 +877,10 @@ class ZarrIO(HDMFIO):
 
     @docval({'name': 'parent', 'type': Group, 'doc': 'the parent Zarr object'},
             {'name': 'builder', 'type': LinkBuilder, 'doc': 'the LinkBuilder to write'},
-            {'name': 'export_source', 'type': str,
+            {'name': 'ref_link_source', 'type': str,
              'doc': 'The source of the builders when exporting', 'default': None},)
     def write_link(self, **kwargs):
-        parent, builder, export_source = getargs('parent', 'builder', 'export_source', kwargs)
+        parent, builder, ref_link_source = getargs('parent', 'builder', 'ref_link_source', kwargs)
         if self.get_written(builder):
             self.logger.debug("Skipping LinkBuilder '%s' already written to parent group '%s'"
                               % (builder.name, parent.name))
@@ -888,7 +888,7 @@ class ZarrIO(HDMFIO):
         self.logger.debug("Writing LinkBuilder '%s' to parent group '%s'" % (builder.name, parent.name))
         name = builder.name
         # Get the reference
-        zarr_ref = self._create_ref(builder, export_source)
+        zarr_ref = self._create_ref(builder, ref_link_source)
 
         self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
         self._written_builders.set_written(builder)  # record that the builder has been written
@@ -1023,7 +1023,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(data, HDMFDataset):
             # If we have a dataset of containers we need to make the references to the containers
             if len(data) > 0 and isinstance(data[0], Container):
-                ref_data = [self._create_ref(data[i], export_source=export_source) for i in range(len(data))]
+                ref_data = [self._create_ref(data[i], ref_link_source=export_source) for i in range(len(data))]
                 shape = (len(data), )
                 type_str = 'object'
                 dset = parent.require_dataset(name,
@@ -1056,7 +1056,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], export_source=export_source)
+                    ref_tmp = self._create_ref(data[0][i], ref_link_source=export_source)
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
@@ -1076,7 +1076,7 @@ class ZarrIO(HDMFIO):
                 for j, item in enumerate(data):
                     new_item = list(item)
                     for i in refs:
-                        new_item[i] = self._create_ref(item[i], export_source=export_source)
+                        new_item[i] = self._create_ref(item[i], ref_link_source=export_source)
                     new_items.append(tuple(new_item))
 
                 # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
@@ -1120,11 +1120,11 @@ class ZarrIO(HDMFIO):
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
-                refs = self._create_ref(data.builder, export_source=export_source)
+                refs = self._create_ref(data.builder, ref_link_source=export_source)
             else:
                 shape = (len(data), )
                 type_str = 'object'
-                refs = [self._create_ref(item, export_source=export_source) for item in data]
+                refs = [self._create_ref(item, ref_link_source=export_source) for item in data]
 
             dset = parent.require_dataset(name,
                                           shape=shape,
