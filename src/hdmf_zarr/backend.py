@@ -754,7 +754,6 @@ class ZarrIO(HDMFIO):
             source_file = str(zarr_ref['source'])
         # Resolve the path relative to the current file
         if not self.is_remote():
-            # source_file = os.path.abspath(os.path.join(self.source, source_file))
             source_file = os.path.abspath(source_file)
         else:
             # get rid of extra "/" and "./" in the path root and source_file
@@ -1419,7 +1418,7 @@ class ZarrIO(HDMFIO):
             name = str(os.path.basename(zarr_obj.name))
 
         # Note: The source should be from the zarr object and not assumed to be
-        # from the file being read. 
+        # from the file being read.
         if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
             source = zarr_obj.store.store.path
         else:
