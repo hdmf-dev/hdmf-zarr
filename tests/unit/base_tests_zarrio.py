@@ -648,7 +648,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_attributes_write_reference_to_datasetbuilder(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         dataset_1 = DatasetBuilder('dataset_1', data_1)
-        tempIO = ZarrIO('test_io.zarr', mode='w')
+        tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
         attr = {'attr1': dataset_1}
         with self.assertWarnsWith(UserWarning,
@@ -666,7 +666,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         dataset_1 = DatasetBuilder('dataset_1', data_1)
         ref1 = ReferenceBuilder(dataset_1)
-        tempIO = ZarrIO('test_io.zarr', mode='w')
+        tempIO = ZarrIO(self.store, mode='w')
         tempIO.open()
         attr = {'attr1': ref1}
         with self.assertWarnsWith(UserWarning,
@@ -1165,7 +1165,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[0], manager=manager, mode='w') as write_io:
             write_io.write(foofile)
 
-
         with ZarrIO(self.store_path[0], manager=manager, mode='r') as read_io1:
             read_foofile1 = read_io1.read()
 
@@ -1194,8 +1193,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[1], manager=manager, mode='r') as read_io2:
             read_foofile2 = read_io2.read()
 
-            # # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
-            # # this should make an external link within the exported file
+            # create a foo with link to existing dataset my_data (not in same file), add the foo to new foobucket
+            # this should make an external link within the exported file
             foo2 = Foo('foo2', read_foofile1.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
             foobucket2 = FooBucket('bucket2', [foo2])
             read_foofile2.add_bucket(foobucket2)
