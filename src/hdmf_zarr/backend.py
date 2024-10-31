@@ -570,14 +570,10 @@ class ZarrIO(HDMFIO):
 
                         # Note: This might change during the refactor, but the idea goes as follows:
                         # write_link calls _create_ref, which internally has a conditional if the source
-                        # is None. If None, it will use the source from the provided builder. In the case
-                        # where sub_builder is a LinkBuilder, it will be the builder within that we source
-                        # the source.
+                        # is None. If None, it will use the source from the provided builder.
 
-                        # Alternatively, we can just set this sub_builder.builder.source because _create_ref
-                        # does that anyways if we set it to None. Different ways to do the same thing. This
-                        # again will most likely change during the refactor.
-
+                        # In the case the builder is a LinkBuilder or ReferenceBuilder, the source will actually be
+                        # the source of the builder within.
                         source = None
                 else:
                     # Note: Use the export_source to create an ExternalLink to the src_io.source.
@@ -627,15 +623,17 @@ class ZarrIO(HDMFIO):
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     obj_filename = self.__get_store_path(obj.store)
-                    if obj_filename != export_source:
-                        if not isinstance(value, Builder):
-                            value = value.builder
-                        if value.source in (obj_filename, export_source):
-                            source = obj_filename
-                        else:
-                            source = None
+
+                    if not isinstance(value, Builder): # If a ReferenceBuilder
+                        value = value.builder
+
+                    # Note: The logic is similar to writing links in write_group
+                    # Refer to the notes there.
+                    if value.source in (obj_filename, export_source):
+                        source = obj_filename
                     else:
-                        source = export_source
+                        source = None
+
                     refs = self._create_ref(value, source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
@@ -826,9 +824,13 @@ class ZarrIO(HDMFIO):
                       else self.source)
         else:
             if builder.source == export_source:
+                # Note: This case comes up when exporting a dataset of references (each point to say a group).
+                # _create_ref is called on each item (group). We do not support external references, so the source
+                # maybe an external file, but we need to point inwards because they're actually in the file.
                 source = self.path
             else:
                 source = export_source
+
         if not isinstance(source, str):
             source = source.path
 
@@ -839,7 +841,7 @@ class ZarrIO(HDMFIO):
 
         # Note: We want want to construct the relative path with
         # os.path.relpath(<absolute_path_to_the_target>, <absolute_path_to_the_file_that_is_being_exported_to>)
-        # That being said, I want to avoid a reference being defined as '.' because '.' means whatever file you
+        # That being said, we want to avoid a reference being defined as '.' because '.' means whatever file you
         # are in. This does not help if you are trying to access a link/ref in another file and the source says
         # '.' so look in yourself. That is why the dirname is there.
 
