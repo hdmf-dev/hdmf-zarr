@@ -949,7 +949,7 @@ class TestHDF5toZarrWithFilters(TestCase):
 
     def test_maxshape(self):
         """test when maxshape is set for the dataset"""
-        data = H5DataIO(data=list(range(5)), maxshape=(None,))
+        data = H5DataIO(data=list(range(5)), maxshape=(5,))
         self.__roundtrip_data(data=data)
         self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
 

@@ -367,6 +367,8 @@ class ZarrIO(HDMFIO):
         write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
+        if not write_args.get('link_data', True):
+            ckwargs['clear_cache'] = True
         super().export(**ckwargs)
         if cache_spec:
             self.__cache_spec()
@@ -1310,6 +1312,13 @@ class ZarrIO(HDMFIO):
             except ValueError:
                 for i in range(len(data)):
                     dset[i] = data[i]
+            except TypeError: # If data is an h5py.Dataset with strings, they may need to be decoded
+                for c in np.ndindex(data_shape):
+                    o = data
+                    for i in c:
+                        o = o[i]
+                    # bytes are not JSON serializable
+                    dset[c] = o if not isinstance(o, (bytes, np.bytes_)) else o.decode("utf-8")
         return dset
 
     def __scalar_fill__(self, parent, name, data, options=None):
