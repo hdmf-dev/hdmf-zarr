@@ -552,33 +552,9 @@ class ZarrIO(HDMFIO):
             # Note: In HDMF, we simply call write_link (within write_group) which contains a similar logic as seen
             # below. This is not the case here (until a refactor).
             for link_name, sub_builder in links.items():
-                group_filename = self.__get_store_path(group.store)
-                if export_source is not None:
-                    if sub_builder.builder.source in (group_filename, export_source):
-                        # Case 1:
-                        # sub_builder.builder.source == export_source
-                        # This means we have a SoftLink for a group and so we want the exported link to
-                        # also point "inwards" in the file being created.
-                        #################################
-                        # Case 2:
-                        # sub_builder.builder.source == group_filename
-                        # This is still a SoftLink; however, it is from adding a link to a group after FileA
-                        # has been read and we are exporting that to FileB. We still want the link to be "inwards".
-                        source = group_filename
-                    else:
-                        # Purpose: Create an ExternalLink to whatever file that has what we are targeting.
-
-                        # Note: This might change during the refactor, but the idea goes as follows:
-                        # write_link calls _create_ref, which internally has a conditional if the source
-                        # is None. If None, it will use the source from the provided builder.
-
-                        # In the case the builder is a LinkBuilder or ReferenceBuilder, the source will actually be
-                        # the source of the builder within.
-                        source = None
-                else:
-                    # Note: Use the export_source to create an ExternalLink to the src_io.source.
-                    source = export_source
-                self.write_link(group, sub_builder, source)
+                # Note: sub_builder is a LinkBuilder not the builder within.
+                # HDMF: h5tools --> 1034
+                self.write_link(group, sub_builder, export_source)
 
         attributes = builder.attributes
         self.write_attributes(group, attributes, export_source=export_source)
@@ -621,21 +597,8 @@ class ZarrIO(HDMFIO):
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
-                    type_str = 'object'
-                    obj_filename = self.__get_store_path(obj.store)
-
-                    if not isinstance(value, Builder): # If a ReferenceBuilder
-                        value = value.builder
-
-                    # Note: The logic is similar to writing links in write_group
-                    # Refer to the notes there.
-                    if value.source in (obj_filename, export_source):
-                        source = obj_filename
-                    else:
-                        source = None
-
-                    refs = self._create_ref(value, source)
-                tmp = {'zarr_dtype': type_str, 'value': refs}
+                    refs = self._create_ref(value, self.path)
+                tmp = {'zarr_dtype': 'object', 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
             else:
@@ -818,20 +781,12 @@ class ZarrIO(HDMFIO):
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
         if ref_link_source is None:
-            source = (builder.source
+            ref_link_source = (builder.source
                       if (builder.source is not None and os.path.isdir(builder.source))
                       else self.source)
-        else:
-            if builder.source == ref_link_source:
-                # Note: This case comes up when exporting a dataset of references (each point to say a group).
-                # _create_ref is called on each item (group). We do not support external references, so the source
-                # maybe an external file, but we need to point inwards because they're actually in the file.
-                source = self.path
-            else:
-                source = ref_link_source
 
-        if not isinstance(source, str):
-            source = source.path
+        if not isinstance(ref_link_source, str):
+            ref_link_source = ref_link_source.path
 
         if not isinstance(self.path, str):
             str_path = self.path.path
@@ -846,8 +801,8 @@ class ZarrIO(HDMFIO):
 
         # Note2: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
-        rel_source = os.path.relpath(os.path.abspath(source), os.path.dirname(os.path.abspath(str_path)))
-
+        rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.dirname(os.path.abspath(str_path)))
+        # breakpoint()
         # Return the ZarrReference object
         ref = ZarrReference(
             source=rel_source,
@@ -886,6 +841,34 @@ class ZarrIO(HDMFIO):
                               % (builder.name, parent.name))
             return
         self.logger.debug("Writing LinkBuilder '%s' to parent group '%s'" % (builder.name, parent.name))
+
+        target_builder = builder.builder
+
+        group_filename = self.__get_store_path(parent.store)
+        if ref_link_source is not None:
+            # HDMF: h5tools 1081
+            if target_builder.source in (group_filename, ref_link_source):
+                # Case 1:
+                # target_builder.source == export_source
+                # This means we have a SoftLink for a group and so we want the exported link to
+                # also point "inwards" in the file being created.
+                #################################
+                # Case 2:
+                # target_builder.source == group_filename
+                # This is still a SoftLink; however, it is from adding a link to a group after FileA
+                # has been read and we are exporting that to FileB. We still want the link to be "inwards".
+                ref_link_source = group_filename
+            else:
+                # Purpose: Create an ExternalLink to whatever file that has what we are targeting.
+
+                # Note: This might change during the refactor, but the idea goes as follows:
+                # write_link calls _create_ref, which internally has a conditional if the source
+                # is None. If None, it will use the source from the provided builder.
+
+                # In the case the builder is a LinkBuilder or ReferenceBuilder, the source will actually be
+                # the source of the builder within.
+                ref_link_source = target_builder.source
+
         name = builder.name
         # Get the reference
         zarr_ref = self._create_ref(builder, ref_link_source)
@@ -1117,14 +1100,16 @@ class ZarrIO(HDMFIO):
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
+            # Note: ref_link_source is set to self.path because we do not do external references
+            # We only support external links.
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
-                refs = self._create_ref(data.builder, ref_link_source=export_source)
+                refs = self._create_ref(data, ref_link_source=self.path)
             else:
                 shape = (len(data), )
                 type_str = 'object'
-                refs = [self._create_ref(item, ref_link_source=export_source) for item in data]
+                refs = [self._create_ref(item, ref_link_source=self.path) for item in data]
 
             dset = parent.require_dataset(name,
                                           shape=shape,
