@@ -761,10 +761,10 @@ class ZarrIO(HDMFIO):
                 builder = ref_object
         elif isinstance(ref_object, ReferenceBuilder):
             builder = ref_object.builder
-        else:
+        else: # Not covered
             builder = self.manager.build(ref_object)
 
-        path = self.__get_path(builder)
+        path = self.__get_path(builder) # This is the internal path in the store to the item.
 
         # get the object id if available
         object_id = builder.get('object_id', None)
@@ -793,12 +793,11 @@ class ZarrIO(HDMFIO):
                       else self.source)
 
         if not isinstance(ref_link_source, str):
+            # self.path is sometimes given as the ref_link_source. It can
+            # be either a (str, Path, *SUPPORTED_ZARR_STORES). That being said,
+            # when self.path is a Path, it is converted to a str in __init__.
+            # We only have to deal with *SUPPORTED_ZARR_STORES and strings.
             ref_link_source = ref_link_source.path
-
-        if not isinstance(self.path, str):
-            str_path = self.path.path
-        else:
-            str_path = self.path
 
         # Note: We want want to construct the relative path with
         # os.path.relpath(<absolute_path_to_the_target>, <absolute_path_to_the_file_that_is_being_exported_to>)
@@ -808,6 +807,10 @@ class ZarrIO(HDMFIO):
 
         # Note: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
+        if not isinstance(self.path, str):
+            str_path = self.path.path
+        else:
+            str_path = self.path
         rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.dirname(os.path.abspath(str_path)))
 
         # Return the ZarrReference object
