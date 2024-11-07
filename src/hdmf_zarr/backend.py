@@ -865,6 +865,8 @@ class ZarrIO(HDMFIO):
                 ref_link_source = target_builder.source
         else:
             # This is when we are not exporting and so export_source will be None.
+            # We use target_builder.source instead of builder source in case we creating an external link
+            # during write.
             ref_link_source = target_builder.source
 
         name = builder.name
@@ -1035,9 +1037,11 @@ class ZarrIO(HDMFIO):
             refs = list()
             type_str = list()
             for i, dts in enumerate(options['dtype']):
+                # TODO: This appears to be code to distinguish between region and object References
+                # and will be refactored/removed.
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], ref_link_source=self.path)
+                    ref_tmp = self._create_ref(data[0][i], ref_link_source=self.path) # HDMF 1229
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
