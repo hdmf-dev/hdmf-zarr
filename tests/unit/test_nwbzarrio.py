@@ -51,6 +51,6 @@ class TestNWBZarrIO(unittest.TestCase):
               for reading a remote file with NWBZarrIO.read_nwb
         """
         self.write_test_file()
-        nwbfile = NWBZarrIO.read_nwb(path=self.filepath, mode="r")
+        nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertEqual(nwbfile.experimenter, "Dr. Bilbo Baggins")
