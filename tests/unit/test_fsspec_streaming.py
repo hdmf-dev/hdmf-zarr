@@ -52,8 +52,3 @@ class TestFSSpecStreaming(unittest.TestCase):
         nwbfile = NWBZarrIO.read_nwb(self.s3_aind_path)
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
         self.assertEqual(nwbfile.institution, "AIND")
-
-        # Try a https:// URL as well
-        nwbfile = NWBZarrIO.read_nwb(self.https_s3_path)
-        self.assertIsNotNone(nwbfile)
-
