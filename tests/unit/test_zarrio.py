@@ -27,6 +27,7 @@ import os
 import shutil
 import warnings
 from numpy.testing import assert_array_equal
+import pathlib
 
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -111,6 +112,16 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
     def setUp(self):
         super().setUp()
         self.store = [NestedDirectoryStore(p) for p in self.store_path]
+
+
+#########################################
+#  Pathlib Tests
+#########################################
+class TestPathlib(BaseTestZarrWriter):
+    """Test writing of builder with Zarr using a custom DirectoryStore"""
+    def setUp(self):
+        super().setUp()
+        self.store = pathlib.Path(self.store_path)
 
 
 #########################################
