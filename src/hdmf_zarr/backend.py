@@ -551,8 +551,6 @@ class ZarrIO(HDMFIO):
 
         links = builder.links
         if links:
-            # Note: In HDMF, we simply call write_link (within write_group) which contains a similar logic as seen
-            # below. This is not the case here (until a refactor).
             for link_name, sub_builder in links.items():
                 # Note: sub_builder is a LinkBuilder not the builder within.
                 # HDMF: h5tools --> 1034
@@ -597,6 +595,8 @@ class ZarrIO(HDMFIO):
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
+                    # Note: Use self.path for the ref_link_source because
+                    # we don't support external references.
                     refs = self._create_ref(value, self.path)
                 tmp = {'zarr_dtype': 'object', 'value': refs}
                 obj.attrs[key] = tmp
@@ -768,6 +768,7 @@ class ZarrIO(HDMFIO):
         curr = builder
         while curr is not None and curr.name != ROOT_NAME:
             curr = curr.parent
+
         if curr:
             source_object_id = curr.get('object_id', None)
         # We did not find ROOT_NAME as a parent. This should only happen if we have an invalid
@@ -800,10 +801,10 @@ class ZarrIO(HDMFIO):
         # are in. This does not help if you are trying to access a link/ref in another file and the source says
         # '.' so look in yourself. That is why the dirname is there.
 
-        # Note2: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
+        # Note: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
         rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.dirname(os.path.abspath(str_path)))
-        # breakpoint()
+
         # Return the ZarrReference object
         ref = ZarrReference(
             source=rel_source,
