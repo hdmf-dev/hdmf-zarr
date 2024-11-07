@@ -458,7 +458,7 @@ class ZarrIO(HDMFIO):
                 exhaust_dci=exhaust_dci,
                 export_source=export_source,
             )
-        self.write_attributes(self.__file, f_builder.attributes, export_source)  # the same as set_attributes in HDMF
+        self.write_attributes(self.__file, f_builder.attributes)  # the same as set_attributes in HDMF
         self.__dci_queue.exhaust_queue()  # Write any remaining DataChunkIterators that have been queued
         self._written_builders.set_written(f_builder)
         self.logger.debug("Done writing %s '%s' to path '%s'" %
@@ -559,19 +559,17 @@ class ZarrIO(HDMFIO):
                 self.write_link(group, sub_builder, export_source)
 
         attributes = builder.attributes
-        self.write_attributes(group, attributes, export_source=export_source)
+        self.write_attributes(group, attributes)
         self._written_builders.set_written(builder)  # record that the builder has been written
         return group
 
     @docval({'name': 'obj', 'type': (Group, Array), 'doc': 'the Zarr object to add attributes to'},
             {'name': 'attributes',
              'type': dict,
-             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'},
-            {'name': 'export_source', 'type': str,
-             'doc': 'The source of the builders when exporting', 'default': None})
+             'doc': 'a dict containing the attributes on the Group or Dataset, indexed by attribute name'})
     def write_attributes(self, **kwargs):
         """Set (i.e., write) the attributes on a given Zarr Group or Array."""
-        obj, attributes, export_source = getargs('obj', 'attributes', 'export_source', kwargs)
+        obj, attributes = getargs('obj', 'attributes', kwargs)
 
         for key, value in attributes.items():
             # Case 1: list, set, tuple type attributes
@@ -1134,7 +1132,7 @@ class ZarrIO(HDMFIO):
             else:
                 dset = self.__scalar_fill__(parent, name, data, options)
         if not linked:
-            self.write_attributes(dset, attributes, export_source)
+            self.write_attributes(dset, attributes)
         # record that the builder has been written
         self._written_builders.set_written(builder)
         # Exhaust the DataChunkIterator if the dataset was given this way. Note this is a no-op
