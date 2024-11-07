@@ -48,6 +48,9 @@ from hdmf.spec import (RefSpec,
 from hdmf.query import HDMFDataset
 from hdmf.container import Container
 
+from pathlib import Path
+
+
 # Module variables
 ROOT_NAME = 'root'
 """
@@ -84,7 +87,7 @@ class ZarrIO(HDMFIO):
             return False
 
     @docval({'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, Path, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
@@ -115,6 +118,8 @@ class ZarrIO(HDMFIO):
         else:
             self.__synchronizer = synchronizer
         self.__mode = mode
+        if isinstance(path, Path):
+            path = str(path)
         self.__path = path
         self.__file = None
         self.__storage_options = storage_options
@@ -195,7 +200,7 @@ class ZarrIO(HDMFIO):
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, Path, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'storage_options', 'type': dict,
              'doc': 'Zarr storage options to read remote folders',
@@ -362,6 +367,8 @@ class ZarrIO(HDMFIO):
         write_args['export_source'] = src_io.source  # pass export_source=src_io.source to write_builder
         ckwargs = kwargs.copy()
         ckwargs['write_args'] = write_args
+        if not write_args.get('link_data', True):
+            ckwargs['clear_cache'] = True
         super().export(**ckwargs)
         if cache_spec:
             self.__cache_spec()
@@ -1305,6 +1312,13 @@ class ZarrIO(HDMFIO):
             except ValueError:
                 for i in range(len(data)):
                     dset[i] = data[i]
+            except TypeError: # If data is an h5py.Dataset with strings, they may need to be decoded
+                for c in np.ndindex(data_shape):
+                    o = data
+                    for i in c:
+                        o = o[i]
+                    # bytes are not JSON serializable
+                    dset[c] = o if not isinstance(o, (bytes, np.bytes_)) else o.decode("utf-8")
         return dset
 
     def __scalar_fill__(self, parent, name, data, options=None):
