@@ -17,7 +17,8 @@ class TestFSSpecStreaming(unittest.TestCase):
             "ecephys_625749_2022-08-03_15-15-06_nwb/"
             "ecephys_625749_2022-08-03_15-15-06_experiment1_recording1.nwb.zarr/"
         )
-        self.https_s3_path = "https://dandiarchive.s3.amazonaws.com/zarr/ccefbc9f-30e7-4a4c-b044-5b59d300040b/"
+        # DANDISET: 000719/icephys_9_27_2024
+        self.https_s3_path = "https://dandiarchive.s3.amazonaws.com/zarr/7515c603-9940-4598-aa1b-8bf32dc9b10c/"
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming(self):
