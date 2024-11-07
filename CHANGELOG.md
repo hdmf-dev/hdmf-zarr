@@ -7,6 +7,7 @@
 * Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
 * Add dimension labels compatible with xarray. @mavaylon1 [#207](https://github.com/hdmf-dev/hdmf-zarr/pull/207)
 * Added link_data --> clear_cache relationship to support repacking zarr nwbfiles: [#215](https://github.com/hdmf-dev/hdmf-zarr/pull/215)
+* Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 
 ## 0.8.0 (June 4, 2024)
 ### Bug Fixes
