@@ -43,7 +43,6 @@ class TestNWBZarrIO(unittest.TestCase):
         with NWBZarrIO(path=self.filepath, mode="w") as io:
             io.write(nwbfile)
 
-    @unittest.skip
     def test_read_nwb(self):
         """
         Test reading a local file with NWBZarrIO.read_nwb.
