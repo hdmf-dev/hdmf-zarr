@@ -2,7 +2,7 @@ import unittest
 from hdmf_zarr import NWBZarrIO
 import os
 import shutil
-import datetime
+from datetime import datetime
 from dateutil.tz import tzlocal
 
 try:
