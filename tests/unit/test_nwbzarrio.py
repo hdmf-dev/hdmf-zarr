@@ -53,4 +53,4 @@ class TestNWBZarrIO(unittest.TestCase):
         self.write_test_file()
         nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
-        self.assertEqual(nwbfile.experimenter, "Dr. Bilbo Baggins")
+        self.assertTupleEqual(nwbfile.experimenter, ('Dr. Bilbo Baggins',))
