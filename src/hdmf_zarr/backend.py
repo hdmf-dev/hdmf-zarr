@@ -48,6 +48,9 @@ from hdmf.spec import (RefSpec,
 from hdmf.query import HDMFDataset
 from hdmf.container import Container
 
+from pathlib import Path
+
+
 # Module variables
 ROOT_NAME = 'root'
 """
@@ -84,7 +87,7 @@ class ZarrIO(HDMFIO):
             return False
 
     @docval({'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, Path, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
@@ -115,6 +118,8 @@ class ZarrIO(HDMFIO):
         else:
             self.__synchronizer = synchronizer
         self.__mode = mode
+        if isinstance(path, Path):
+            path = str(path)
         self.__path = path
         self.__file = None
         self.__storage_options = storage_options
@@ -195,7 +200,7 @@ class ZarrIO(HDMFIO):
              'type': (NamespaceCatalog, TypeMap),
              'doc': 'the NamespaceCatalog or TypeMap to load namespaces into'},
             {'name': 'path',
-             'type': (str, *SUPPORTED_ZARR_STORES),
+             'type': (str, Path, *SUPPORTED_ZARR_STORES),
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'storage_options', 'type': dict,
              'doc': 'Zarr storage options to read remote folders',

@@ -3,7 +3,7 @@
 ## 1.0.0 (Upcoming)
 ### Enhancements
 * Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
-
+* Added support for Pathlib paths. @mavaylon1 [#212](https://github.com/hdmf-dev/hdmf-zarr/pull/212)
 
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
