@@ -97,7 +97,10 @@ class ZarrStoreTestCase(TestCase):
 
     def tearDown(self):
         if os.path.exists(self.store):
-            shutil.rmtree(self.store)
+            if os.path.isdir(self.store):
+                shutil.rmtree(self.store)
+            else:  # in case a test created a file instead of a directory
+                os.remove(self.store)
 
     def createReferenceBuilder(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
@@ -117,9 +120,9 @@ class ZarrStoreTestCase(TestCase):
                                          'ref_dataset': dataset_ref})
         return builder
 
-    def create_zarr(self, consolidate_metadata=True):
+    def create_zarr(self, consolidate_metadata=True, force_overwrite=False, mode='a'):
         builder = self.createReferenceBuilder()
-        writer = ZarrIO(self.store, mode='a')
+        writer = ZarrIO(self.store, mode=mode, force_overwrite=force_overwrite)
         writer.write_builder(builder, consolidate_metadata)
         writer.close()
 
