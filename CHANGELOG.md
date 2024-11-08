@@ -4,6 +4,7 @@
 ### Enhancements
 * Added support for Pathlib paths. @mavaylon1 [#212](https://github.com/hdmf-dev/hdmf-zarr/pull/212)
 * Updated packages used for testing and readthedocs configuration. @mavaylon1, @rly [#214](https://github.com/hdmf-dev/hdmf-zarr/pull/214)
+* Add `force_overwite` parameter for `ZarrIO.__init__` to allow overwriting an existing file with a Zarr file, not just a directory. @oruebel [#229](https://github.com/hdmf-dev/hdmf-zarr/pull/229)
 
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
