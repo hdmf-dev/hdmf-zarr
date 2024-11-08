@@ -113,7 +113,8 @@ class ZarrIO(HDMFIO):
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
         path, manager, mode, synchronizer, object_codec_class, storage_options, force_overwrite = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', 'storage_options', 'force_overwrite', kwargs)
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class',
+            'storage_options', 'force_overwrite', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
