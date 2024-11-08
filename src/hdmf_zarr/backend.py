@@ -182,7 +182,7 @@ class ZarrIO(HDMFIO):
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
-            # Allow overwriting an exist file (e.g., and HDF5 file). Zarr will normally fail if the
+            # Allow overwriting an existing file (e.g., an HDF5 file). Zarr will normally fail if the
             # existing object at the path is a file. So if we are in `w` mode we need to delete the file first
             if self.mode == 'w' and self.__force_overwrite:
                 if isinstance(self.path, (str, Path)) and os.path.exists(self.path):
