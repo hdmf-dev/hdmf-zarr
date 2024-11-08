@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## 1.0.0 (Upcoming)
+### Enhancements
+* Added support for Pathlib paths. @mavaylon1 [#212](https://github.com/hdmf-dev/hdmf-zarr/pull/212)
+* Updated packages used for testing and readthedocs configuration. @mavaylon1, @rly [#214](https://github.com/hdmf-dev/hdmf-zarr/pull/214)
+
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
 * Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)

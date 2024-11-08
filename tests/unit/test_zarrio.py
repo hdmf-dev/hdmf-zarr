@@ -24,6 +24,7 @@ from hdmf.spec import DatasetSpec
 import os
 import shutil
 import warnings
+import pathlib
 
 
 CUR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -137,6 +138,16 @@ class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
 
 
 #########################################
+#  Pathlib Tests
+#########################################
+class TestPathlib(BaseTestZarrWriter):
+    """Test writing of builder with Zarr using a custom DirectoryStore"""
+    def setUp(self):
+        super().setUp()
+        self.store = pathlib.Path(self.store_path)
+
+
+#########################################
 #  Consolidate Metadata tests
 #########################################
 class TestConsolidateMetadata(ZarrStoreTestCase):
@@ -195,7 +206,7 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
     Workflow:
     i) We need to define a `get_dataset_inc_spec` to set the dim in the spec (via BuildDatasetShapeMixin)
     ii) Create and write a BarDataHolder with a BarData.
-    iii) Read and check that the _ARRAY_DIMENSIONS attribute is set. 
+    iii) Read and check that the _ARRAY_DIMENSIONS attribute is set.
     """
     def tearDown(self):
         shutil.rmtree(self.store)
