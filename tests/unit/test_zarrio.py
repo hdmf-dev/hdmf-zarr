@@ -208,7 +208,7 @@ class TestOverwriteExistingFile(ZarrStoreTestCase):
         with open(self.store, "w") as file:
             file.write("Just a test file used in  TestOverwriteExistingFile")
         # try to create a Zarr file at the same location (i.e., self.store) as the
-        # test text file to force overwriting the exsiting file.
+        # test text file to force overwriting the existing file.
         self.create_zarr(force_overwrite=True, mode='w')
 
     def test_force_overwrite_when_dir_exists(self):
