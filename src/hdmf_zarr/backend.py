@@ -1,6 +1,7 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 # Python imports
 import os
+import shutil
 import warnings
 import numpy as np
 import tempfile
@@ -183,8 +184,11 @@ class ZarrIO(HDMFIO):
             # Allow overwriting an exist file (e.g., and HDF5 file). Zarr will normally fail if the
             # existing object at the path is a file. So if we are in `w` mode we need to delete the file first
             if self.mode == 'w' and self.__force_overwrite:
-                if isinstance(self.path, (str, Path)) and os.path.exists(self.path) and os.path.isfile(self.path):
-                    os.remove(self.path)
+                if isinstance(self.path, (str, Path)) and os.path.exists(self.path):
+                    if os.path.isdir(self.path): # directory
+                        shutil.rmtree(self.path)
+                    else:  # File
+                        os.remove(self.path)
 
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.

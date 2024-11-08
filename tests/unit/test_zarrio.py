@@ -211,6 +211,16 @@ class TestOverwriteExistingFile(ZarrStoreTestCase):
         # test text file to force overwriting the exsiting file.
         self.create_zarr(force_overwrite=True, mode='w')
 
+    def test_force_overwrite_when_dir_exists(self):
+        """
+        Test that we can overwrite a directory when opening with `w` mode even if there is
+        an existing directory.
+        """
+        # create a Zarr file
+        self.create_zarr()
+        # try to overwrite the existing Zarr file
+        self.create_zarr(force_overwrite=True, mode='w')
+
 
 class TestDimensionLabels(BuildDatasetShapeMixin):
     """
