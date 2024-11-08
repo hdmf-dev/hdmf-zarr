@@ -106,8 +106,8 @@ class ZarrIO(HDMFIO):
              'default': None},
             {'name': 'force_overwrite',
              'type': bool,
-             'doc': "force overwriting existing object when in 'w' mode even"
-                    " if the existing object is a file (e.g., and HDF5 file)",
+             'doc': "force overwriting existing object when in 'w' mode. The existing file or directory"
+                    " will be deleted when before opening (even if the object is not Zarr, e.g,. an HDF5 file)",
              'default': False}
             )
     def __init__(self, **kwargs):
