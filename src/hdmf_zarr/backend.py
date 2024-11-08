@@ -92,7 +92,7 @@ class ZarrIO(HDMFIO):
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
-             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-") '
+             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "r-"). '
                     'the mode r- is used to force open without consolidated metadata in read only mode.'},
             {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
