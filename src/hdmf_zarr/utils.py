@@ -5,6 +5,7 @@ import multiprocessing
 import math
 import json
 import logging
+import os
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple, Dict, Any
@@ -373,12 +374,12 @@ class ZarrSpecReader(SpecReader):
     Class to read format specs from Zarr
     """
 
-    @docval({'name': 'group', 'type': Group, 'doc': 'the Zarr file to read specs from'},
-            {'name': 'source', 'type': str, 'doc': 'the path spec files are relative to', 'default': '.'})
+    @docval({'name': 'group', 'type': Group, 'doc': 'the Zarr file to read specs from'})
     def __init__(self, **kwargs):
-        self.__group, source = getargs('group', 'source', kwargs)
-        super_kwargs = {'source': source}
-        super(ZarrSpecReader, self).__init__(**super_kwargs)
+        self.__group = getargs('group', kwargs)
+        source = "%s:%s" % (os.path.abspath(self.__group.store.path), self.__group.name)
+        super().__init__(source=source)
+        self.__cache = None
 
     def __read(self, path):
         s = self.__group[path][0]
@@ -391,8 +392,9 @@ class ZarrSpecReader(SpecReader):
 
     def read_namespace(self, ns_path):
         """Read a namespace from the given path"""
-        ret = self.__read(ns_path)
-        ret = ret['namespaces']
+        if self.__cache is None:
+            self.__cache = self.__read(ns_path)
+        ret = self.__cache['namespaces']
         return ret
 
 
