@@ -638,7 +638,7 @@ class ZarrIO(HDMFIO):
                     if isinstance(value, Builder):
                         refs = self._create_ref(value, export_source)
                     else:
-                        refs = self._create_ref(value.builder, export_source);
+                        refs = self._create_ref(value.builder, export_source)
                 tmp = {'zarr_dtype': type_str, 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
