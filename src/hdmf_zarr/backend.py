@@ -1049,9 +1049,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], export_source=export_source)
-                    dts_str = 'object'
-                    type_str.append({'name': dts['name'], 'dtype': dts_str})
+                    type_str.append({'name': dts['name'], 'dtype': 'object'})
                 else:
                     i = list([dts, ])
                     t = self.__resolve_dtype_helper__(i)
