@@ -138,8 +138,6 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            # if t is RegionReference:  # TODO: Region References not yet supported
-            #     self.__refgetters[i] = self.__get_regref
             if t == DatasetBuilder.OBJECT_REF_TYPE:
                 self.__refgetters[i] = self._get_ref
             elif t is str:
@@ -153,7 +151,6 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             sub = self.dataset.dtype[i]
             if np.issubdtype(sub, np.dtype('O')):
                 tmp.append('object')
-                # TODO: Region References are not yet supported
             if sub.metadata:
                 if 'vlen' in sub.metadata:
                     t = sub.metadata['vlen']
@@ -223,24 +220,6 @@ class AbstractZarrReferenceDataset(DatasetOfReferences):
         return 'object'
 
 
-class AbstractZarrRegionDataset(AbstractZarrReferenceDataset):
-    """
-    Extension of DatasetOfReferences to serve as the base class for resolving Zarr
-    references in datasets to either Builders and Containers.
-
-    Note: Region References are not yet supported.
-    """
-
-    def __getitem__(self, arg):
-        obj = super().__getitem__(arg)
-        ref = self.dataset[arg]
-        return obj[ref]
-
-    @property
-    def dtype(self):
-        return 'region'
-
-
 class ContainerZarrTableDataset(ContainerResolverMixin, AbstractZarrTableDataset):
     """
     A reference-resolving dataset for resolving references inside tables
@@ -283,29 +262,3 @@ class BuilderZarrReferenceDataset(BuilderResolverMixin, AbstractZarrReferenceDat
     @classmethod
     def get_inverse_class(cls):
         return ContainerZarrReferenceDataset
-
-
-class ContainerZarrRegionDataset(ContainerResolverMixin, AbstractZarrRegionDataset):
-    """
-    A reference-resolving dataset for resolving region references that returns
-    resolved references as Containers
-
-    Note: Region References are not yet supported.
-    """
-
-    @classmethod
-    def get_inverse_class(cls):
-        return BuilderZarrRegionDataset
-
-
-class BuilderZarrRegionDataset(BuilderResolverMixin, AbstractZarrRegionDataset):
-    """
-    A reference-resolving dataset for resolving region references that returns
-    resolved references as Builders.
-
-    Note: Region References are not yet supported.
-    """
-
-    @classmethod
-    def get_inverse_class(cls):
-        return ContainerZarrRegionDataset
