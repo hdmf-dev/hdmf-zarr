@@ -599,10 +599,7 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
-                if isinstance(value, (ReferenceBuilder, Container, Builder)):
-                    # Note: Use self.path for the ref_link_source because
-                    # we don't support external references.
-                    refs = self._create_ref(value, self.path)
+                refs = self._create_ref(value, self.path)
                 tmp = {'zarr_dtype': 'object', 'value': refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -643,7 +640,7 @@ class ZarrIO(HDMFIO):
         return path
 
     @staticmethod
-    def get_zarr_paths(zarr_object, relative=False):
+    def get_zarr_paths(zarr_object):
         """
         For a Zarr object find 1) the path to the main zarr file it is in and 2) the path to the object within the file
         :param zarr_object: Object for which we are looking up the path
@@ -665,9 +662,6 @@ class ZarrIO(HDMFIO):
         # path from the filepath to the object
         objectpath = "/" + os.path.relpath(fullpath, filepath)
         # return the result
-        if relative:
-            # when testing, we want the relative path with respect to the working dir.
-            filepath = os.path.relpath(filepath)
         return filepath, objectpath
 
     @staticmethod

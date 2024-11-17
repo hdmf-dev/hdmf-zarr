@@ -11,7 +11,6 @@ from zarr import Array as ZarrArray
 
 from hdmf.build import DatasetBuilder
 from hdmf.data_utils import append_data
-from hdmf.array import Array
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
 from hdmf.utils import docval, popargs, get_docval
 
@@ -21,7 +20,7 @@ class ZarrDataset(HDMFDataset):
     Extension of HDMFDataset to add Zarr compatibility
     """
 
-    @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
+    @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'})
     def __init__(self, **kwargs):
         self.__io = popargs('io', kwargs)
@@ -130,7 +129,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     references in compound datasets to either Builders and Containers.
     """
 
-    @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray, Array), 'doc': 'the Zarr file lazily evaluate'},
+    @docval({'name': 'dataset', 'type': (np.ndarray, ZarrArray), 'doc': 'the Zarr file lazily evaluate'},
             {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'},
             {'name': 'types', 'type': (list, tuple),
              'doc': 'the list/tuple of reference types'})
