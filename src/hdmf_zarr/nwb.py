@@ -1,6 +1,7 @@
 """Module with Zarr backend for NWB for integration with PyNWB"""
 from warnings import warn
-from .backend import ZarrIO
+from pathlib import Path
+from .backend import ZarrIO, SUPPORTED_ZARR_STORES
 
 from hdmf.utils import (docval,
                         popargs,
@@ -62,6 +63,31 @@ try:
             nwbfile = popargs('nwbfile', kwargs)
             kwargs['container'] = nwbfile
             super().export(**kwargs)
+
+        @staticmethod
+        @docval({'name': 'path',
+                 'type': (str, Path, *SUPPORTED_ZARR_STORES),
+                 'doc': 'the path to the Zarr file or a supported Zarr store'},
+                is_method=False)
+        def read_nwb(**kwargs):
+            """
+            Helper factory method for reading an NWB file and return the NWBFile object
+            """
+            # Retrieve the filepath
+            path = popargs('path', kwargs)
+            if isinstance(path, Path):
+                path = str(path)
+            # determine default storage options to use when opening a file from S3
+            storage_options = {}
+            if isinstance(path, str) and path.startswith(("s3://")):
+                storage_options = dict(anon=True)
+
+            # open the file with NWBZarrIO and rad the file
+            io = NWBZarrIO(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
+            nwbfile = io.read()
+
+            # return the NWBFile object
+            return nwbfile
 
 except ImportError:
     warn("PyNWB is not installed. Support for NWBZarrIO is disabled.")

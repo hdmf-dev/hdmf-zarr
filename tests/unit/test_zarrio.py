@@ -172,6 +172,29 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+class TestOverwriteExistingFile(ZarrStoreTestCase):
+    def test_force_overwrite_when_file_exists(self):
+        """
+        Test that we can overwrite a file when opening with `w` mode even if there is
+        an existing file. Zarr can write into a directory but not a file.
+        """
+        # create a dummy text file
+        with open(self.store, "w") as file:
+            file.write("Just a test file used in  TestOverwriteExistingFile")
+        # try to create a Zarr file at the same location (i.e., self.store) as the
+        # test text file to force overwriting the existing file.
+        self.create_zarr(force_overwrite=True, mode='w')
+
+    def test_force_overwrite_when_dir_exists(self):
+        """
+        Test that we can overwrite a directory when opening with `w` mode even if there is
+        an existing directory.
+        """
+        # create a Zarr file
+        self.create_zarr()
+        # try to overwrite the existing Zarr file
+        self.create_zarr(force_overwrite=True, mode='w')
+
 
 class TestDimensionLabels(BuildDatasetShapeMixin):
     """

@@ -1,9 +1,15 @@
 # HDMF-ZARR Changelog
 
 ## 1.0.0 (Upcoming)
+
 ### Enhancements
 * Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. This will introduce breaking changes that could lead to existing exported files to be invalid. This update removes '.' as the object default file source. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
 * Added support for Pathlib paths. @mavaylon1 [#212](https://github.com/hdmf-dev/hdmf-zarr/pull/212)
+* Updated packages used for testing and readthedocs configuration. @mavaylon1, @rly [#214](https://github.com/hdmf-dev/hdmf-zarr/pull/214)
+* Add `force_overwite` parameter for `ZarrIO.__init__` to allow overwriting an existing file or directory. @oruebel [#229](https://github.com/hdmf-dev/hdmf-zarr/pull/229)
+
+### Bug Fixes
+* Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)
 
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
@@ -12,6 +18,7 @@
 * Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
 * Add dimension labels compatible with xarray. @mavaylon1 [#207](https://github.com/hdmf-dev/hdmf-zarr/pull/207)
 * Added link_data --> clear_cache relationship to support repacking zarr nwbfiles: [#215](https://github.com/hdmf-dev/hdmf-zarr/pull/215)
+* Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 
 ## 0.8.0 (June 4, 2024)
 ### Bug Fixes

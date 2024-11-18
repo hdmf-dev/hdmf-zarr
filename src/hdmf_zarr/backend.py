@@ -1,6 +1,7 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 # Python imports
 import os
+import shutil
 import warnings
 import numpy as np
 import tempfile
@@ -91,7 +92,7 @@ class ZarrIO(HDMFIO):
              'doc': 'the path to the Zarr file or a supported Zarr store'},
             {'name': 'manager', 'type': BuildManager, 'doc': 'the BuildManager to use for I/O', 'default': None},
             {'name': 'mode', 'type': str,
-             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "w-") '
+             'doc': 'the mode to open the Zarr file with, one of ("w", "r", "r+", "a", "r-"). '
                     'the mode r- is used to force open without consolidated metadata in read only mode.'},
             {'name': 'synchronizer', 'type': (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
              'doc': 'Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.',
@@ -102,11 +103,18 @@ class ZarrIO(HDMFIO):
              'default': None},
             {'name': 'storage_options', 'type': dict,
              'doc': 'Zarr storage options to read remote folders',
-             'default': None})
+             'default': None},
+            {'name': 'force_overwrite',
+             'type': bool,
+             'doc': "force overwriting existing object when in 'w' mode. The existing file or directory"
+                    " will be deleted when before opening (even if the object is not Zarr, e.g,. an HDF5 file)",
+             'default': False}
+            )
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class, storage_options = popargs(
-            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class', 'storage_options', kwargs)
+        path, manager, mode, synchronizer, object_codec_class, storage_options, force_overwrite = popargs(
+            'path', 'manager', 'mode', 'synchronizer', 'object_codec_class',
+            'storage_options', 'force_overwrite', kwargs)
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
         if isinstance(synchronizer, bool):
@@ -118,6 +126,7 @@ class ZarrIO(HDMFIO):
         else:
             self.__synchronizer = synchronizer
         self.__mode = mode
+        self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
             path = str(path)
         self.__path = path
@@ -160,25 +169,44 @@ class ZarrIO(HDMFIO):
     def object_codec_class(self):
         return self.__codec_cls
 
+    @property
+    def mode(self):
+        """
+        The mode specified by the user when creating the ZarrIO instance.
+
+        NOTE: The Zarr library may not honor the mode. E.g., DirectoryStore in Zarr uses
+        append mode and does not allow setting a file to read-only mode.
+        """
+        return self.__mode
+
     def open(self):
         """Open the Zarr file"""
         if self.__file is None:
+            # Allow overwriting an existing file (e.g., an HDF5 file). Zarr will normally fail if the
+            # existing object at the path is a file. So if we are in `w` mode we need to delete the file first
+            if self.mode == 'w' and self.__force_overwrite:
+                if isinstance(self.path, (str, Path)) and os.path.exists(self.path):
+                    if os.path.isdir(self.path): # directory
+                        shutil.rmtree(self.path)
+                    else:  # File
+                        os.remove(self.path)
+
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
-            if self.__mode != 'r':
+            if self.mode != 'r':
                 # When we consolidate metadata, we use ConsolidatedMetadataStore.
                 # This interface does not allow for setting items.
                 # In the doc string, it says it is "read only". As a result, we cannot use r+ with consolidate_metadata.
                 # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
                 # use the regular mode r when r- is specified
-                mode_to_use = self.__mode if self.__mode != 'r-' else 'r'
+                mode_to_use = self.mode if self.mode != 'r-' else 'r'
                 self.__file = zarr.open(store=self.path,
                                         mode=mode_to_use,
                                         synchronizer=self.__synchronizer,
                                         storage_options=self.__storage_options)
             else:
                 self.__file = self.__open_file_consolidated(store=self.path,
-                                                            mode=self.__mode,
+                                                            mode=self.mode,
                                                             synchronizer=self.__synchronizer,
                                                             storage_options=self.__storage_options)
 
@@ -343,9 +371,9 @@ class ZarrIO(HDMFIO):
         """Export data read from a file from any backend to Zarr.
         See :py:meth:`hdmf.backends.io.HDMFIO.export` for more details.
         """
-        if self.__mode != 'w':
+        if self.mode != 'w':
             raise UnsupportedOperation("Cannot export to file %s in mode '%s'. Please use mode 'w'."
-                                       % (self.source, self.__mode))
+                                       % (self.source, self.mode))
 
         src_io = getargs('src_io', kwargs)
         write_args, cache_spec = popargs('write_args', 'cache_spec', kwargs)
@@ -371,6 +399,13 @@ class ZarrIO(HDMFIO):
             ckwargs['clear_cache'] = True
         super().export(**ckwargs)
         if cache_spec:
+            # add any namespaces from the src_io that have not yet been loaded
+            for namespace in src_io.manager.namespace_catalog.namespaces:
+                if namespace not in self.manager.namespace_catalog.namespaces:
+                    self.manager.namespace_catalog.add_namespace(
+                        name=namespace,
+                        namespace=src_io.manager.namespace_catalog.get_namespace(namespace)
+                    )
             self.__cache_spec()
 
     def get_written(self, builder, check_on_disk=False):
