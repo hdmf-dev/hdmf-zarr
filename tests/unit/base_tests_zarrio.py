@@ -1312,13 +1312,46 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(OrphanContainerBuildError, msg):
                     export_io.export(src_io=read_io, container=read_foofile)
 
-    def test_soft_links_export(self):
+    def test_soft_link_data(self):
+        """
+        Test data soft links.
+        """
+        foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket('bucket1', [foo1])
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='w') as write_io:
+            write_io.write(foofile)
+
+        with ZarrIO(self.store[0], manager=get_foo_buildmanager(), mode='r') as read_io:
+            read_foofile = read_io.read()
+
+            # create a foo with link to existing dataset my_data, add the foo to new foobucket
+            # this should make a soft link within the exported file
+            foo2 = Foo('foo2', read_foofile.buckets['bucket1'].foos['foo1'].my_data, "I am foo2", 17, 3.14)
+            foobucket2 = FooBucket('bucket2', [foo2])
+            read_foofile.add_bucket(foobucket2)
+
+            read_foofile.foofile_data = foo2.my_data
+
+            with ZarrIO(self.store[1], mode='w') as export_io:
+                export_io.export(src_io=read_io, container=read_foofile)
+
+        with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
+            read_foofile2 = read_io.read()
+
+            # test new soft link to dataset in file
+            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data,
+                          read_foofile2.buckets['bucket2'].foos['foo2'].my_data)
+
+            # test new soft link to new soft link to dataset in file
+            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data, read_foofile2.foofile_data)
+
+
+    def test_soft_links_group_after_write(self):
         """
         Test that exporting a written container after adding
         groups, links, and references to it works.
-
-        This tests `builder.parent.name != parent_name:` within
-        `if data_filename != export_source or builder.parent.name != parent_name:`.
         """
         foo1 = Foo('foo1', [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
         foobucket = FooBucket('bucket1', [foo1])
@@ -1339,9 +1372,6 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             # also add link from foofile to new foo2 container
             read_foofile.foo_link = foo2
 
-            # also add link from foofile to new foo2.my_data dataset which is a link to foo1.my_data dataset
-            read_foofile.foofile_data = foo2.my_data
-
             # also add reference from foofile to new foo2
             read_foofile.foo_ref_attr = foo2
 
@@ -1351,15 +1381,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store[1], manager=get_foo_buildmanager(), mode='r') as read_io:
             read_foofile2 = read_io.read()
 
-            # test new soft link to dataset in file
-            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data,
-                          read_foofile2.buckets['bucket2'].foos['foo2'].my_data)
-
             # test new soft link to group in file
             self.assertIs(read_foofile2.foo_link, read_foofile2.buckets['bucket2'].foos['foo2'])
-
-            # test new soft link to new soft link to dataset in file
-            self.assertIs(read_foofile2.buckets['bucket1'].foos['foo1'].my_data, read_foofile2.foofile_data)
 
             # test new attribute reference to new group in file
             self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets['bucket2'].foos['foo2'])

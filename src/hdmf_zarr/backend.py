@@ -558,7 +558,6 @@ class ZarrIO(HDMFIO):
         if links:
             for link_name, sub_builder in links.items():
                 # Note: sub_builder is a LinkBuilder not the builder within.
-                # HDMF: h5tools --> 1034
                 self.write_link(group, sub_builder, export_source)
 
         attributes = builder.attributes
@@ -850,7 +849,6 @@ class ZarrIO(HDMFIO):
 
         group_filename = self.__get_store_path(parent.store)
         if export_source is not None:
-            # HDMF: h5tools 1081
             if target_builder.source in (group_filename, export_source):
                 # Case 1:
                 # target_builder.source == export_source
@@ -1043,7 +1041,7 @@ class ZarrIO(HDMFIO):
                 # and will be refactored/removed.
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], ref_link_source=self.path) # HDMF 1229
+                    ref_tmp = self._create_ref(data[0][i], ref_link_source=self.path)
                     if isinstance(ref_tmp, ZarrReference):
                         dts_str = 'object'
                     else:
