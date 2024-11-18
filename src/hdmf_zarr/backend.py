@@ -754,8 +754,6 @@ class ZarrIO(HDMFIO):
                 builder = ref_object
         elif isinstance(ref_object, ReferenceBuilder):
             builder = ref_object.builder
-        else: # Not covered
-            builder = self.manager.build(ref_object)
 
         path = self.__get_path(builder) # This is the internal path in the store to the item.
 

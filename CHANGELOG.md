@@ -2,7 +2,7 @@
 
 ## 1.0.0 (Upcoming)
 ### Enhancements
-* Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. This will introduce breaking changes that could lead to existing exported files to be invalid. This update removes '.' as the object default. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
+* Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. This will introduce breaking changes that could lead to existing exported files to be invalid. This update removes '.' as the object default file source. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
 * Added support for Pathlib paths. @mavaylon1 [#212](https://github.com/hdmf-dev/hdmf-zarr/pull/212)
 
 ## 0.9.0 (September 16, 2024)
