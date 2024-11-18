@@ -39,7 +39,6 @@ from hdmf.build import (Builder,
                         DatasetBuilder,
                         LinkBuilder,
                         BuildManager,
-                        RegionBuilder,
                         ReferenceBuilder,
                         TypeMap)
 from hdmf.data_utils import AbstractDataChunkIterator
@@ -634,10 +633,6 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Container, Builder, ReferenceBuilder)):
-                # TODO: Region References are not yet supported
-                # if isinstance(value, RegionBuilder):
-                #     type_str = 'region'
-                #     refs = self._create_ref(value.builder)
                 if isinstance(value, (ReferenceBuilder, Container, Builder)):
                     type_str = 'object'
                     if isinstance(value, Builder):
@@ -741,7 +736,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(dtype, np.dtype):
             return False
         else:
-            return dtype == DatasetBuilder.OBJECT_REF_TYPE or dtype == DatasetBuilder.REGION_REF_TYPE
+            return dtype == DatasetBuilder.OBJECT_REF_TYPE
 
     def resolve_ref(self, zarr_ref):
         """
@@ -792,8 +787,6 @@ class ZarrIO(HDMFIO):
         :type ref_object: Builder, Container, ReferenceBuilder
         :returns: ZarrReference object
         """
-        if isinstance(ref_object, RegionBuilder):  # or region is not None: TODO: Add to support regions
-            raise NotImplementedError("Region references are currently not supported by ZarrIO")
         if isinstance(ref_object, Builder):
             if isinstance(ref_object, LinkBuilder):
                 builder = ref_object.target_builder
@@ -805,11 +798,6 @@ class ZarrIO(HDMFIO):
             builder = self.manager.build(ref_object)
 
         path = self.__get_path(builder)
-        # TODO Add to get region for region references.
-        #      Also add  {'name': 'region', 'type': (slice, list, tuple),
-        #      'doc': 'the region reference indexing object',  'default': None},
-        # if isinstance(ref_object, RegionBuilder):
-        #    region = ref_object.region
 
         # get the object id if available
         object_id = builder.get('object_id', None)
@@ -1061,12 +1049,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options['dtype']):
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], export_source=export_source)
-                    if isinstance(ref_tmp, ZarrReference):
-                        dts_str = 'object'
-                    else:
-                        dts_str = 'region'
-                    type_str.append({'name': dts['name'], 'dtype': dts_str})
+                    type_str.append({'name': dts['name'], 'dtype': 'object'})
                 else:
                     i = list([dts, ])
                     t = self.__resolve_dtype_helper__(i)
@@ -1122,20 +1105,10 @@ class ZarrIO(HDMFIO):
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options['dtype']):
-            # TODO Region references are not yet support, but here how the code should look
-            #  if isinstance(data, RegionBuilder):
-            #      shape = (1,)
-            #      type_str = 'region'
-            #      refs = self._create_ref(data.builder, data.region)
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
                 type_str = 'object'
                 refs = self._create_ref(data.builder, export_source=export_source)
-            # TODO: Region References are not yet supported
-            # elif options['dtype'] == 'region':
-            #     shape = (len(data), )
-            #     type_str = 'region'
-            #     refs = [self._create_ref(item.builder, item.region) for item in data]
             else:
                 shape = (len(data), )
                 type_str = 'object'
@@ -1203,7 +1176,6 @@ class ZarrIO(HDMFIO):
         "ref": ZarrReference,
         "reference": ZarrReference,
         "object": ZarrReference,
-        "region": ZarrReference,
     }
 
     @classmethod
@@ -1518,20 +1490,15 @@ class ZarrIO(HDMFIO):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):
-                if dts['dtype'] in ['object', 'region']:  # check items for object reference
+                if dts['dtype'] == 'object':  # check items for object reference
                     has_reference = True
                     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
             if has_reference:
-                # TODO:  BuilderZarrTableDataset does not yet support region reference
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
             # Array of references
-            if dtype == 'object':
-                data = BuilderZarrReferenceDataset(data, self)
-            # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
-            # elif dtype == 'region':
-            #     data = BuilderZarrRegionDataset(data, self)
+            data = BuilderZarrReferenceDataset(data, self)
 
         kwargs['data'] = data
         if name is None:
@@ -1554,9 +1521,6 @@ class ZarrIO(HDMFIO):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:
                             ret[k] = self.__read_dataset(target_zarr_obj, target_name)
-                    # TODO Need to implement region references for attributes
-                    elif v['zarr_dtype'] == 'region':
-                        raise NotImplementedError("Read of region references from attributes not implemented in ZarrIO")
                     else:
                         raise NotImplementedError("Unsupported zarr_dtype for attribute " + str(v))
                 else:
