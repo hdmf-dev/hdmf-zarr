@@ -32,7 +32,6 @@ in a Conda environment. Normally we don't need to install ``hdmf`` directly, but
 
     conda create --name hdmf-zarr-test python=3.9
     conda activate hdmf-zarr-test
-    conda install h5py
 
     git clone --recurse-submodules https://github.com/hdmf-dev/hdmf.git
     cd hdmf
