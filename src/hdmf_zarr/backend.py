@@ -632,7 +632,7 @@ class ZarrIO(HDMFIO):
                     except:  # noqa: E722
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
-            elif isinstance(value, (Container, Builder, ReferenceBuilder)):
+            elif isinstance(value, (Builder, ReferenceBuilder)):
                 refs = self._create_ref(value, self.path)
                 tmp = {'zarr_dtype': 'object', 'value': refs}
                 obj.attrs[key] = tmp
