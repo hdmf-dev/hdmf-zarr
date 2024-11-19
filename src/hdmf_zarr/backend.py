@@ -731,7 +731,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(dtype, np.dtype):
             return False
         else:
-            return dtype == DatasetBuilder.OBJECT_REF_TYPE or dtype == DatasetBuilder.REGION_REF_TYPE
+            return dtype == DatasetBuilder.OBJECT_REF_TYPE
 
     def resolve_ref(self, zarr_ref):
         """
@@ -790,7 +790,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(ref_object, ReferenceBuilder):
             builder = ref_object.builder
 
-        path = self.__get_path(builder) # This is the internal path in the store to the item.
+        path = self.__get_path(builder)  # This is the internal path in the store to the item.
 
         # get the object id if available
         object_id = builder.get('object_id', None)
@@ -1074,12 +1074,7 @@ class ZarrIO(HDMFIO):
                 # and will be refactored/removed.
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
-                    ref_tmp = self._create_ref(data[0][i], ref_link_source=self.path)
-                    if isinstance(ref_tmp, ZarrReference):
-                        dts_str = 'object'
-                    else:
-                        dts_str = 'region'
-                    type_str.append({'name': dts['name'], 'dtype': dts_str})
+                    type_str.append({'name': dts['name'], 'dtype': 'object'})
                 else:
                     i = list([dts, ])
                     t = self.__resolve_dtype_helper__(i)
@@ -1208,7 +1203,6 @@ class ZarrIO(HDMFIO):
         "ref": ZarrReference,
         "reference": ZarrReference,
         "object": ZarrReference,
-        "region": ZarrReference,
     }
 
     @classmethod
@@ -1535,20 +1529,15 @@ class ZarrIO(HDMFIO):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):
-                if dts['dtype'] in ['object', 'region']:  # check items for object reference
+                if dts['dtype'] == 'object':  # check items for object reference
                     has_reference = True
                     break
             retrieved_dtypes = [dtype_dict['dtype'] for dtype_dict in dtype]
             if has_reference:
-                # TODO:  BuilderZarrTableDataset does not yet support region reference
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
         elif self.__is_ref(dtype):
             # Array of references
-            if dtype == 'object':
-                data = BuilderZarrReferenceDataset(data, self)
-            # TODO: Resolution of Region reference not yet supported by BuilderZarrRegionDataset
-            # elif dtype == 'region':
-            #     data = BuilderZarrRegionDataset(data, self)
+            data = BuilderZarrReferenceDataset(data, self)
 
         kwargs['data'] = data
         if name is None:
@@ -1571,9 +1560,6 @@ class ZarrIO(HDMFIO):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:
                             ret[k] = self.__read_dataset(target_zarr_obj, target_name)
-                    # TODO Need to implement region references for attributes
-                    elif v['zarr_dtype'] == 'region':
-                        raise NotImplementedError("Read of region references from attributes not implemented in ZarrIO")
                     else:
                         raise NotImplementedError("Unsupported zarr_dtype for attribute " + str(v))
                 else:
