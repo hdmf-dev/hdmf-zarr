@@ -1070,8 +1070,6 @@ class ZarrIO(HDMFIO):
             refs = list()
             type_str = list()
             for i, dts in enumerate(options['dtype']):
-                # TODO: This appears to be code to distinguish between region and object References
-                # and will be refactored/removed.
                 if self.__is_ref(dts['dtype']):
                     refs.append(i)
                     type_str.append({'name': dts['name'], 'dtype': 'object'})
