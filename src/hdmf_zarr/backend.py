@@ -530,7 +530,6 @@ class ZarrIO(HDMFIO):
         This method will check to see if the metadata has been consolidated.
         If so, use open_consolidated.
         """
-        # breakpoint()
         # This check is just a safeguard for possible errors in the future. But this should never happen
         if mode == 'r-':
             raise ValueError('Mode r- not allowed for reading with consolidated metadata')
@@ -771,7 +770,7 @@ class ZarrIO(HDMFIO):
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
-        # breakpoint()
+
         target_zarr_obj = self.__open_file_consolidated(store=source_file,
                                                         mode='r',
                                                         storage_options=self.__storage_options)
