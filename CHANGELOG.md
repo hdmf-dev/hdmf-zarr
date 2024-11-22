@@ -11,6 +11,7 @@
 
 ### Bug Fixes
 * Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)
+* Fix hiding of pynwb compatibility errors. @rly [242](https://github.com/hdmf-dev/hdmf-zarr/pull/242)
 
 ## 0.9.0 (September 16, 2024)
 ### Enhancements
