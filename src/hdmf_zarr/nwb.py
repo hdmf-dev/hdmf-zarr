@@ -1,5 +1,4 @@
 """Module with Zarr backend for NWB for integration with PyNWB"""
-from warnings import warn
 from pathlib import Path
 from .backend import ZarrIO, SUPPORTED_ZARR_STORES
 
