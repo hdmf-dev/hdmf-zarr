@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
-requires-python = ">=3.9, <3.13" # Add 3.13 Support later in bug fix after Major Release 1.0.0
+requires-python = ">=3.9"
 license = {text = "BSD"}
 classifiers = [
     "Programming Language :: Python",
