@@ -1,7 +1,6 @@
-hdmf==3.14.2
-zarr==2.11.0
-numcodecs==0.9.1
-pynwb==2.5.0
+hdmf==3.14.5
+zarr==2.13.0
+numcodecs==0.10.0
+pynwb==2.8.3
 setuptools
-importlib_resources;python_version<'3.9' # Remove when python 3.9 becomes the new minimum
 threadpoolctl==3.1.0
