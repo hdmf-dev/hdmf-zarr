@@ -10,6 +10,6 @@ hdf5plugin==5.0.0  # hdf5plugin is used to test conversion of plugin filters
 pre-commit==4.0.1
 pytest==8.3.3
 pytest-cov==6.0.0
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 ruff==0.8.0
 tox==4.23.2
