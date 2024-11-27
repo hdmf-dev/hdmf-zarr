@@ -110,7 +110,7 @@ class TestZarrDataIO(TestCase):
             **hdf5plugin.FciDecomp())
         # test that we warn due to the FciDecomp
         msg = r"/test_fcidecomp HDF5 filter id 32018 with properties .* ignored in Zarr."
-        with self.assertWarnsWith(UserWarning, msg):
+        with self.assertWarnsRegex(UserWarning, msg):
             filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_FciDecomp)
         self.assertEqual(len(filters), 0)
         # Close the HDF5 file
