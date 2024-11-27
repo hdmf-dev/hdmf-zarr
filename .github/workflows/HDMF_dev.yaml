@@ -32,7 +32,6 @@ jobs:
 
       - name: Run HDMF_Zarr Tests
         run:
-          pytest -v
-          
-      
-          
+          # specify the tests directory so that we don't run the hdmf tests which are nested
+          # under the same base directory
+          pytest -v tests
