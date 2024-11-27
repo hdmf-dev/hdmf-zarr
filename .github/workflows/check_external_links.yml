@@ -12,9 +12,8 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5

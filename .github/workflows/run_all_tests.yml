@@ -18,6 +18,9 @@ jobs:
     defaults:
       run:
         shell: bash
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -47,16 +50,8 @@ jobs:
           - { name: macos-python3.13-upgraded    , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: macos-latest }
           - { name: macos-python3.13-prerelease  , test-tox-env: py313-prerelease, build-tox-env: build-py313-prerelease, python-ver: "3.13", os: macos-latest }
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0  # tags are required for versioneer to determine the version
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -68,22 +63,33 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install tox
           python -m pip list
+
       - name: Run tox tests
         run: |
           tox -e ${{ matrix.test-tox-env }}
+
       - name: Build wheel and source distribution
         run: |
           tox -e ${{ matrix.build-tox-env }}
           ls -1 dist
+
       - name: Test installation from a wheel
         run: |
           tox -e wheelinstall --recreate --installpkg dist/*-none-any.whl
+
+      - name: Test installation from a source distribution
+        run: |
+          tox -e wheelinstall --recreate --installpkg dist/*.tar.gz
+        
   run-all-gallery-tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -98,16 +104,8 @@ jobs:
           - { name: macos-gallery-python3.13-upgraded    , test-tox-env: gallery-py313-upgraded  , python-ver: "3.13", os: macos-latest }
           - { name: macos-gallery-python3.13-prerelease  , test-tox-env: gallery-py313-prerelease, python-ver: "3.13", os: macos-latest }
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0  # tags are required for versioneer to determine the version
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -119,15 +117,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install tox
           python -m pip list
+
       - name: Run tox tests
         run: |
           tox -e ${{ matrix.test-tox-env }}
+
   run-all-tests-on-conda:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     defaults:
      run:
        shell: bash -l {0}  # needed for conda environment to work
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -141,22 +144,15 @@ jobs:
           - { name: conda-linux-python3.13-upgraded  , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: ubuntu-latest }
           - { name: conda-linux-python3.13-prerelease, test-tox-env: py313-prerelease, build-tox-env: build-py313-prerelease, python-ver: "3.13", os: ubuntu-latest }
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0  # tags are required for versioneer to determine the version
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Conda
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-ver }}
+          channels: conda-forge
 
       - name: Install build dependencies
         run: |
@@ -170,6 +166,7 @@ jobs:
           conda config --show-sources
           conda list --show-channel-urls
 
+      # NOTE tox installs packages from PyPI not conda-forge...
       - name: Run tox tests
         run: |
           tox -e ${{ matrix.test-tox-env }}
@@ -182,3 +179,7 @@ jobs:
       - name: Test installation from a wheel
         run: |
           tox -e wheelinstall --recreate --installpkg dist/*-none-any.whl
+      
+      - name: Test installation from a source distribution
+        run: |
+          tox -e wheelinstall --recreate --installpkg dist/*.tar.gz

@@ -19,6 +19,9 @@ jobs:
     defaults:
       run:
         shell: bash
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.os }}-${{ matrix.opt_req }}
+      cancel-in-progress: true
     strategy:
       matrix:
         include:
@@ -26,19 +29,12 @@ jobs:
           - { os: ubuntu-latest , opt_req: false }
           - { os: windows-latest, opt_req: false }
           - { os: macos-latest  , opt_req: false }
-    env:
+    env:  # used by codecov-action
       OS: ${{ matrix.os }}
       PYTHON: '3.13'
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
