@@ -9,6 +9,7 @@
 * Add `force_overwite` parameter for `ZarrIO.__init__` to allow overwriting an existing file or directory. @oruebel [#229](https://github.com/hdmf-dev/hdmf-zarr/pull/229)
 * Remove allowance of `hdmf.Array` in `__init__` of `AbstractZarrTableDataset` and `ZarrDataset` to be compatible with HDMF 4.0. @rly [#236](https://github.com/hdmf-dev/hdmf-zarr/pull/236)
 * Remove support for python 3.8. @mavaylon1 [#240](https://github.com/hdmf-dev/hdmf-zarr/pull/240)
+* Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 
 ### Bug Fixes
 * Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)
@@ -21,7 +22,6 @@
 * Added test for opening file with consolidated metadata from DANDI. @mavaylon1 [#206](https://github.com/hdmf-dev/hdmf-zarr/pull/206)
 * Add dimension labels compatible with xarray. @mavaylon1 [#207](https://github.com/hdmf-dev/hdmf-zarr/pull/207)
 * Added link_data --> clear_cache relationship to support repacking zarr nwbfiles: [#215](https://github.com/hdmf-dev/hdmf-zarr/pull/215)
-* Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 
 ## 0.8.0 (June 4, 2024)
 ### Bug Fixes
