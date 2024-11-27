@@ -5,7 +5,7 @@ Prepare for release of HDMF-Zarr [version]
 - [ ] Major and minor releases: Update package versions in `requirements.txt`, `requirements-dev.txt`,
   `requirements-doc.txt`, and `requirements-opt.txt` to the latest versions,
   and update dependency ranges in `pyproject.toml` and minimums in `requirements-min.txt` as needed.
-  Run `pip install pur && pur -r requirements-dev.txt -r requirements.txt -r requirements-opt.txt`.
+  Run `pip install pur && pur -r -d [requirements file]` to see which packages can be updated.
 - [ ] Check legal file dates and information in `Legal.txt`, `license.txt`, `README.rst`, `docs/source/conf.py`,
   and any other locations as needed
 - [ ] Update `pyproject.toml` as needed
