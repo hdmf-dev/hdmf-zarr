@@ -6,8 +6,8 @@
 Welcome to hdmf-zarr's documentation!
 =====================================
 
-**hdmf_zarr** implements a Zarr backend for `HDMF <https://hdmf.readthedocs.io>`_ as well as
-convenience classes for integration of Zarr with `PyNWB <https://pynwb.readthedocs.io>`_ to
+**hdmf_zarr** implements a Zarr backend for `HDMF <https://hdmf.readthedocs.io/en/stable/>`_ as well as
+convenience classes for integration of Zarr with `PyNWB <https://pynwb.readthedocs.io/en/stable/>`_ to
 support writing of NWB files to `Zarr <https://zarr.readthedocs.io/en/stable/>`_.
 
 **Status:** The Zarr backend is **under development** and may still change. See the
