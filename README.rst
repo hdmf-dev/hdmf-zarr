@@ -22,30 +22,30 @@ CI / Health Status
 .. image:: https://codecov.io/gh/hdmf-dev/hdmf-zarr/branch/dev/graph/badge.svg
     :target: https://codecov.io/gh/hdmf-dev/hdmf-zarr
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20code%20coverage/badge.svg
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_coverage.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_coverage.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20tests/badge.svg
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_tests.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_tests.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20all%20tests/badge.svg
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_all_tests.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_all_tests.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Check%20Sphinx%20external%20links/badge.svg
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/check_external_links.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/check_external_links.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Deploy%20release/badge.svg
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/deploy_release.yml/badge.svg
     :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/deploy_release.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/black/badge.svg
-    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/black.yml
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/ruff.yml/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/ruff.yml
 
-.. image:: https://github.com/hdmf-dev/hdmf-zarr/workflows/Run%20style%20check/badge.svg
-    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/run_flake8.yml
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/codespell.yml/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/codespell.yml
 
+.. image:: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/HDMF_dev.yaml/badge.svg
+    :target: https://github.com/hdmf-dev/hdmf-zarr/actions/workflows/HDMF_dev.yaml
 
-
-Citing hdmf-zarr
 ----------------
 
 If you use HDMF or hdmf_zarr in your research, please use the following citation:
