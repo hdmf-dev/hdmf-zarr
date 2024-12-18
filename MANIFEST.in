@@ -1,4 +1,0 @@
-include LICENSE.txt versioneer.py src/hdmf_zarr/_version.py src/hdmf_zarr/_due.py
-include requirements.txt requirements-dev.txt requirements-doc.txt requirements-opt.txt
-include test.py tox.ini
-graft tests

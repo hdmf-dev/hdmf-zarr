@@ -3,6 +3,7 @@ Utilities for the Zarr I/O backend,
 e.g., for wrapping Zarr arrays on read, wrapping arrays for configuring write, or
 writing the spec among others
 """
+
 from abc import ABCMeta, abstractmethod
 from copy import copy
 import numpy as np
@@ -20,10 +21,12 @@ class ZarrDataset(HDMFDataset):
     Extension of HDMFDataset to add Zarr compatibility
     """
 
-    @docval({'name': 'dataset', 'type': (np.ndarray, Array), 'doc': 'the Zarr file lazily evaluate'},
-            {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'})
+    @docval(
+        {"name": "dataset", "type": (np.ndarray, Array), "doc": "the Zarr file lazily evaluate"},
+        {"name": "io", "type": "ZarrIO", "doc": "the IO object that was used to read the underlying dataset"},
+    )
     def __init__(self, **kwargs):
-        self.__io = popargs('io', kwargs)
+        self.__io = popargs("io", kwargs)
         super().__init__(**kwargs)
 
     @property
@@ -53,12 +56,12 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         Return an object that defers reference resolution
         but in the opposite direction.
         """
-        if not hasattr(self, '__inverted'):
+        if not hasattr(self, "__inverted"):
             cls = self.get_inverse_class()
             docval = get_docval(cls.__init__)
             kwargs = dict()
             for arg in docval:
-                kwargs[arg['name']] = getattr(self, arg['name'])
+                kwargs[arg["name"]] = getattr(self, arg["name"])
             self.__inverted = cls(**kwargs)
         return self.__inverted
 
@@ -129,12 +132,13 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     references in compound datasets to either Builders and Containers.
     """
 
-    @docval({'name': 'dataset', 'type': (np.ndarray, Array), 'doc': 'the Zarr file lazily evaluate'},
-            {'name': 'io', 'type': 'ZarrIO', 'doc': 'the IO object that was used to read the underlying dataset'},
-            {'name': 'types', 'type': (list, tuple),
-             'doc': 'the list/tuple of reference types'})
+    @docval(
+        {"name": "dataset", "type": (np.ndarray, Array), "doc": "the Zarr file lazily evaluate"},
+        {"name": "io", "type": "ZarrIO", "doc": "the IO object that was used to read the underlying dataset"},
+        {"name": "types", "type": (list, tuple), "doc": "the list/tuple of reference types"},
+    )
     def __init__(self, **kwargs):
-        types = popargs('types', kwargs)
+        types = popargs("types", kwargs)
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
@@ -149,15 +153,15 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         tmp = list()
         for i in range(len(self.dataset.dtype)):
             sub = self.dataset.dtype[i]
-            if np.issubdtype(sub, np.dtype('O')):
-                tmp.append('object')
+            if np.issubdtype(sub, np.dtype("O")):
+                tmp.append("object")
             if sub.metadata:
-                if 'vlen' in sub.metadata:
-                    t = sub.metadata['vlen']
+                if "vlen" in sub.metadata:
+                    t = sub.metadata["vlen"]
                     if t is str:
-                        tmp.append('utf')
+                        tmp.append("utf")
                     elif t is bytes:
-                        tmp.append('ascii')
+                        tmp.append("ascii")
             else:
                 tmp.append(sub.type.__name__)
         self.__dtype = tmp
@@ -188,14 +192,14 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         """
         Decode a dataset element to unicode
         """
-        return string.decode('utf-8') if isinstance(string, bytes) else string
+        return string.decode("utf-8") if isinstance(string, bytes) else string
 
     def __get_regref(self, ref):
         obj = self._get_ref(ref)
         return obj[ref]
 
     def resolve(self, manager):
-        return self[0:len(self)]
+        return self[0 : len(self)]
 
     def __iter__(self):
         for i in range(len(self)):
@@ -217,7 +221,7 @@ class AbstractZarrReferenceDataset(DatasetOfReferences):
 
     @property
     def dtype(self):
-        return 'object'
+        return "object"
 
 
 class ContainerZarrTableDataset(ContainerResolverMixin, AbstractZarrTableDataset):

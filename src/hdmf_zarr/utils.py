@@ -1,4 +1,5 @@
 """Collection of utility I/O classes for the ZarrIO backend store."""
+
 import gc
 import traceback
 import multiprocessing
@@ -47,13 +48,14 @@ class ZarrIODataChunkIteratorQueue(deque):
     Note that "fork" is only available on UNIX systems (not Windows).
     :type multiprocessing_context: string or None
     """
+
     def __init__(
         self,
         number_of_jobs: int = 1,
         max_threads_per_process: Union[None, int] = None,
         multiprocessing_context: Union[None, Literal["fork", "spawn"]] = None,
     ):
-        self.logger = logging.getLogger('%s.%s' % (self.__class__.__module__, self.__class__.__qualname__))
+        self.logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__qualname__))
 
         self.number_of_jobs = number_of_jobs
         self.max_threads_per_process = max_threads_per_process
@@ -118,8 +120,7 @@ class ZarrIODataChunkIteratorQueue(deque):
 
             display_progress = False
             r_bar_in_MB = (
-                "| {n_fmt}/{total_fmt} MB [Elapsed: {elapsed}, "
-                "Remaining: {remaining}, Rate:{rate_fmt}{postfix}]"
+                "| {n_fmt}/{total_fmt} MB [Elapsed: {elapsed}, Remaining: {remaining}, Rate:{rate_fmt}{postfix}]"
             )
             bar_format = "{l_bar}{bar}" + f"{r_bar_in_MB}"
             progress_bar_options = dict(
@@ -128,7 +129,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                 bar_format=bar_format,
                 unit="MB",
             )
-            for (zarr_dataset, iterator) in iter(self):
+            for zarr_dataset, iterator in iter(self):
                 # Parallel write only works well with GenericDataChunkIterators
                 # Due to perfect alignment between chunks and buffers
                 if not isinstance(iterator, GenericDataChunkIterator):
@@ -149,7 +150,8 @@ class ZarrIODataChunkIteratorQueue(deque):
                 display_progress = display_progress or iterator.display_progress
                 iterator.display_progress = False
                 per_iterator_progress_options = {
-                    key: value for key, value in iterator.progress_bar_options.items()
+                    key: value
+                    for key, value in iterator.progress_bar_options.items()
                     if key not in ["desc", "total", "file"]
                 }
                 progress_bar_options.update(**per_iterator_progress_options)
@@ -158,9 +160,9 @@ class ZarrIODataChunkIteratorQueue(deque):
                 for buffer_selection in iterator.buffer_selection_generator:
                     buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
-                    buffer_size_in_MB = math.prod(
-                        [slice_.stop - slice_.start for slice_ in buffer_selection]
-                    ) * iterator_itemsize / 1e6
+                    buffer_size_in_MB = (
+                        math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
+                    )
                     size_in_MB_per_iteration.append(buffer_size_in_MB)
             progress_bar_options.update(
                 total=int(sum(size_in_MB_per_iteration)),  # int() to round down to nearest integer for better display
@@ -168,7 +170,7 @@ class ZarrIODataChunkIteratorQueue(deque):
 
             if parallelizable_iterators:  # Avoid spinning up ProcessPool if no candidates during this exhaustion
                 # Remove candidates for parallelization from the queue
-                for (zarr_dataset, iterator) in parallelizable_iterators:
+                for zarr_dataset, iterator in parallelizable_iterators:
                     self.remove((zarr_dataset, iterator))
 
                 operation_to_run = self._write_buffer_zarr
@@ -182,7 +184,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                         operation_to_run,
                         process_initialization,
                         initialization_arguments,
-                        self.max_threads_per_process
+                        self.max_threads_per_process,
                     ),
                 ) as executor:
                     results = executor.map(self.function_wrapper, buffer_map)
@@ -263,7 +265,7 @@ class ZarrIODataChunkIteratorQueue(deque):
         operation_to_run: callable,
         process_initialization: callable,
         initialization_arguments: Iterable,  # TODO: eventually standardize with typing.Iterable[typing.Any]
-        max_threads_per_process: Optional[int] = None
+        max_threads_per_process: Optional[int] = None,
     ):  # keyword arguments here are just for readability, ProcessPool only takes a tuple
         """
         Needed as a part of a bug fix with cloud memory leaks discovered by SpikeInterface team.
@@ -320,7 +322,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                 zarr_store_path,
                 relative_dataset_path,
                 iterator,
-                buffer_selection
+                buffer_selection,
             )
         else:
             with threadpool_limits(limits=max_threads_per_process):
@@ -338,25 +340,27 @@ class ZarrSpecWriter(SpecWriter):
     Class used to write format specs to Zarr
     """
 
-    @docval({'name': 'group', 'type': Group, 'doc': 'the Zarr file to write specs to'})
+    @docval({"name": "group", "type": Group, "doc": "the Zarr file to write specs to"})
     def __init__(self, **kwargs):
-        self.__group = getargs('group', kwargs)
+        self.__group = getargs("group", kwargs)
 
     @staticmethod
     def stringify(spec):
         """
         Converts a spec into a JSON string to write to a dataset
         """
-        return json.dumps(spec, separators=(',', ':'))
+        return json.dumps(spec, separators=(",", ":"))
 
     def __write(self, d, name):
         data = self.stringify(d)
-        dset = self.__group.require_dataset(name,
-                                            shape=(1, ),
-                                            dtype=object,
-                                            object_codec=numcodecs.JSON(),
-                                            compressor=None)
-        dset.attrs['zarr_dtype'] = 'scalar'
+        dset = self.__group.require_dataset(
+            name,
+            shape=(1,),
+            dtype=object,
+            object_codec=numcodecs.JSON(),
+            compressor=None,
+        )
+        dset.attrs["zarr_dtype"] = "scalar"
         dset[0] = data
         return dset
 
@@ -366,7 +370,7 @@ class ZarrSpecWriter(SpecWriter):
 
     def write_namespace(self, namespace, path):
         """Write a namespace to the given path"""
-        return self.__write({'namespaces': [namespace]}, path)
+        return self.__write({"namespaces": [namespace]}, path)
 
 
 class ZarrSpecReader(SpecReader):
@@ -374,9 +378,9 @@ class ZarrSpecReader(SpecReader):
     Class to read format specs from Zarr
     """
 
-    @docval({'name': 'group', 'type': Group, 'doc': 'the Zarr file to read specs from'})
+    @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
-        self.__group = getargs('group', kwargs)
+        self.__group = getargs("group", kwargs)
         source = "%s:%s" % (os.path.abspath(self.__group.store.path), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
@@ -394,7 +398,7 @@ class ZarrSpecReader(SpecReader):
         """Read a namespace from the given path"""
         if self.__cache is None:
             self.__cache = self.__read(ns_path)
-        ret = self.__cache['namespaces']
+        ret = self.__cache["namespaces"]
         return ret
 
 
@@ -404,63 +408,81 @@ class ZarrDataIO(DataIO):
     for data arrays.
     """
 
-    @docval({'name': 'data',
-             'type': (np.ndarray, list, tuple, zarr.Array, Iterable),
-             'doc': 'the data to be written. NOTE: If an zarr.Array is used, all other settings but link_data' +
-                    ' will be ignored as the dataset will either be linked to or copied as is in ZarrIO.'},
-            {'name': 'chunks',
-             'type': (list, tuple),
-             'doc': 'Chunk shape',
-             'default': None},
-            {'name': 'fillvalue',
-             'type': None,
-             'doc': 'Value to be returned when reading uninitialized parts of the dataset',
-             'default': None},
-            {'name': 'compressor',
-             'type': (numcodecs.abc.Codec, bool),
-             'doc': 'Zarr compressor filter to be used. Set to True to use Zarr default.'
-                    'Set to False to disable compression)',
-             'default': None},
-            {'name': 'filters',
-             'type': (list, tuple),
-             'doc': 'One or more Zarr-supported codecs used to transform data prior to compression.',
-             'default': None},
-            {'name': 'link_data',
-             'type': bool,
-             'doc': 'If data is an zarr.Array should it be linked to or copied. NOTE: This parameter is only ' +
-                    'allowed if data is an zarr.Array',
-             'default': False}
-            )
+    @docval(
+        {
+            "name": "data",
+            "type": (np.ndarray, list, tuple, zarr.Array, Iterable),
+            "doc": (
+                "the data to be written. NOTE: If an zarr.Array is used, all other settings but link_data "
+                "will be ignored as the dataset will either be linked to or copied as is in ZarrIO."
+            ),
+        },
+        {
+            "name": "chunks",
+            "type": (list, tuple),
+            "doc": "Chunk shape",
+            "default": None,
+        },
+        {
+            "name": "fillvalue",
+            "type": None,
+            "doc": "Value to be returned when reading uninitialized parts of the dataset",
+            "default": None,
+        },
+        {
+            "name": "compressor",
+            "type": (numcodecs.abc.Codec, bool),
+            "doc": (
+                "Zarr compressor filter to be used. Set to True to use Zarr default. "
+                "Set to False to disable compression)"
+            ),
+            "default": None,
+        },
+        {
+            "name": "filters",
+            "type": (list, tuple),
+            "doc": "One or more Zarr-supported codecs used to transform data prior to compression.",
+            "default": None,
+        },
+        {
+            "name": "link_data",
+            "type": bool,
+            "doc": (
+                "If data is an zarr.Array should it be linked to or copied. NOTE: This parameter is only "
+                "allowed if data is an zarr.Array"
+            ),
+            "default": False,
+        },
+    )
     def __init__(self, **kwargs):
         # TODO Need to add error checks and warnings to ZarrDataIO to check for parameter collisions and add tests
         data, chunks, fill_value, compressor, filters, self.__link_data = getargs(
-            'data', 'chunks', 'fillvalue', 'compressor', 'filters', 'link_data', kwargs)
+            "data", "chunks", "fillvalue", "compressor", "filters", "link_data", kwargs
+        )
         # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
         #       These parameters are used to create empty data to allocate the data but
         #       leave the I/O to fill the data to the user.
-        super(ZarrDataIO, self).__init__(data=data,
-                                         dtype=None,
-                                         shape=None)
+        super().__init__(data=data, dtype=None, shape=None)
         if not isinstance(data, zarr.Array) and self.__link_data:
             self.__link_data = False
         self.__iosettings = dict()
         if chunks is not None:
-            self.__iosettings['chunks'] = chunks
+            self.__iosettings["chunks"] = chunks
         if fill_value is not None:
-            self.__iosettings['fill_value'] = fill_value
+            self.__iosettings["fill_value"] = fill_value
         if compressor is not None:
             if isinstance(compressor, bool):
                 # Disable compression by setting compressor to None
                 if not compressor:
-                    self.__iosettings['compressor'] = None
+                    self.__iosettings["compressor"] = None
                 # To use default settings simply do not specify any compressor settings
                 else:
                     pass
             # use the user-specified compressor
             else:
-                self.__iosettings['compressor'] = compressor
+                self.__iosettings["compressor"] = compressor
         if filters is not None:
-            self.__iosettings['filters'] = filters
+            self.__iosettings["filters"] = filters
 
     @property
     def link_data(self) -> bool:
@@ -487,16 +509,17 @@ class ZarrDataIO(DataIO):
         :returns: ZarrDataIO object wrapping the dataset
         """
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
-        fillval = h5dataset.fillvalue if 'fillvalue' not in kwargs else kwargs.pop('fillvalue')
-        if isinstance(fillval, bytes): # bytes are not JSON serializable so use string instead
+        fillval = h5dataset.fillvalue if "fillvalue" not in kwargs else kwargs.pop("fillvalue")
+        if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
-        chunks = h5dataset.chunks if 'chunks' not in kwargs else kwargs.pop('chunks')
+        chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
         re = ZarrDataIO(
             data=h5dataset,
             filters=filters,
             fillvalue=fillval,
             chunks=chunks,
-            **kwargs)
+            **kwargs,
+        )
         return re
 
     @staticmethod
@@ -507,7 +530,7 @@ class ZarrDataIO(DataIO):
         # Check for unsupported filters
         if h5dataset.scaleoffset:
             # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
-            warn( f"{h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
+            warn(f"{h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
         if h5dataset.compression in ("szip", "lzf"):
             warn(f"{h5dataset.name} HDF5 szip or lzf compression ignored in Zarr")
         # Add the shuffle filter if possible
@@ -524,7 +547,8 @@ class ZarrDataIO(DataIO):
                     blocksize=total_bytes,
                     clevel=clevel,
                     shuffle=shuffle,
-                    cname=blosc_compressors[compressor])
+                    cname=blosc_compressors[compressor],
+                )
                 filters.append(numcodecs.Blosc(**pars))
             elif filter_id_str == "32015":
                 filters.append(numcodecs.Zstd(level=properties[0]))
@@ -534,7 +558,7 @@ class ZarrDataIO(DataIO):
                 warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
             elif filter_id_str == "32008":
                 warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
-            elif filter_id_str == "shuffle": # already handled above
+            elif filter_id_str == "shuffle":  # already handled above
                 pass
             else:
                 warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
@@ -543,34 +567,45 @@ class ZarrDataIO(DataIO):
     @staticmethod
     def is_h5py_dataset(obj):
         """Check if the object is an instance of h5py.Dataset without requiring import of h5py"""
-        return (obj.__class__.__module__, obj.__class__.__name__) == ('h5py._hl.dataset', 'Dataset')
+        return (obj.__class__.__module__, obj.__class__.__name__) == ("h5py._hl.dataset", "Dataset")
+
 
 class ZarrReference(dict):
     """
     Data structure to describe a reference to another container used with the ZarrIO backend
     """
 
-    @docval({'name': 'source',
-             'type': str,
-             'doc': 'Source of referenced object. Usually the relative path to the '
-                    'Zarr file containing the referenced object',
-             'default': None},
-            {'name': 'path',
-             'type': str,
-             'doc': 'Path of referenced object within the source',
-             'default': None},
-            {'name': 'object_id',
-             'type': str,
-             'doc': 'Object_id of the referenced object (if available)',
-             'default': None},
-            {'name': 'source_object_id',
-             'type': str,
-             'doc': 'Object_id of the source (should always be available)',
-             'default': None}
-            )
+    @docval(
+        {
+            "name": "source",
+            "type": str,
+            "doc": "Source of referenced object. Usually the relative path to the "
+            "Zarr file containing the referenced object",
+            "default": None,
+        },
+        {
+            "name": "path",
+            "type": str,
+            "doc": "Path of referenced object within the source",
+            "default": None,
+        },
+        {
+            "name": "object_id",
+            "type": str,
+            "doc": "Object_id of the referenced object (if available)",
+            "default": None,
+        },
+        {
+            "name": "source_object_id",
+            "type": str,
+            "doc": "Object_id of the source (should always be available)",
+            "default": None,
+        },
+    )
     def __init__(self, **kwargs):
         dest_source, dest_path, dest_object_id, dest_source_object_id = getargs(
-            'source', 'path', 'object_id', 'source_object_id', kwargs)
+            "source", "path", "object_id", "source_object_id", kwargs
+        )
         super(ZarrReference, self).__init__()
         self.source = dest_source
         self.path = dest_path
@@ -579,32 +614,32 @@ class ZarrReference(dict):
 
     @property
     def source(self) -> str:
-        return super(ZarrReference, self).__getitem__('source')
+        return super().__getitem__("source")
 
     @property
     def path(self) -> str:
-        return super(ZarrReference, self).__getitem__('path')
+        return super().__getitem__("path")
 
     @property
     def object_id(self) -> str:
-        return super(ZarrReference, self).__getitem__('object_id')
+        return super().__getitem__("object_id")
 
     @property
     def source_object_id(self) -> str:
-        return super(ZarrReference, self).__getitem__('source_object_id')
+        return super().__getitem__("source_object_id")
 
     @source.setter
     def source(self, source: str):
-        super(ZarrReference, self).__setitem__('source', source)
+        super().__setitem__("source", source)
 
     @path.setter
     def path(self, path: str):
-        super(ZarrReference, self).__setitem__('path', path)
+        super().__setitem__("path", path)
 
     @object_id.setter
     def object_id(self, object_id: str):
-        super(ZarrReference, self).__setitem__('object_id', object_id)
+        super().__setitem__("object_id", object_id)
 
     @source_object_id.setter
     def source_object_id(self, object_id: str):
-        super(ZarrReference, self).__setitem__('source_object_id', object_id)
+        super().__setitem__("source_object_id", object_id)
