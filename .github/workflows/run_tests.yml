@@ -22,13 +22,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-python3.9-minimum  , test-tox-env: py39-minimum, python-ver: "3.9" , os: ubuntu-latest }
+          - { name: linux-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
           # NOTE config below with "upload-wheels: true" specifies that wheels should be uploaded as an artifact
-          - { name: linux-python3.13         , test-tox-env: py313       , python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
-          - { name: windows-python3.9-minimum, test-tox-env: py39-minimum, python-ver: "3.9" , os: windows-latest }
-          - { name: windows-python3.13       , test-tox-env: py313       , python-ver: "3.13", os: windows-latest }
-          - { name: macos-python3.9-minimum  , test-tox-env: py39-minimum, python-ver: "3.9" , os: macos-latest }
-          - { name: macos-python3.13         , test-tox-env: py313       , python-ver: "3.13", os: macos-latest }
+          - { name: linux-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
+          - { name: linux-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
+          - { name: windows-python3.9-minimum, test-tox-env: py39-minimum  , python-ver: "3.9" , os: windows-latest }
+          - { name: windows-python3.13       , test-tox-env: py313         , python-ver: "3.13", os: windows-latest }
+          - { name: windows-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: windows-latest }
+          - { name: macos-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: macos-latest }
+          - { name: macos-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: macos-latest }
+          - { name: macos-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: macos-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -117,8 +120,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: conda-linux-python3.9-minimum, test-tox-env: py39-minimum, python-ver: "3.9" , os: ubuntu-latest }
-          - { name: conda-linux-python3.13       , test-tox-env: py313       , python-ver: "3.13", os: ubuntu-latest }
+          - { name: conda-linux-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
+          - { name: conda-linux-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: ubuntu-latest }
+          - { name: conda-linux-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
