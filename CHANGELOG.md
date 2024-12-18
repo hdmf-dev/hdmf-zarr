@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.10.0 (Upcoming)
+## 0.10.0 (December 18, 2024)
 
 ### Enhancements
 * Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. This will introduce breaking changes that could lead to existing exported files to be invalid. This update removes '.' as the object default file source. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
