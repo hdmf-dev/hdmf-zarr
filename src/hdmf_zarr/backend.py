@@ -1328,7 +1328,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(dtype, list):
             return np.dtype([(x["name"], cls.__resolve_dtype_helper__(x["dtype"])) for x in dtype])
         else:
-            raise ValueError(f"Cant resolve dtype {dtype}")
+            raise ValueError(f"Can't resolve dtype {dtype}")
 
     @classmethod
     def get_type(cls, data):
