@@ -1,4 +1,5 @@
 """Module for testing the parallel write feature for the ZarrIO."""
+
 import unittest
 import platform
 from typing import Tuple, Dict
@@ -13,6 +14,7 @@ from hdmf.data_utils import GenericDataChunkIterator, DataChunkIterator
 
 try:
     import tqdm  # noqa: F401
+
     TQDM_INSTALLED = True
 except ImportError:
     TQDM_INSTALLED = False
@@ -79,12 +81,12 @@ class NotPickleableDataChunkIterator(GenericDataChunkIterator):
 
 def test_parallel_write(tmpdir):
     number_of_jobs = 2
-    data = np.array([1., 2., 3.])
+    data = np.array([1.0, 2.0, 3.0])
     column = VectorData(name="TestColumn", description="", data=PickleableDataChunkIterator(data=data))
     dynamic_table = DynamicTable(name="TestTable", description="", id=list(range(3)), columns=[column])
 
     zarr_top_level_path = str(tmpdir / "test_parallel_write.zarr")
-    with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
         io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
@@ -96,22 +98,26 @@ def test_parallel_write(tmpdir):
 def test_mixed_iterator_types(tmpdir):
     number_of_jobs = 2
 
-    generic_iterator_data = np.array([1., 2., 3.])
+    generic_iterator_data = np.array([1.0, 2.0, 3.0])
     generic_iterator_column = VectorData(
         name="TestGenericIteratorColumn",
         description="",
-        data=PickleableDataChunkIterator(data=generic_iterator_data)
+        data=PickleableDataChunkIterator(data=generic_iterator_data),
     )
 
-    classic_iterator_data = np.array([4., 5., 6.])
+    classic_iterator_data = np.array([4.0, 5.0, 6.0])
     classic_iterator_column = VectorData(
         name="TestClassicIteratorColumn",
         description="",
-        data=DataChunkIterator(data=classic_iterator_data)
+        data=DataChunkIterator(data=classic_iterator_data),
     )
 
-    unwrappped_data = np.array([7., 8., 9.])
-    unwrapped_column = VectorData(name="TestUnwrappedColumn", description="", data=unwrappped_data)
+    unwrappped_data = np.array([7.0, 8.0, 9.0])
+    unwrapped_column = VectorData(
+        name="TestUnwrappedColumn",
+        description="",
+        data=unwrappped_data,
+    )
     dynamic_table = DynamicTable(
         name="TestTable",
         description="",
@@ -120,7 +126,7 @@ def test_mixed_iterator_types(tmpdir):
     )
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_types.zarr")
-    with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
         io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
@@ -138,18 +144,18 @@ def test_mixed_iterator_types(tmpdir):
 def test_mixed_iterator_pickleability(tmpdir):
     number_of_jobs = 2
 
-    pickleable_iterator_data = np.array([1., 2., 3.])
+    pickleable_iterator_data = np.array([1.0, 2.0, 3.0])
     pickleable_iterator_column = VectorData(
         name="TestGenericIteratorColumn",
         description="",
-        data=PickleableDataChunkIterator(data=pickleable_iterator_data)
+        data=PickleableDataChunkIterator(data=pickleable_iterator_data),
     )
 
-    not_pickleable_iterator_data = np.array([4., 5., 6.])
+    not_pickleable_iterator_data = np.array([4.0, 5.0, 6.0])
     not_pickleable_iterator_column = VectorData(
         name="TestClassicIteratorColumn",
         description="",
-        data=NotPickleableDataChunkIterator(data=not_pickleable_iterator_data)
+        data=NotPickleableDataChunkIterator(data=not_pickleable_iterator_data),
     )
 
     dynamic_table = DynamicTable(
@@ -160,7 +166,7 @@ def test_mixed_iterator_pickleability(tmpdir):
     )
 
     zarr_top_level_path = str(tmpdir / "test_mixed_iterator_pickleability.zarr")
-    with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+    with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
         io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
     with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="r") as io:
@@ -180,20 +186,20 @@ def test_simple_tqdm(tmpdir):
 
     zarr_top_level_path = str(tmpdir / "test_simple_tqdm.zarr")
     with patch("sys.stderr", new=StringIO()) as tqdm_out:
-        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+        with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
             column = VectorData(
                 name="TestColumn",
                 description="",
                 data=PickleableDataChunkIterator(
-                    data=np.array([1., 2., 3.]),
+                    data=np.array([1.0, 2.0, 3.0]),
                     display_progress=True,
-                )
+                ),
             )
             dynamic_table = DynamicTable(
                 name="TestTable",
                 description="",
                 columns=[column],
-                id=list(range(3))  # must provide id's when all columns are iterators
+                id=list(range(3)),  # must provide id's when all columns are iterators
             )
             io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
@@ -208,29 +214,29 @@ def test_compound_tqdm(tmpdir):
 
     zarr_top_level_path = str(tmpdir / "test_compound_tqdm.zarr")
     with patch("sys.stderr", new=StringIO()) as tqdm_out:
-        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+        with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
             pickleable_column = VectorData(
                 name="TestPickleableIteratorColumn",
                 description="",
                 data=PickleableDataChunkIterator(
-                    data=np.array([1., 2., 3.]),
+                    data=np.array([1.0, 2.0, 3.0]),
                     display_progress=True,
-                )
+                ),
             )
             not_pickleable_column = VectorData(
                 name="TestNotPickleableColumn",
                 description="",
                 data=NotPickleableDataChunkIterator(
-                    data=np.array([4., 5., 6.]),
+                    data=np.array([4.0, 5.0, 6.0]),
                     display_progress=True,
-                    progress_bar_options=dict(desc=expected_desc_not_pickleable, position=1)
-                )
+                    progress_bar_options=dict(desc=expected_desc_not_pickleable, position=1),
+                ),
             )
             dynamic_table = DynamicTable(
                 name="TestTable",
                 description="",
                 columns=[pickleable_column, not_pickleable_column],
-                id=list(range(3))  # must provide id's when all columns are iterators
+                id=list(range(3)),  # must provide id's when all columns are iterators
             )
             io.write(container=dynamic_table, number_of_jobs=number_of_jobs)
 
@@ -242,7 +248,7 @@ def test_compound_tqdm(tmpdir):
 def test_extra_keyword_argument_propagation(tmpdir):
     number_of_jobs = 2
 
-    column = VectorData(name="TestColumn", description="", data=np.array([1., 2., 3.]))
+    column = VectorData(name="TestColumn", description="", data=np.array([1.0, 2.0, 3.0]))
     dynamic_table = DynamicTable(name="TestTable", description="", id=list(range(3)), columns=[column])
 
     zarr_top_level_path = str(tmpdir / "test_extra_parallel_write_keyword_arguments.zarr")
@@ -263,12 +269,12 @@ def test_extra_keyword_argument_propagation(tmpdir):
     for test_keyword_argument_pair in test_keyword_argument_pairs:
         test_max_threads_per_process = test_keyword_argument_pair["max_threads_per_process"]
         test_multiprocessing_context = test_keyword_argument_pair["multiprocessing_context"]
-        with ZarrIO(path=zarr_top_level_path,  manager=get_manager(), mode="w") as io:
+        with ZarrIO(path=zarr_top_level_path, manager=get_manager(), mode="w") as io:
             io.write(
                 container=dynamic_table,
                 number_of_jobs=number_of_jobs,
                 max_threads_per_process=test_max_threads_per_process,
-                multiprocessing_context=test_multiprocessing_context
+                multiprocessing_context=test_multiprocessing_context,
             )
 
             assert io._ZarrIO__dci_queue.max_threads_per_process == test_max_threads_per_process

@@ -36,13 +36,12 @@ class TestFSSpecStreaming(unittest.TestCase):
         """
         The file is a Zarr file with consolidated metadata.
         """
-        with NWBZarrIO(self.https_s3_path, mode='r') as read_io:
+        with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
             read_io.open()
             self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
-        with NWBZarrIO(self.https_s3_path, mode='-r') as read_io:
+        with NWBZarrIO(self.https_s3_path, mode="-r") as read_io:
             read_io.open()
             self.assertIsInstance(read_io.file.store, zarr.storage.FSStore)
-
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming_via_read_nwb(self):

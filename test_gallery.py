@@ -23,21 +23,13 @@ def _import_from_file(script):
     spec.loader.exec_module(module)
 
 
-_pkg_resources_warning_re = (
-    "pkg_resources is deprecated as an API"
-)
+_pkg_resources_warning_re = "pkg_resources is deprecated as an API"
 
-_pkg_resources_declare_warning_re = (
-    r"Deprecated call to `pkg_resources\.declare_namespace.*"
-)
+_pkg_resources_declare_warning_re = r"Deprecated call to `pkg_resources\.declare_namespace.*"
 
-_numpy_warning_re = (
-    "numpy.ufunc size changed, may indicate binary incompatibility. Expected 216, got 192"
-)
+_numpy_warning_re = "numpy.ufunc size changed, may indicate binary incompatibility. Expected 216, got 192"
 
-_distutils_warning_re = (
-    "distutils Version classes are deprecated. Use packaging.version instead."
-)
+_distutils_warning_re = "distutils Version classes are deprecated. Use packaging.version instead."
 
 _experimental_warning_re = (
     "The ZarrIO backend is experimental. It is under active development. "
@@ -50,8 +42,8 @@ _user_warning_transpose = (
 )
 
 _deprecation_warning_map = (
-    'Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed '
-    'in HDMF 3.0.'
+    "Classes in map.py should be imported from hdmf.build. Importing from hdmf.build.map will be removed "
+    "in HDMF 3.0."
 )
 
 _deprecation_warning_fmt_docval_args = (
@@ -69,21 +61,16 @@ _deprecation_warning_call_docval_func = (
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
 )
 
-_deprecation_warning_pandas_pyarrow_re = (
-    r"\nPyarrow will become a required dependency of pandas.*"
-)
+_deprecation_warning_pandas_pyarrow_re = r"\nPyarrow will become a required dependency of pandas.*"
 
-_deprecation_warning_datetime = (
-    r"datetime.datetime.utcfromtimestamp() *"
-)
+_deprecation_warning_datetime = r"datetime.datetime.utcfromtimestamp() *"
 
-_deprecation_warning_zarr_store = (
-    r"The NestedDirectoryStore is deprecated *"
-)
+_deprecation_warning_zarr_store = r"The NestedDirectoryStore is deprecated *"
 _deprecation_warning_numpy = (
     "__array__ implementation doesn't accept a copy keyword, so passing copy=False failed. "
     "__array__ must implement 'dtype' and 'copy' keyword arguments."
 )
+
 
 def run_gallery_tests():
     global TOTAL, FAILURES, ERRORS
@@ -92,7 +79,7 @@ def run_gallery_tests():
     # get all python file names in docs/gallery
     gallery_file_names = list()
     for root, _, files in os.walk(
-        os.path.join(os.path.dirname(__file__), "docs", "gallery")
+        os.path.join(os.path.dirname(__file__), "docs", "gallery"),
     ):
         for f in files:
             if f.endswith(".py"):
@@ -105,57 +92,59 @@ def run_gallery_tests():
     for script in gallery_file_names:
         logging.info("Executing %s" % script)
         os.chdir(curr_dir)  # Reset the working directory
-        script_abs = os.path.abspath(script)   # Determine the full path of the script
+        script_abs = os.path.abspath(script)  # Determine the full path of the script
         # Set the working dir to be relative to the script to allow the use of relative file paths in the scripts
         os.chdir(os.path.dirname(script_abs))
         try:
             with warnings.catch_warnings(record=True):
-                warnings.filterwarnings(
-                    "ignore", message=_deprecation_warning_map, category=DeprecationWarning
-                )
+                warnings.filterwarnings("ignore", message=_deprecation_warning_map, category=DeprecationWarning)
                 warnings.filterwarnings(
                     "ignore", message=_deprecation_warning_fmt_docval_args, category=PendingDeprecationWarning
                 )
                 warnings.filterwarnings(
                     "ignore", message=_deprecation_warning_call_docval_func, category=PendingDeprecationWarning
                 )
-                warnings.filterwarnings(
-                    "ignore", message=_experimental_warning_re, category=UserWarning
-                )
-                warnings.filterwarnings(
-                    "ignore", message=_user_warning_transpose, category=UserWarning
-                )
+                warnings.filterwarnings("ignore", message=_experimental_warning_re, category=UserWarning)
+                warnings.filterwarnings("ignore", message=_user_warning_transpose, category=UserWarning)
                 warnings.filterwarnings(
                     # this warning is triggered from pandas when HDMF is installed with the minimum requirements
-                    "ignore", message=_distutils_warning_re, category=DeprecationWarning
+                    "ignore",
+                    message=_distutils_warning_re,
+                    category=DeprecationWarning,
                 )
                 warnings.filterwarnings(
                     # this warning is triggered when some numpy extension code in an upstream package was compiled
                     # against a different version of numpy than the one installed
-                    "ignore", message=_numpy_warning_re, category=RuntimeWarning
+                    "ignore",
+                    message=_numpy_warning_re,
+                    category=RuntimeWarning,
                 )
                 warnings.filterwarnings(
                     # this warning is triggered when downstream code such as pynwb uses pkg_resources>=5.13
-                    "ignore", message=_pkg_resources_warning_re, category=DeprecationWarning
+                    "ignore",
+                    message=_pkg_resources_warning_re,
+                    category=DeprecationWarning,
                 )
                 warnings.filterwarnings(
                     # this warning is triggered when downstream code such as pynwb uses pkg_resources>=5.13
-                    "ignore", message=_pkg_resources_declare_warning_re, category=DeprecationWarning
+                    "ignore",
+                    message=_pkg_resources_declare_warning_re,
+                    category=DeprecationWarning,
                 )
                 warnings.filterwarnings(
                     # this warning is triggered from pandas
-                    "ignore", message=_deprecation_warning_pandas_pyarrow_re, category=DeprecationWarning
+                    "ignore",
+                    message=_deprecation_warning_pandas_pyarrow_re,
+                    category=DeprecationWarning,
                 )
                 warnings.filterwarnings(
                     # this is triggered from datetime
-                    "ignore", message=_deprecation_warning_datetime, category=DeprecationWarning
+                    "ignore",
+                    message=_deprecation_warning_datetime,
+                    category=DeprecationWarning,
                 )
-                warnings.filterwarnings(
-                    "ignore", message=_deprecation_warning_zarr_store, category=FutureWarning
-                )
-                warnings.filterwarnings(
-                    "ignore", message=_deprecation_warning_numpy, category=DeprecationWarning
-                )
+                warnings.filterwarnings("ignore", message=_deprecation_warning_zarr_store, category=FutureWarning)
+                warnings.filterwarnings("ignore", message=_deprecation_warning_numpy, category=DeprecationWarning)
                 _import_from_file(script_abs)
         except Exception:
             print(traceback.format_exc())
