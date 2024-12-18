@@ -7,6 +7,7 @@ name = "hdmf_zarr"
 authors = [
   { name="Oliver Ruebel", email="oruebel@lbl.gov" },
   { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
+  { name="Ryan Ly", email="rly@lbl.gov" },
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
@@ -18,8 +19,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: BSD License",
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: Microsoft :: Windows",
@@ -130,7 +132,6 @@ line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
 "docs/gallery/*" = ["E402", "T201"]
-"src/*/__init__.py" = ["F401"]
 "test_gallery.py" = ["T201"]
 
 [tool.ruff.lint.mccabe]
