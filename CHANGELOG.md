@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 1.0.0 (November 21, 2024)
+## 0.10.0 (Upcoming)
 
 ### Enhancements
 * Added initial refactor of export, supporting references and internal/external links from Zarr to Zarr. This will introduce breaking changes that could lead to existing exported files to be invalid. This update removes '.' as the object default file source. @mavaylon1 [#194](https://github.com/hdmf-dev/hdmf-zarr/pull/194)
@@ -10,12 +10,16 @@
 * Remove allowance of `hdmf.Array` in `__init__` of `AbstractZarrTableDataset` and `ZarrDataset` to be compatible with HDMF 4.0. @rly [#236](https://github.com/hdmf-dev/hdmf-zarr/pull/236)
 * Remove support for python 3.8. @mavaylon1 [#240](https://github.com/hdmf-dev/hdmf-zarr/pull/240)
 * Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
+* Updated optional dependency groups in `pyproject.toml` and GitHub Actions workflows. @rly, @mavaylon1 [#239](https://github.com/hdmf-dev/hdmf-zarr/pull/239)
+* Added testing for Python 3.13. @rly, @mavaylon1 [#239](https://github.com/hdmf-dev/hdmf-zarr/pull/239)
 
 ### Bug Fixes
 * Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)
 * Fix hiding of pynwb compatibility errors. @rly [242](https://github.com/hdmf-dev/hdmf-zarr/pull/242)
 
+
 ## 0.9.0 (September 16, 2024)
+
 ### Enhancements
 * Added support for appending a dataset of references. @mavaylon1 [#203](https://github.com/hdmf-dev/hdmf-zarr/pull/203)
 * NWBZarrIO load_namespaces=True by default. @mavaylon1 [#204](https://github.com/hdmf-dev/hdmf-zarr/pull/204)
@@ -23,12 +27,16 @@
 * Add dimension labels compatible with xarray. @mavaylon1 [#207](https://github.com/hdmf-dev/hdmf-zarr/pull/207)
 * Added link_data --> clear_cache relationship to support repacking zarr nwbfiles: [#215](https://github.com/hdmf-dev/hdmf-zarr/pull/215)
 
+
 ## 0.8.0 (June 4, 2024)
+
 ### Bug Fixes
 * Fixed bug when opening a file in with `mode=r+`. The file will open without using the consolidated metadata. @mavaylon1 [#182](https://github.com/hdmf-dev/hdmf-zarr/issues/182)
 * Fixed bug on how we access scalar arrays. Added warning filter for Zarr deprecation of NestedDirectoryStore. Fixed bug on how we write a dataset of references. @mavaylon1 [#195](https://github.com/hdmf-dev/hdmf-zarr/pull/195)
 
+
 ## 0.7.0 (May 2, 2024)
+
 ### Enhancements
 * Added support for python 3.12. @mavaylon1 [#172](https://github.com/hdmf-dev/hdmf-zarr/pull/172)
 * Added support for forcing read of files without consolidated metadata using  `mode=r-` in `ZarrIO`. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
@@ -40,6 +48,7 @@
 ### Bug Fixes
 * Fixed bug in `ZarrIO.__open_file_consolidated` that led to remote files being opened without consolidated metadata. @oruebel  [#184](https://github.com/hdmf-dev/hdmf-zarr/pull/184)
 * Fixed minor bug where `ZarrIO.__open_file_consolidated` used properties of `ZarrIO` instead of the provided input parameters. @oruebel [#183](https://github.com/hdmf-dev/hdmf-zarr/pull/183)
+
 
 ## 0.6.0 (February 21, 2024)
 
