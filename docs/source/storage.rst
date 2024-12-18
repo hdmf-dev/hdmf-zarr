@@ -260,7 +260,7 @@ Storing object references in Attributes
 Object references are stored in a attributes as dicts with the following keys:
 
 * ``zarr_dtype`` : Indicating the data type for the attribute. For object references
-  ``zarr_dtype`` is set to ``"object"`` (or ``"region"`` for :ref:`sec-zarr-storage-references-region`)
+  ``zarr_dtype`` is set to ``"object"``
 * ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
   dictionary with the ``source``, ``path``, ``object_id``, and ``source_object_id`` keys defining
   the object reference, with the definition of the keys being the same as
@@ -279,36 +279,6 @@ For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be
         },
         "zarr_dtype": "object"
     }
-
-.. _sec-zarr-storage-references-region:
-
-Region references
------------------
-
-Region references are similar to object references, but instead of references other Datasets or Groups,
-region references link to subsets of another Dataset. To identify region references, the reserved attribute
-``zarr_dtype`` is set to ``'region'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In addition
-to the ``source`` and ``path``, the  py:class:`~hdmf_zarr.utils.ZarrReference` object will also need to
-store the definition of the ``region`` that is being referenced, e.g., a slice or list on point indices.
-
-.. warning::
-
-    Region references are not yet fully implemented in :py:class:`~hdmf_zarr.backend.ZarrIO`.
-    To implement region references will require updating:
-    1)  py:class:`~hdmf_zarr.utils.ZarrReference` to add a ``region`` key to support storing
-    the selection for the region,
-    2) :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` to support passing in the region definition to
-    be added to the py:class:`~hdmf_zarr.utils.ZarrReference`,
-    3) :py:meth:`~hdmf_zarr.backend.ZarrIO.write_dataset` already partially implements the required
-    logic for creating region references by checking for :py:class:`hdmf.build.RegionBuilder` inputs
-    but will likely need updates as well
-    4) :py:meth:`~hdmf_zarr.backend.ZarrIO.__read_dataset` to support reading region references,
-    which may also require updates to :py:meth:`~hdmf_zarr.backend.ZarrIO.__parse_ref` and
-    :py:meth:`~hdmf_zarr.backend.ZarrIO.__resolve_ref`, and
-    5) and possibly other parts of :py:class:`~hdmf_zarr.backend.ZarrIO`.
-    6) The py:class:`~hdmf_zarr.zarr_utils.ContainerZarrRegionDataset` and
-    py:class:`~hdmf_zarr.zarr_utils.ContainerZarrRegionDataset` classes will also need to be finalized
-    to support region references.
 
 
 .. _sec-zarr-storage-dtypes:
@@ -356,10 +326,6 @@ The mappings of data types is as follows
     |  * "ref"                 | Reference to another group or      |                |
     |  * "reference"           | dataset. See                       |                |
     |  * "object"              | :ref:`sec-zarr-storage-references` |                |
-    +--------------------------+------------------------------------+----------------+
-    |  * region                | Reference to a region              |                |
-    |                          | of another dataset. See            |                |
-    |                          | :ref:sec-zarr-storage-references`  |                |
     +--------------------------+------------------------------------+----------------+
     |  * compound dtype        | Compound data type                 |                |
     +--------------------------+------------------------------------+----------------+

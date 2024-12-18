@@ -29,7 +29,6 @@ Supported features
 Known Limitations
 -----------------
 
-- Support for region references is not yet implemented. See also :ref:`sec-zarr-storage-references-region` for details.
 - The Zarr backend is currently experimental and may still change.
 - Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
 - Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's directory-based stores :py:class:`~zarr.storage.DirectoryStore`, :py:class:`~zarr.storage.NestedDirectoryStore`, and :py:class:`~zarr.storage.TempStore`. Other `Zarr stores <https://zarr.readthedocs.io/en/stable/api/storage.html>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_.
