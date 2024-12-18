@@ -25,7 +25,7 @@ jobs:
           - { name: linux-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
           # NOTE config below with "upload-wheels: true" specifies that wheels should be uploaded as an artifact
           - { name: linux-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
-          - { name: linux-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
+          - { name: linux-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest }
           - { name: windows-python3.9-minimum, test-tox-env: py39-minimum  , python-ver: "3.9" , os: windows-latest }
           - { name: windows-python3.13       , test-tox-env: py313         , python-ver: "3.13", os: windows-latest }
           - { name: windows-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: windows-latest }
