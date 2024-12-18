@@ -8,10 +8,9 @@
 * Updated packages used for testing and readthedocs configuration. @mavaylon1, @rly [#214](https://github.com/hdmf-dev/hdmf-zarr/pull/214)
 * Add `force_overwite` parameter for `ZarrIO.__init__` to allow overwriting an existing file or directory. @oruebel [#229](https://github.com/hdmf-dev/hdmf-zarr/pull/229)
 * Remove allowance of `hdmf.Array` in `__init__` of `AbstractZarrTableDataset` and `ZarrDataset` to be compatible with HDMF 4.0. @rly [#236](https://github.com/hdmf-dev/hdmf-zarr/pull/236)
-* Remove support for python 3.8. @mavaylon1 [#240](https://github.com/hdmf-dev/hdmf-zarr/pull/240)
+* Remove support for python 3.8 and added testing for Python 3.13. @mavaylon1 [#240](https://github.com/hdmf-dev/hdmf-zarr/pull/240)
 * Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 * Updated optional dependency groups in `pyproject.toml` and GitHub Actions workflows. @rly, @mavaylon1 [#239](https://github.com/hdmf-dev/hdmf-zarr/pull/239)
-* Added testing for Python 3.13. @rly, @mavaylon1 [#239](https://github.com/hdmf-dev/hdmf-zarr/pull/239)
 
 ### Bug Fixes
 * Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)
