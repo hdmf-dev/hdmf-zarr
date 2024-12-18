@@ -109,31 +109,9 @@ omit = [
 
 [tool.black]
 line-length = 120
-target-version = ['py38']
+target-version = ['py313']
 include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.toml
-  |\.yml
-  |\.txt
-  |\.sh
-  |\.git
-  |\.ini
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-force-exclude = '''
-/(
-   /*.txt
-   /docs
-   /docs/*
-)\
-'''
+force-exclude = 'docs/*'
 
 [tool.ruff]
 lint.select = ["E", "F", "T100", "T201", "T203"]

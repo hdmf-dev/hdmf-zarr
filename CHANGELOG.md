@@ -11,6 +11,7 @@
 * Remove support for python 3.8 and added testing for Python 3.13. @mavaylon1 [#240](https://github.com/hdmf-dev/hdmf-zarr/pull/240)
 * Added `NWBZarrIO.read_nwb` convenience method to simplify reading an NWB file. @oruebel [#226](https://github.com/hdmf-dev/hdmf-zarr/pull/226)
 * Updated optional dependency groups in `pyproject.toml` and GitHub Actions workflows. @rly, @mavaylon1 [#239](https://github.com/hdmf-dev/hdmf-zarr/pull/239)
+* Applied black code formatter. @rly [#247](https://github.com/hdmf-dev/hdmf-zarr/pull/247)
 
 ### Bug Fixes
 * Fix reading of cached specs and caching of specs during export. @rly [#232](https://github.com/hdmf-dev/hdmf-zarr/pull/232)

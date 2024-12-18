@@ -7,6 +7,7 @@ from dateutil.tz import tzlocal
 
 try:
     from pynwb import NWBFile
+
     PYNWB_AVAILABLE = True
 except ImportError:
     PYNWB_AVAILABLE = False
@@ -31,15 +32,12 @@ class TestNWBZarrIO(unittest.TestCase):
             experimenter="Dr. Bilbo Baggins",
             lab="Bag End Laboratory",
             institution="University of Middle Earth at the Shire",
-            experiment_description="I went on an adventure with thirteen dwarves "
-                                   "to reclaim vast treasures.",
+            experiment_description="I went on an adventure with thirteen dwarves to reclaim vast treasures.",
             session_id="LONELYMTN",
         )
 
         # Create a device
-        _ = nwbfile.create_device(
-            name="array", description="the best array", manufacturer="Probe Company 9000"
-        )
+        nwbfile.create_device(name="array", description="the best array", manufacturer="Probe Company 9000")
         with NWBZarrIO(path=self.filepath, mode="w") as io:
             io.write(nwbfile)
 
@@ -53,4 +51,4 @@ class TestNWBZarrIO(unittest.TestCase):
         self.write_test_file()
         nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
-        self.assertTupleEqual(nwbfile.experimenter, ('Dr. Bilbo Baggins',))
+        self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))

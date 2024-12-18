@@ -12,9 +12,14 @@ except ImportError:  # pragma: no cover
     __version__ = version("hdmf")
     del version
 
+__all__ = ["ZarrIO", "ZarrDataIO", "NWBZarrIO"]
+
 # Duecredit definitions
 from ._due import due, BibTeX  # noqa: E402
-due.cite(BibTeX("""
+
+due.cite(
+    BibTeX(
+        """
 @INPROCEEDINGS{9005648,
   author={A. J. {Tritt} and O. {Rübel} and B. {Dichter} and R. {Ly} and D. {Kang} and E. F. {Chang} and L. M. {Frank} and K. {Bouchard}},
   booktitle={2019 IEEE International Conference on Big Data (Big Data)},
@@ -24,6 +29,11 @@ due.cite(BibTeX("""
   number={},
   pages={165-179},
   doi={10.1109/BigData47090.2019.9005648}}
-"""), description="HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards",  # noqa: E501
-         path="hdmf/", version=__version__, cite_module=True)
+"""  # noqa: E501
+    ),
+    description="HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards",
+    path="hdmf/",
+    version=__version__,
+    cite_module=True,
+)
 del due, BibTeX
