@@ -29,9 +29,9 @@ due.cite(
   number={},
   pages={165-179},
   doi={10.1109/BigData47090.2019.9005648}}
-"""
+"""  # noqa: E501
     ),
-    description="HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards",  # noqa: E501
+    description="HDMF: Hierarchical Data Modeling Framework for Modern Science Data Standards",
     path="hdmf/",
     version=__version__,
     cite_module=True,
