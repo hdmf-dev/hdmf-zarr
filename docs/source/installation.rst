@@ -24,14 +24,15 @@ For Developers
 Install hdmf-zarr from GitHub
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following illustrates how to install both ``hdmf`` and ``hdfm_zarr`` from GitHub
-in a Conda environment. Normally we don't need to install ``hdmf`` directly, but until
-``hdmf 3.4.0`` is released we need to use the ``dev`` version of ``hdmf``.
+The following illustrates how to install both ``hdmf`` and ``hdmf_zarr`` from GitHub
+in a Conda environment, with all of the optional, testing, and documentation dependencies
+for hdmf-zarr. Normally, we don't need to install ``hdmf`` directly, but it is
+often useful to use the ``dev`` branch of the ``hdmf`` GitHub repository.
 
 .. code-block::
 
-    conda create --name hdmf-zarr-test python=3.9
-    conda activate hdmf-zarr-test
+    conda create --name hdmf-zarr-dev python=3.13
+    conda activate hdmf-zarr-dev
 
     git clone --recurse-submodules https://github.com/hdmf-dev/hdmf.git
     cd hdmf
@@ -41,12 +42,11 @@ in a Conda environment. Normally we don't need to install ``hdmf`` directly, but
 
     git clone https://github.com/hdmf-dev/hdmf-zarr.git
     cd hdmf-zarr
-    pip install -r requirements.txt -r requirements-dev.txt -r requirements-doc.txt
-    pip install -e .
+    pip install -e ".[all]"
 
 .. note::
 
-   Depending on versions, it is possible that when installing ``hdmf-zarr`` that pip will
+   Depending on versions, it is possible that when installing ``hdmf-zarr``, that ``pip`` will
    install HDMF directly from PyPI instead of using the development version of HDMF
    that is already installed. In that case call ``pip uninstall hdmf`` and
    go to the ``hdmf`` directory and run ``pip install -e .`` again
