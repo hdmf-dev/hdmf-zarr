@@ -1,6 +1,8 @@
+# minimum versions of package dependencies for installing HDMF
+# NOTE: these should match the minimum bound for dependencies in pyproject.toml
 hdmf==3.14.5
-zarr==2.13.0
+zarr==2.18.0
+numpy==1.24.0
 numcodecs==0.10.0
 pynwb==2.8.3
-setuptools
 threadpoolctl==3.1.0

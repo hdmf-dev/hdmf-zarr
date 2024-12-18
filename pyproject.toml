@@ -28,12 +28,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
-    'hdmf>=3.14.5',
-    'zarr>=2.18.0, <3.0', # pin below 3.0 until HDMF-zarr supports zarr 3.0
-    'numpy>=1.24',
-    'numcodecs>=0.10.0',
-    'pynwb>=2.8.3',
-    'threadpoolctl>=3.1.0',
+    "hdmf>=3.14.5",
+    "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
+    "numpy>=1.24.0",
+    "numcodecs>=0.10.0",
+    "pynwb>=2.8.3",
+    "threadpoolctl>=3.1.0",
 ]
 dynamic = ["version"]
 
@@ -41,6 +41,26 @@ dynamic = ["version"]
 tqdm = ["tqdm>=4.41.0"]
 fsspec = ["fsspec"]
 s3fs = ["s3fs"]
+
+# development dependencies
+test = [
+    "codespell",
+    "hdf5plugin",  # hdf5plugin is used to test conversion of plugin filters
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "python-dateutil",
+    "ruff",
+    "tox",
+]
+
+docs = [
+    "matplotlib",
+    "sphinx>=4",  # improved support for docutils>=0.17
+    "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
+    "sphinx-gallery",
+    "sphinx-copybutton",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/hdmf-dev/hdmf-zarr"

@@ -22,14 +22,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-python3.9-minimum      , test-tox-env: py39-minimum    , build-tox-env: build-py39-minimum    , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: linux-python3.13             , test-tox-env: py313           , build-tox-env: build-py313           , python-ver: "3.13", os: ubuntu-latest }
+          - { name: linux-python3.9-minimum  , test-tox-env: py39-minimum, python-ver: "3.9" , os: ubuntu-latest }
           # NOTE config below with "upload-wheels: true" specifies that wheels should be uploaded as an artifact
-          - { name: linux-python3.13-upgraded    , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
-          - { name: windows-python3.9-minimum    , test-tox-env: py39-minimum    , build-tox-env: build-py39-minimum    , python-ver: "3.9" , os: windows-latest }
-          - { name: windows-python3.13-upgraded  , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: windows-latest }
-          - { name: macos-python3.9-minimum      , test-tox-env: py39-minimum    , build-tox-env: build-py39-minimum    , python-ver: "3.9" , os: macos-latest }
-          - { name: macos-python3.13-upgraded    , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: macos-latest }
+          - { name: linux-python3.13         , test-tox-env: py313       , python-ver: "3.13", os: ubuntu-latest , upload-wheels: true }
+          - { name: windows-python3.9-minimum, test-tox-env: py39-minimum, python-ver: "3.9" , os: windows-latest }
+          - { name: windows-python3.13       , test-tox-env: py313       , python-ver: "3.13", os: windows-latest }
+          - { name: macos-python3.9-minimum  , test-tox-env: py39-minimum, python-ver: "3.9" , os: macos-latest }
+          - { name: macos-python3.13         , test-tox-env: py313       , python-ver: "3.13", os: macos-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -51,7 +50,7 @@ jobs:
 
       - name: Build wheel and source distribution
         run: |
-          tox -e ${{ matrix.build-tox-env }}
+          tox -e build
           ls -1 dist
 
       - name: Test installation from a wheel
@@ -82,10 +81,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-gallery-python3.9-minimum     , test-tox-env: gallery-py39-minimum   , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: linux-gallery-python3.13-upgraded   , test-tox-env: gallery-py313-upgraded , python-ver: "3.13", os: ubuntu-latest }
-          - { name: windows-gallery-python3.9-minimum   , test-tox-env: gallery-py39-minimum   , python-ver: "3.9" , os: windows-latest }
-          - { name: windows-gallery-python3.13-upgraded , test-tox-env: gallery-py313-upgraded , python-ver: "3.13", os: windows-latest }
+          - { name: linux-gallery-python3.9-minimum    , test-tox-env: gallery-py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
+          - { name: linux-gallery-python3.13-optional  , test-tox-env: gallery-py313-optional, python-ver: "3.13", os: ubuntu-latest }
+          - { name: windows-gallery-python3.9-minimum  , test-tox-env: gallery-py39-minimum  , python-ver: "3.9" , os: windows-latest }
+          - { name: windows-gallery-python3.13-optional, test-tox-env: gallery-py313-optional, python-ver: "3.13", os: windows-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -118,8 +117,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: conda-linux-python3.9-minimum    , test-tox-env: py39-minimum    , build-tox-env: build-py39-minimum    , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: conda-linux-python3.13-upgraded  , test-tox-env: py313-upgraded  , build-tox-env: build-py313-upgraded  , python-ver: "3.13", os: ubuntu-latest }
+          - { name: conda-linux-python3.9-minimum, test-tox-env: py39-minimum, python-ver: "3.9" , os: ubuntu-latest }
+          - { name: conda-linux-python3.13       , test-tox-env: py313       , python-ver: "3.13", os: ubuntu-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -150,7 +149,7 @@ jobs:
 
       - name: Build wheel and source distribution
         run: |
-          tox -e ${{ matrix.build-tox-env }}
+          tox -e build
           ls -1 dist
 
       - name: Test installation from a wheel
