@@ -49,6 +49,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -103,6 +105,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -142,6 +146,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Conda
         uses: conda-incubator/setup-miniconda@v3
