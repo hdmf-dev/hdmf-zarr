@@ -803,7 +803,10 @@ class ZarrIO(HDMFIO):
             source_file = str(zarr_ref["source"])
         # Resolve the path relative to the current file
         if not self.is_remote():
-            source_file = os.path.abspath(source_file)
+            if isinstance(self.source, str) and self.source.startswith(("s3://")):
+                source_file = self.source
+            else:
+                source_file = os.path.abspath(source_file)
         else:
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
