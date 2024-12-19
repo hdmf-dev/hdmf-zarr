@@ -155,12 +155,13 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-ver }}
           channels: conda-forge
+          conda-remove-defaults: "true"
 
       - name: Install build dependencies
         run: |
           conda config --set always_yes yes --set changeps1 no
           conda info
-          conda install -c conda-forge tox
+          conda install tox
 
       - name: Conda reporting
         run: |
