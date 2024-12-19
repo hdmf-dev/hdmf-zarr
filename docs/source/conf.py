@@ -119,7 +119,6 @@ html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
     'logo_only': False,  # Only show the hdmf-zarr logo without the documentation title
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',  # Show previous/next button at the bottom
     'style_external_links': True,  # Add marker to indicate external links
     'vcs_pageview_mode': '',
