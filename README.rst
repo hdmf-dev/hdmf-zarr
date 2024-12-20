@@ -6,18 +6,22 @@ hdmf-zarr
 
 The ``hdmf-zarr`` library implements a Zarr backend for HDMF as well as convenience classes for integration of Zarr with PyNWB to support writing of NWB files to Zarr.
 
-**Status:** The Zarr backend is **under development** and may still change. See the `overiew page <https://hdmf-zarr.readthedocs.io/en/latest/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr.
+**Status:** The Zarr backend is **under development** and may still change. See the `overiew page <https://hdmf-zarr.readthedocs.io/en/stable/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr.
 
 
-Latest Release
---------------
+Documentation Status
+--------------------
 
-.. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=latest
-     :target: https://hdmf-zarr.readthedocs.io/en/latest/?badge=latest
-     :alt: Documentation Status
+Latest release: .. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=stable
+     :target: https://hdmf-zarr.readthedocs.io/en/stable/?badge=stable
+     :alt: Documentation status for latest release
+
+Dev branch: .. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=dev
+     :target: https://hdmf-zarr.readthedocs.io/en/dev/?badge=dev
+     :alt: Documentation status for dev branch
 
 CI / Health Status
--------------------
+------------------
 
 .. image:: https://codecov.io/gh/hdmf-dev/hdmf-zarr/branch/dev/graph/badge.svg
     :target: https://codecov.io/gh/hdmf-dev/hdmf-zarr
@@ -59,7 +63,7 @@ If you use HDMF or hdmf_zarr in your research, please use the following citation
 Documentation
 -------------
 
-See the ``hdmf-zarr`` documentation for details https://hdmf-zarr.readthedocs.io/en/latest/
+See the ``hdmf-zarr`` documentation for details: https://hdmf-zarr.readthedocs.io
 
 Usage
 -----

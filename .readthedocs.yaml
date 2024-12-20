@@ -14,10 +14,6 @@ build:
 sphinx:
   configuration: docs/source/conf.py
 
-# Build documentation with MkDocs
-#mkdocs:
-#  configuration: mkdocs.yml
-
 # Optionally build your docs in additional formats such as PDF and ePub
 formats: all
 
@@ -25,8 +21,3 @@ formats: all
 python:
   install:
     - path: .[docs,full] # path to the package relative to the root
-
-# Optionally include all submodules
-submodules:
-  include: all
-  recursive: true
