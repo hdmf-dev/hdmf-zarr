@@ -1,5 +1,12 @@
 # HDMF-ZARR Changelog
 
+## [Unreleased]
+
+### Changed
+* Adopted changelog format conventions: https://keepachangelog.com/en/1.0.0/ . @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
+* Made docs site point to latest stable release: https://hdmf-zarr.readthedocs.io/en/stable/ instead of "latest" tag. @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
+* Removed GitHub Actions workflow that automatically generated GitHub pre-releases on the "latest" tag on each commit to dev to simplify maintenance. @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
+
 ## 0.10.0 (December 18, 2024)
 
 ### Enhancements
