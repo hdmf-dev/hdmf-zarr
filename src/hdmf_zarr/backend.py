@@ -685,7 +685,7 @@ class ZarrIO(HDMFIO):
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Builder, ReferenceBuilder)):
-                refs = self._create_ref(value, self.path)
+                refs = self._create_ref(value, ref_link_source=self.path)
                 tmp = {"zarr_dtype": "object", "value": refs}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -801,12 +801,13 @@ class ZarrIO(HDMFIO):
             source_file = str(zarr_ref["path"])
         else:
             source_file = str(zarr_ref["source"])
-        # Resolve the path relative to the current file
+
         if not self.is_remote():
             if isinstance(self.source, str) and self.source.startswith(("s3://")):
                 source_file = self.source
             else:
-                source_file = os.path.abspath(source_file)
+                # Join with source_file to resolve the relative path
+                source_file = os.path.normpath(os.path.join(self.source, source_file))
         else:
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
@@ -817,7 +818,7 @@ class ZarrIO(HDMFIO):
         if object_path:
             target_name = os.path.basename(object_path)
         else:
-            target_name = ROOT_NAME
+            target_name = ROOT_NAME        
 
         target_zarr_obj = self.__open_file_consolidated(
             store=source_file,
@@ -895,7 +896,7 @@ class ZarrIO(HDMFIO):
             str_path = self.path.path
         else:
             str_path = self.path
-        rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.dirname(os.path.abspath(str_path)))
+        rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.abspath(str_path))
 
         # Return the ZarrReference object
         ref = ZarrReference(
@@ -965,7 +966,7 @@ class ZarrIO(HDMFIO):
 
         name = builder.name
         # Get the reference
-        zarr_ref = self._create_ref(builder, ref_link_source)
+        zarr_ref = self._create_ref(builder, ref_link_source=ref_link_source)
 
         self.__add_link__(parent, zarr_ref.source, zarr_ref.path, name)
         self._written_builders.set_written(builder)  # record that the builder has been written
@@ -1078,9 +1079,13 @@ class ZarrIO(HDMFIO):
         if isinstance(data, Array):
             # copy the dataset
             data_filename = self.__get_store_path(data.store)
+            str_path = self.path
+            if not isinstance(str_path, str):  # a store
+                str_path = self.path.path
+            rel_data_filename = os.path.relpath(os.path.abspath(data_filename), os.path.abspath(str_path))
             if link_data:
                 if export_source is None:  # not exporting
-                    self.__add_link__(parent, data_filename, data.name, name)
+                    self.__add_link__(parent, rel_data_filename, data.name, name)
                     linked = True
                     dset = None
                 else:  # exporting
@@ -1089,7 +1094,7 @@ class ZarrIO(HDMFIO):
                     # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
                     # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
                     if data_filename != export_source:
-                        self.__add_link__(parent, data_filename, data.name, name)
+                        self.__add_link__(parent, rel_data_filename, data.name, name)
                         linked = True
                         dset = None
                     # Case 2: If the dataset is in the export source and has a DIFFERENT path as the builder,
@@ -1098,7 +1103,7 @@ class ZarrIO(HDMFIO):
                     # INTERNAL link. This case preserves the link to also be in FileB.
                     ###############
                     elif parent.name != data_parent:
-                        self.__add_link__(parent, self.path, data.name, name)
+                        self.__add_link__(parent, ".", data.name, name)
                         linked = True
                         dset = None
 
