@@ -4,9 +4,11 @@
 hdmf-zarr
 =========
 
-The ``hdmf-zarr`` library implements a Zarr backend for HDMF as well as convenience classes for integration of Zarr with PyNWB to support writing of NWB files to Zarr.
+The ``hdmf-zarr`` library implements a Zarr v2 backend for HDMF as well as convenience classes for integration of Zarr with PyNWB to support writing of NWB files to Zarr.
 
 **Status:** The Zarr backend is **under development** and may still change. See the `overiew page <https://hdmf-zarr.readthedocs.io/en/stable/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr.
+
+Support for Zarr v3 is planned. You can track progress of the support in https://github.com/hdmf-dev/hdmf-zarr/issues/202.
 
 
 Documentation Status
