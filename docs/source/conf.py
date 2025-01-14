@@ -83,14 +83,14 @@ intersphinx_mapping = {
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
     'pynwb': ('https://pynwb.readthedocs.io/en/stable/', None),
-    'zarr': ('https://zarr.readthedocs.io/en/stable/', None)
+    'zarr': ('https://zarr.readthedocs.io/en/v2.18.4/', None)
 }
 
 # Use this for mapping to external links
 extlinks = {
     'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/%s', '%s'),
     'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/%s', '%s'),
-    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/%s', '%s')
+    'zarr-docs': ('https://zarr.readthedocs.io/en/v2.18.4/%s', '%s')
 }
 
 # Add any paths that contain templates here, relative to this directory.
