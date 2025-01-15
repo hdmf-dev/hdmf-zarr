@@ -1281,23 +1281,19 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 export_io.export(src_io=read_io)
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile2 = read_io.read()
-            expected = ZarrIO.get_zarr_paths(read_foofile2.foo_ref_attr.my_data)
-            if isinstance(self.store_path[1], str):
-                self.assertTupleEqual(
-                    (os.path.normpath(expected[0]), os.path.normpath(expected[1])),
-                    (
-                        os.path.normpath(os.path.abspath(self.store_path[1])),
-                        os.path.normpath("/buckets/bucket1/foo_holder/foo1/my_data"),
-                    ),
-                )
-            else:
-                self.assertTupleEqual(
-                    (os.path.normpath(expected[0]), os.path.normpath(expected[1])),
-                    (
-                        os.path.normpath(os.path.abspath(self.store_path[1].path)),
-                        os.path.normpath("/buckets/bucket1/foo_holder/foo1/my_data"),
-                    ),
-                )
+
+            # check the raw zarr attribute reference
+            expected_attr_reference = {
+                "value": {
+                    "object_id": foo1.object_id,
+                    "path": "/buckets/bucket1/foo_holder/foo1",
+                    "source": ".",
+                    "source_object_id": foofile.object_id,
+                },
+                "zarr_dtype": "object",
+            }
+            self.assertEqual(read_io.file.attrs["foo_ref_attr"], expected_attr_reference)
+
             # make sure the attribute reference resolves to the container within the same file
             self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets["bucket1"].foos["foo1"])
 

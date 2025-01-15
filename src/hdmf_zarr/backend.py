@@ -727,41 +727,15 @@ class ZarrIO(HDMFIO):
         return path
 
     @staticmethod
-    def get_zarr_paths(zarr_object):
-        """
-        For a Zarr object find 1) the path to the main zarr file it is in and 2) the path to the object within the file
-        :param zarr_object: Object for which we are looking up the path
-        :type zarr_object: Zarr Group or Array
-        :return: Tuple of two string with: 1) path of the Zarr file and 2) full path within the zarr file to the object
-        """
-        # In Zarr the path is a combination of the path of the store and the path of the object. So we first need to
-        # merge those two paths, then remove the path of the file, add the missing leading "/" and then compute the
-        # directory name to get the path of the parent
-        fpath = ZarrIO._ZarrIO__get_store_path(zarr_object.store)
-        fullpath = os.path.normpath(os.path.join(fpath, zarr_object.path)).replace("\\", "/")
-        # To determine the filepath we now iterate over the path and check if the .zgroup object exists at
-        # a level, indicating that we are still within the Zarr file. The first level we hit where the parent
-        # directory does not have a .zgroup means we have found the main file
-        filepath = fullpath
-        while os.path.exists(os.path.join(os.path.dirname(filepath), ".zgroup")):
-            filepath = os.path.dirname(filepath)
-        # From the fullpath and filepath we can now compute the objectpath within the zarr file as the relative
-        # path from the filepath to the object
-        objectpath = "/" + os.path.relpath(fullpath, filepath)
-        # return the result
-        return filepath, objectpath
-
-    @staticmethod
     def get_zarr_parent_path(zarr_object):
         """
-        Get the location of the parent of a zarr_object within the file
+        Get the absolute path to the parent of a zarr_object from the root of the Zarr file
         :param zarr_object: Object for which we are looking up the path
         :type zarr_object: Zarr Group or Array
         :return: String with the path
         """
-        filepath, objectpath = ZarrIO.get_zarr_paths(zarr_object)
-        parentpath = os.path.dirname(objectpath)
-        return parentpath
+        parent_path = "/" + os.path.dirname(zarr_object.path)
+        return parent_path
 
     @staticmethod
     def is_zarr_file(path):
@@ -818,7 +792,7 @@ class ZarrIO(HDMFIO):
         if object_path:
             target_name = os.path.basename(object_path)
         else:
-            target_name = ROOT_NAME        
+            target_name = ROOT_NAME
 
         target_zarr_obj = self.__open_file_consolidated(
             store=source_file,
