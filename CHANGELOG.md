@@ -7,7 +7,8 @@
 * Made docs site point to latest stable release: https://hdmf-zarr.readthedocs.io/en/stable/ instead of "latest" tag. @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
 * Removed GitHub Actions workflow that automatically generated GitHub pre-releases on the "latest" tag on each commit to dev to simplify maintenance. @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
 * Clarified docs and updated links to say that only Zarr v2 is currently supported. @rly [#257](https://github.com/hdmf-dev/hdmf-zarr/pull/257)
-* Removed `ZarrIO.get_zarr_parent_path` and `ZarrIO.is_zarr_file` methods. @rly
+* Removed `ZarrIO.get_zarr_parent_path` and `ZarrIO.is_zarr_file` methods. @rly [#256](https://github.com/hdmf-dev/hdmf-zarr/pull/256)
+* Fixed bug in how links and references are stored in the Zarr file. They are now written as relative paths from the Zarr file, using "." to indicate the current file. This is how hdmf-zarr wrote internal links and references pre-0.10.0. @rly [#256](https://github.com/hdmf-dev/hdmf-zarr/pull/256)
 
 ## 0.10.0 (December 18, 2024)
 
