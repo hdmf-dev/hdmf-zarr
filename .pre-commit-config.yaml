@@ -8,9 +8,6 @@ repos:
     -   id: check-added-large-files
     -   id: check-json
     -   id: check-toml
-    -   id: name-tests-test
-        args: [--pytest-test-first]
-    -   id: check-docstring-first
 -   repo: https://github.com/psf/black
     rev: 24.10.0
     hooks:
