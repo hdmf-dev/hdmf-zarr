@@ -1029,11 +1029,11 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 export_io.export(src_io=read_io)
 
         self.assertTrue(os.path.exists(self.store_path[1]))
-        self.assertEqual(foofile.container_source, os.path.abspath(self.store_path[0]).replace("\\", "/"))
+        self.assertEqual(foofile.container_source, os.path.abspath(self.store_path[0]))
 
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile = read_io.read()
-            self.assertEqual(read_foofile.container_source, os.path.abspath(self.store_path[1]).replace("\\", "/"))
+            self.assertEqual(read_foofile.container_source, os.path.abspath(self.store_path[1]))
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
 
     def test_basic_container(self):
@@ -1051,11 +1051,11 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 export_io.export(src_io=read_io, container=read_foofile)
 
         self.assertTrue(os.path.exists(self.store_path[1]))
-        self.assertEqual(foofile.container_source, os.path.abspath(self.store_path[0]).replace("\\", "/"))
+        self.assertEqual(foofile.container_source, os.path.abspath(self.store_path[0]))
 
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile = read_io.read()
-            self.assertEqual(read_foofile.container_source, os.path.abspath(self.store_path[1]).replace("\\", "/"))
+            self.assertEqual(read_foofile.container_source, os.path.abspath(self.store_path[1]))
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
 
     def test_container_part(self):
@@ -1145,9 +1145,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile2 = read_io.read()
             if isinstance(self.store_path[1], str):
-                self.assertEqual(
-                    read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[1]).replace("\\", "/")
-                )
+                self.assertEqual(read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[1]))
             else:
                 self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[1].path)
 
@@ -1177,9 +1175,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             read_foofile2 = read_io.read()
             # make sure the linked group is read from the first file
             if isinstance(self.store_path[0], str):
-                self.assertEqual(
-                    read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[0]).replace("\\", "/")
-                )
+                self.assertEqual(read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[0]))
             else:
                 self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[0].path)
 
@@ -1236,9 +1232,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[2], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked dataset is read from the first file
-            self.assertEqual(
-                read_foofile2.foofile_data.store.store.path, os.path.abspath(self.store_path[0]).replace("\\", "/")
-            )
+            self.assertEqual(read_foofile2.foofile_data.store.store.path, os.path.abspath(self.store_path[0]))
 
     def test_external_link_link(self):
         """Test that exporting a written file with external links to external links maintains the links."""

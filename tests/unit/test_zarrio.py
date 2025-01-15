@@ -100,7 +100,7 @@ class TestExportZarrToZarrSubdirectory(BaseTestExportZarrToZarr):
 
     def setUp(self):
         os.makedirs("test_dir")
-        self.store_path = [f"test_dir/file{i}.zarr" for i in range(3)]
+        self.store_path = [os.path.join("test_dir", f"file{i}.zarr") for i in range(3)]
         self.manager = get_foo_buildmanager()
 
     def tearDown(self):
