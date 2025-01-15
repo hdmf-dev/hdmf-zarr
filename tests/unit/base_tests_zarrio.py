@@ -345,7 +345,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                 baz_name = "baz%d" % i
                 expected_container = read_container.bazs[baz_name]
                 expected_value = {
-                    "source": "test_io.zarr",
+                    "source": ".",
                     "path": "/bazs/" + baz_name,
                     "object_id": expected_container.object_id,
                     "source_object_id": read_container.object_id,
@@ -664,7 +664,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             "attr1": {
                 "zarr_dtype": "object",
                 "value": {
-                    "source": "test_io.zarr",
+                    "source": ".",
                     "path": "/dataset_1",
                     "object_id": None,
                     "source_object_id": None,
@@ -689,7 +689,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             "attr1": {
                 "zarr_dtype": "object",
                 "value": {
-                    "source": "test_io.zarr",
+                    "source": ".",
                     "path": "/dataset_1",
                     "source_object_id": None,
                     "object_id": None,
@@ -917,7 +917,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         expected_link = {
             "name": "test_softlink",
             "path": "/test_dataset",
-            "source": os.path.abspath(self.store_path),
+            "source": ".",
         }
         self.assertEqual(len(tempf.attrs["zarr_link"]), 1)
         self.assertDictEqual(tempf.attrs["zarr_link"][0], expected_link)
@@ -958,7 +958,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         expected_link = {
             "name": "test_softlink",
             "path": "/test_dataset",
-            "source": os.path.abspath(self.store_path),
+            "source": ".",
         }
         self.assertEqual(len(tempf.attrs["zarr_link"]), 1)
         self.assertDictEqual(tempf.attrs["zarr_link"][0], expected_link)
