@@ -729,12 +729,12 @@ class ZarrIO(HDMFIO):
     @staticmethod
     def get_zarr_parent_path(zarr_object):
         """
-        Get the absolute path to the parent of a zarr_object from the root of the Zarr file
+        Get the absolute Unix path to the parent of a zarr_object from the root of the Zarr file
         :param zarr_object: Object for which we are looking up the path
         :type zarr_object: Zarr Group or Array
         :return: String with the path
         """
-        parent_path = "/" + os.path.dirname(zarr_object.path)
+        parent_path = "/" + os.path.dirname(zarr_object.path).replace("\\", "/")
         return parent_path
 
     def __is_ref(self, dtype):
