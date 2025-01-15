@@ -10,6 +10,7 @@ classes will then be run here with all different backends so that we don't
 need to implement the tests separately for the different backends.
 """
 
+from unittest import TestCase
 from tests.unit.base_tests_zarrio import (
     BaseTestZarrWriter,
     ZarrStoreTestCase,
@@ -17,19 +18,17 @@ from tests.unit.base_tests_zarrio import (
     BaseTestExportZarrToZarr,
 )
 from zarr.storage import DirectoryStore, NestedDirectoryStore
-from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager
+from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
+from hdmf.build import DatasetBuilder
 from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
 import shutil
 import warnings
 import pathlib
-
-
-CUR_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 ######################################################
@@ -66,6 +65,50 @@ class TestExportZarrToZarrDefaultStore(BaseTestExportZarrToZarr):
     """
 
     pass
+
+
+#####################################################################
+#  Default storage backend using just a string path to a subdirectory
+#####################################################################
+
+
+class TestZarrWriterSubdirectory(BaseTestZarrWriter):
+    """Test writing of builder with Zarr using a custom DirectoryStore"""
+
+    def setUp(self):
+        os.makedirs("test_dir")
+        self.store_path = "test_dir/test_io.zarr"
+        self.manager = get_foo_buildmanager()
+
+    def tearDown(self):
+        if os.path.exists("test_dir"):
+            shutil.rmtree("test_dir")
+
+
+class TestZarrWriteUnitSubdirectory(BaseTestZarrWriteUnit):
+    """Unit test for individual write functions using a custom DirectoryStore"""
+
+    def setUp(self):
+        os.makedirs("test_dir")
+        self.store_path = "test_dir/test_io.zarr"
+        self.manager = get_foo_buildmanager()
+
+    def tearDown(self):
+        if os.path.exists("test_dir"):
+            shutil.rmtree("test_dir")
+
+
+class TestExportZarrToZarrSubdirectory(BaseTestExportZarrToZarr):
+    """Test exporting Zarr to Zarr using DirectoryStore"""
+
+    def setUp(self):
+        os.makedirs("test_dir")
+        self.store_path = "test_dir/test_io.zarr"
+        self.manager = get_foo_buildmanager()
+
+    def tearDown(self):
+        if os.path.exists("test_dir"):
+            shutil.rmtree("test_dir")
 
 
 #########################################
@@ -249,7 +292,7 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
             self.assertEqual(file.bar_datas[0].data.attrs["_ARRAY_DIMENSIONS"], ["a", "b"])
 
 
-class TestDatasetofReferences(ZarrStoreTestCase):
+class TestDatasetOfReferences(TestCase):
     def setUp(self):
         self.store_path = "test_io.zarr"
         self.store = DirectoryStore(self.store_path)
