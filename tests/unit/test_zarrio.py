@@ -22,7 +22,6 @@ from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
-from hdmf.build import DatasetBuilder
 from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
