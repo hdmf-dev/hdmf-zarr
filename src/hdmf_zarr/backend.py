@@ -737,19 +737,6 @@ class ZarrIO(HDMFIO):
         parent_path = "/" + os.path.dirname(zarr_object.path)
         return parent_path
 
-    @staticmethod
-    def is_zarr_file(path):
-        """
-        Check if the given path defines a Zarr file
-        :param path: Full path to main directory
-        :return: Bool
-        """
-        if os.path.exists(path):
-            if os.path.isdir(path):
-                if os.path.exists(os.path.join(path, ".zgroup")):
-                    return True
-        return False
-
     def __is_ref(self, dtype):
         if isinstance(dtype, DtypeSpec):
             return self.__is_ref(dtype.dtype)
