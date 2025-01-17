@@ -27,8 +27,7 @@ jobs:
         run: |
           git clone https://github.com/hdmf-dev/hdmf.git --recurse-submodules
           cd hdmf
-          python -m pip install -r requirements-dev.txt -r requirements.txt
-          python -m pip install .
+          python -m pip install ".[test]"
           cd ..
 
       - name: Run HDMF_Zarr Tests
