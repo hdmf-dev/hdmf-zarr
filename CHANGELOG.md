@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## [Unreleased]
+## 0.11.0 January 17, 2025
 
 ### Changed
 * Adopted changelog format conventions: https://keepachangelog.com/en/1.0.0/ . @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
