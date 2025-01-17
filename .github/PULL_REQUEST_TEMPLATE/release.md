@@ -4,7 +4,7 @@ Prepare for release of HDMF-Zarr [version]
 - [ ] Make sure all PRs to be included in this release have been merged to `dev`.
 - [ ] Major and minor releases: Update dependency ranges in `pyproject.toml` and minimums in 
   `requirements-min.txt` as needed.
-- [ ] Check legal file dates and information in `Legal.txt`, `license.txt`, `README.rst`, `docs/source/conf.py`,
+- [ ] Check legal file dates and information in `License.txt`, `README.rst`, `docs/source/conf.py`,
   and any other locations as needed
 - [ ] Update `pyproject.toml` as needed
 - [ ] Update `README.rst` as needed
