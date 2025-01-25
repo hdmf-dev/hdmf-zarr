@@ -54,8 +54,9 @@ test = [
     "pre-commit",
     "pytest",
     "pytest-cov",
-    "python-dateutil",
+    "python-dateutil",  # used in some tests
     "ruff",
+    "scipy",  # used in some tests
     "tox",
 ]
 
