@@ -63,6 +63,7 @@ test = [
 # documentation dependencies
 docs = [
     "matplotlib",
+    "scipy",  # used in some docs
     "sphinx>=4",  # improved support for docutils>=0.17
     "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
     "sphinx-gallery",
