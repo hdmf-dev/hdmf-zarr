@@ -1,6 +1,11 @@
 # HDMF-ZARR Changelog
 
-## 0.11.0 January 17, 2025
+## [Upcoming]
+
+### Changed
+* Added scipy to optional dependencies to be compatible with HDMF 4.0. @rly [#261](https://github.com/hdmf-dev/hdmf-zarr/pull/261)
+
+## 0.11.0 (January 17, 2025)
 
 ### Changed
 * Adopted changelog format conventions: https://keepachangelog.com/en/1.0.0/ . @rly [#254](https://github.com/hdmf-dev/hdmf-zarr/pull/254)
