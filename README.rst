@@ -14,11 +14,15 @@ Support for Zarr v3 is planned. You can track progress of the support in https:/
 Documentation Status
 --------------------
 
-Latest release: .. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=stable
+Latest release: 
+
+.. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=stable
      :target: https://hdmf-zarr.readthedocs.io/en/stable/?badge=stable
      :alt: Documentation status for latest release
 
-Dev branch: .. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=dev
+Dev branch: 
+
+.. image:: https://readthedocs.org/projects/hdmf-zarr/badge/?version=dev
      :target: https://hdmf-zarr.readthedocs.io/en/dev/?badge=dev
      :alt: Documentation status for dev branch
 
