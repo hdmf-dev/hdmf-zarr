@@ -12,7 +12,7 @@ authors = [
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
 requires-python = ">=3.9"
-license = {text = "BSD"}
+license = "BSD-3-Clause"
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
@@ -29,6 +29,7 @@ classifiers = [
     "Operating System :: Unix",
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
+# make sure to update min-reqs dependencies below when these lower bounds change
 dependencies = [
     "hdmf>=3.14.5",
     "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
@@ -72,6 +73,18 @@ docs = [
 
 # all possible dependencies
 all = ["hdmf-zarr[full,test,docs]"]
+
+# minimum requirements of project dependencies for testing (see .github/workflows/run_all_tests.yml)
+min-reqs = [
+    "h5py==3.1.0",
+    "jsonschema==3.2.0",
+    "numpy==1.19.3",
+    "pandas==1.2.0",
+    "ruamel.yaml==0.16.0",
+    "scipy==1.7.0",
+    "tqdm==4.41.0",
+    "zarr==2.12.0",
+]
 
 
 [project.urls]
@@ -118,7 +131,7 @@ include = '\.pyi?$'
 force-exclude = 'docs/*'
 
 [tool.ruff]
-lint.select = ["E", "F", "T100", "T201", "T203"]
+lint.select = ["E", "F", "T100", "T201", "T203", "C901"]
 exclude = [
   ".git",
   ".tox",
