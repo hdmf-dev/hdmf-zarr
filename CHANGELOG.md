@@ -4,6 +4,7 @@
 
 ### Changed
 * Added scipy to optional dependencies to be compatible with HDMF 4.0. @rly [#261](https://github.com/hdmf-dev/hdmf-zarr/pull/261)
+* Added warning in NWBZarrIO if writing file name that does not end in ".nwb.zarr". @stephprince [#265](https://github.com/hdmf-dev/hdmf-zarr/pull/265)
 
 ## 0.11.0 (January 17, 2025)
 
