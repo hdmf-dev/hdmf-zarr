@@ -1,5 +1,6 @@
 """Module with Zarr backend for NWB for integration with PyNWB"""
 
+import warnings
 from pathlib import Path
 from .backend import ZarrIO, SUPPORTED_ZARR_STORES
 
@@ -41,6 +42,10 @@ class NWBZarrIO(ZarrIO):
         io_modes_that_create_file = ["w", "w-", "x"]
         if mode in io_modes_that_create_file or manager is not None or extensions is not None:
             load_namespaces = False
+
+        if mode in io_modes_that_create_file and not str(path).endswith('.nwb.zarr'):
+            warnings.warn(f"The file path provided: {path} does not end in '.nwb.zarr'. "
+                           "It is recommended that NWB files using the Zarr backend use the '.nwb.zarr' extension", UserWarning)
 
         if load_namespaces:
             tm = get_type_map()
