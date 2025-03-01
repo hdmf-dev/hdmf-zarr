@@ -9,16 +9,15 @@ jobs:
     name: Deploy release from tag
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo with submodules
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
-          fetch-depth: 0  # tags are required for versioneer to determine the version
+          fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install build dependencies
         run: |
@@ -28,11 +27,11 @@ jobs:
 
       - name: Run tox tests
         run: |
-          tox -e py312-upgraded
+          tox -e py313
 
       - name: Build wheel and source distribution
         run: |
-          tox -e build-py312-upgraded
+          tox -e build
           ls -1 dist
 
       - name: Test installation from a wheel

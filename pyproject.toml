@@ -7,20 +7,21 @@ name = "hdmf_zarr"
 authors = [
   { name="Oliver Ruebel", email="oruebel@lbl.gov" },
   { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
+  { name="Ryan Ly", email="rly@lbl.gov" },
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "BSD"}
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: BSD License",
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: Microsoft :: Windows",
@@ -29,19 +30,49 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
-    'hdmf>=3.14.3',
-    'zarr>=2.11.0, <3.0', # pin below 3.0 until HDMF-zarr supports zarr 3.0
-    'numpy>=1.24',
-    'numcodecs>=0.9.1',
-    'pynwb>=2.5.0',
-    'threadpoolctl>=3.1.0',
+    "hdmf>=3.14.5",
+    "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
+    "numpy>=1.24.0",
+    "numcodecs>=0.10.0",
+    "pynwb>=2.8.3",
+    "threadpoolctl>=3.1.0",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-tqdm = ["tqdm>=4.41.0"]
-fsspec = ["fsspec"]
-s3fs = ["s3fs"]
+# all optional dependencies
+full = [
+    "tqdm>=4.41.0",
+    "fsspec",
+    "s3fs",
+]
+
+# development dependencies
+test = [
+    "codespell",
+    "hdf5plugin",  # hdf5plugin is used to test conversion of plugin filters
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "python-dateutil",  # used in some tests
+    "ruff",
+    "scipy",  # used in some tests
+    "tox",
+]
+
+# documentation dependencies
+docs = [
+    "matplotlib",
+    "scipy",  # used in some docs
+    "sphinx>=4",  # improved support for docutils>=0.17
+    "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
+    "sphinx-gallery",
+    "sphinx-copybutton",
+]
+
+# all possible dependencies
+all = ["hdmf-zarr[full,test,docs]"]
+
 
 [project.urls]
 "Homepage" = "https://github.com/hdmf-dev/hdmf-zarr"
@@ -82,31 +113,9 @@ omit = [
 
 [tool.black]
 line-length = 120
-target-version = ['py38']
+target-version = ['py313']
 include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.toml
-  |\.yml
-  |\.txt
-  |\.sh
-  |\.git
-  |\.ini
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-force-exclude = '''
-/(
-   /*.txt
-   /docs
-   /docs/*
-)\
-'''
+force-exclude = 'docs/*'
 
 [tool.ruff]
 lint.select = ["E", "F", "T100", "T201", "T203"]
@@ -123,9 +132,8 @@ exclude = [
 ]
 line-length = 120
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "docs/gallery/*" = ["E402", "T201"]
-"src/*/__init__.py" = ["F401"]
 "test_gallery.py" = ["T201"]
 
 [tool.ruff.lint.mccabe]

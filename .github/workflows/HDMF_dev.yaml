@@ -5,38 +5,33 @@ on: [pull_request, workflow_dispatch]
 jobs:
   check_compatibility:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-          
-      - uses: actions/checkout@v4
-        with:
-            fetch-depth: 0  # tags are required for versioneer to determine the version
+          fetch-depth: 0  # tags are required to determine the version
       
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install HDMF_Zarr Requirements
         run: |
-          python -m pip install -r requirements-dev.txt -r requirements.txt
-          pip install .
+          python -m pip install ".[test]"
           
-      - name: Clone HDMF Dev Branch
+      - name: Clone and Install HDMF Dev Branch
         run: |
           git clone https://github.com/hdmf-dev/hdmf.git --recurse-submodules
           cd hdmf
-          python -m pip install -r requirements-dev.txt -r requirements.txt
-          python -m pip install .
+          python -m pip install ".[test]"
           cd ..
 
       - name: Run HDMF_Zarr Tests
         run:
+          # specify the tests directory so that we don't run the hdmf tests which are nested
+          # under the same base directory
           pytest -v tests
-          
-      
-          

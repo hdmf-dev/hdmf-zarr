@@ -42,7 +42,7 @@ autodoc_member_order = 'bysource'
 # -- Project information -----------------------------------------------------
 
 project = 'hdmf_zarr'
-copyright = '2017-2024, Oliver Ruebel'
+copyright = '2017-2025, Oliver Ruebel'
 author = 'Oliver Ruebel, Matthew Avaylon'
 
 # The short X.Y version.
@@ -83,14 +83,14 @@ intersphinx_mapping = {
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'hdmf': ('https://hdmf.readthedocs.io/en/stable/', None),
     'pynwb': ('https://pynwb.readthedocs.io/en/stable/', None),
-    'zarr': ('https://zarr.readthedocs.io/en/stable/', None)
+    'zarr': ('https://zarr.readthedocs.io/en/v2.18.4/', None)
 }
 
 # Use this for mapping to external links
 extlinks = {
     'pynwb-docs': ('https://pynwb.readthedocs.io/en/stable/%s', '%s'),
     'hdmf-docs': ('https://hdmf.readthedocs.io/en/stable/%s', '%s'),
-    'zarr-docs': ('https://zarr.readthedocs.io/en/stable/%s', '%s')
+    'zarr-docs': ('https://zarr.readthedocs.io/en/v2.18.4/%s', '%s')
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -116,11 +116,9 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 html_theme_options = {
     'logo_only': False,  # Only show the hdmf-zarr logo without the documentation title
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',  # Show previous/next button at the bottom
     'style_external_links': True,  # Add marker to indicate external links
     'vcs_pageview_mode': '',

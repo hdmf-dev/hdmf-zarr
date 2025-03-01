@@ -14,7 +14,7 @@ back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and u
 # -----
 #
 # Here we use a small NWB file from the DANDI neurophysiology data archive from
-# `DANDIset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_ as an example.
+# `Dandiset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_ as an example.
 # To download the file directly from DANDI we can use:
 #
 # .. code-block:: python
@@ -29,7 +29,7 @@ back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and u
 #        filename = os.path.basename(asset.path)
 #    asset.download(filename)
 #
-# We here use a local copy of a small file from this DANDIset as an example:
+# We here use a local copy of a small file from this Dandiset as an example:
 
 
 # sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_convert_nwb.png'

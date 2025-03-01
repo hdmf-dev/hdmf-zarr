@@ -8,26 +8,22 @@ on:
 jobs:
   check-external-links:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
-      - name: Cancel non-latest runs
-        uses: styfle/cancel-workflow-action@0.11.0
-        with:
-          all_but_latest: true
-          access_token: ${{ github.token }}
-
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install Sphinx dependencies and package
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-doc.txt -r requirements.txt -r requirements-opt.txt
-          python -m pip install .
+          python -m pip install ".[test,docs,full]"
+
       - name: Check Sphinx external links
-        run: sphinx-build -b linkcheck ./docs/source ./test_build
+        run: sphinx-build -W -b linkcheck ./docs/source ./test_build
