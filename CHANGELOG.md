@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## [Upcoming]
+## 0.11.1 (April 8, 2025)
 
 ### Changed
 * Added scipy to optional dependencies to be compatible with HDMF 4.0. @rly [#261](https://github.com/hdmf-dev/hdmf-zarr/pull/261)
