@@ -10,7 +10,7 @@ Install hdmf-zarr from PyPI
 .. code-block::
 
     pip install hdmf-zarr
-    
+
 Install hdmf-zarr from conda-forge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -36,8 +36,7 @@ often useful to use the ``dev`` branch of the ``hdmf`` GitHub repository.
 
     git clone --recurse-submodules https://github.com/hdmf-dev/hdmf.git
     cd hdmf
-    pip install -r requirements.txt -r requirements-dev.txt -r requirements-doc.txt -r requirements-opt.txt
-    pip install -e .
+    pip install -e ".[all]"
     cd ..
 
     git clone https://github.com/hdmf-dev/hdmf-zarr.git
@@ -50,6 +49,3 @@ often useful to use the ``dev`` branch of the ``hdmf`` GitHub repository.
    install HDMF directly from PyPI instead of using the development version of HDMF
    that is already installed. In that case call ``pip uninstall hdmf`` and
    go to the ``hdmf`` directory and run ``pip install -e .`` again
-
-
-
