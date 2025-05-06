@@ -253,6 +253,7 @@ class ZarrIO(HDMFIO):
             "name": "path",
             "type": (str, Path, *SUPPORTED_ZARR_STORES),
             "doc": "the path to the Zarr file or a supported Zarr store",
+            "default": None,
         },
         {
             "name": "storage_options",
@@ -260,14 +261,38 @@ class ZarrIO(HDMFIO):
             "doc": "Zarr storage options to read remote folders",
             "default": None,
         },
-        {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        {
+            "name": "namespaces",
+            "type": list,
+            "doc": "the namespaces to load",
+            "default": None},
+        {
+            "name": "file",
+            "type": (zarr.hierarchy.Group, zarr.core.Array),
+            "doc": "the Zarr file to load cached namespaces from",
+            "default": None,
+        },
     )
-    def load_namespaces(cls, namespace_catalog, path, storage_options, namespaces=None):
+    def load_namespaces(cls, namespace_catalog, path=None, storage_options=None, namespaces=None, file=None):
         """
         Load cached namespaces from a file.
         """
-        # TODO: how to use storage_options here?
-        f = zarr.open(path, mode="r", storage_options=storage_options)
+        if path is None and file is None:
+            raise ValueError("Either the 'path' or 'file' argument must be supplied.")
+
+        if path is not None and file is not None:
+            file_path = cls.__get_store_path(file.store)
+            if os.path.abspath(file_path) != os.path.abspath(path):
+                msg = (f"You provided {path} as this object's path, "
+                       f"but supplied a file with filename: {file_path}")
+                raise ValueError(msg)
+
+        if path is None:
+            f = file
+        else:
+            # TODO: how to use storage_options here?
+            f = zarr.open(path, mode="r", storage_options=storage_options)
+
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % path
             warnings.warn(msg)
