@@ -13,7 +13,7 @@ import warnings
 # Try to import Zarr and disable tests if Zarr is not available
 import zarr
 from hdmf_zarr.backend import ZarrIO
-from hdmf_zarr.utils import ZarrDataIO, ZarrReference, ZarrSpecReader
+from hdmf_zarr.utils import ZarrDataIO, ZarrReference
 from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager
 
 # Try to import numcodecs and disable compression tests if it is not available
