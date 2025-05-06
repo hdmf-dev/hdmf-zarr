@@ -18,6 +18,7 @@ import numcodecs
 import zarr
 import numpy as np
 from zarr.hierarchy import Group
+from zarr.storage import ConsolidatedMetadataStore
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -381,7 +382,13 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        source = "%s:%s" % (os.path.abspath(self.__group.store.path), self.__group.name)
+
+        if isinstance(self.__group.store, ConsolidatedMetadataStore):
+            path = self.__group.store.store.path
+        else:
+            path = self.__group.store.path
+
+        source = "%s:%s" % (os.path.abspath(path), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 
