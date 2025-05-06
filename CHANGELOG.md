@@ -1,13 +1,15 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Bug Fixes
+* Fix saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
+
 ## 0.11.1 (April 8, 2025)
 
 ### Changed
 * Added scipy to optional dependencies to be compatible with HDMF 4.0. @rly [#261](https://github.com/hdmf-dev/hdmf-zarr/pull/261)
 * Restricted numcodecs dependency to <0.16 due to incompatibility with the latest zarr<3 version. @rly [#270](https://github.com/hdmf-dev/hdmf-zarr/pull/270)
-
-### Bug Fixes
-* Fix saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
 
 ## 0.11.0 (January 17, 2025)
 
