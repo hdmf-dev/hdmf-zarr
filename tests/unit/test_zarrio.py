@@ -18,12 +18,15 @@ from tests.unit.base_tests_zarrio import (
     BaseTestExportZarrToZarr,
 )
 from zarr.storage import DirectoryStore, NestedDirectoryStore
-from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
+from tests.unit.utils import (Baz, BazData, BazBucket, Foo, FooBucket, FooFile, get_baz_buildmanager, 
+                              get_foo_buildmanager)
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
 from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
+from hdmf.spec.namespace import NamespaceCatalog
+
 import os
 import shutil
 import warnings
@@ -335,3 +338,64 @@ class TestDatasetOfReferences(TestCase):
             read_container = append_io.read()
             self.assertEqual(len(read_container.baz_data.data), 11)
             self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
+
+class TestLoadNamespaces(ZarrStoreTestCase):
+    """
+    Tests for load namespaces ZarrIO methods.
+    """
+    def create_zarr(self, consolidate_metadata=True):
+        tempIO = ZarrIO(self.store_path, manager=get_foo_buildmanager(), mode="w")
+
+        # Setup all the data we need
+        foo1 = Foo("foo1", [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+        foo2 = Foo("foo2", [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+        foobucket = FooBucket("test_bucket", [foo1, foo2])
+        foofile = FooFile(buckets=[foobucket])
+
+        # Write the first file
+        tempIO.write(foofile, 
+                     cache_spec=True, 
+                     consolidate_metadata=consolidate_metadata,)
+
+    def test_load_namespaces_with_file(self):
+        """Test loading namespaces using only the file parameter."""
+        # Load the spec using the file parameter and assert that it is valid
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as readIO:
+            ns_catalog = NamespaceCatalog()
+            ZarrIO.load_namespaces(ns_catalog, file=readIO.file)
+            self.assertEqual(ns_catalog.namespaces, ("test_core",))
+        
+    def test_load_namespaces_with_path_and_file_matching(self):
+        """Test loading namespaces using both path and file parameters that match."""
+        # Load the spec using both path and file parameters and assert that it is valid
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as readIO:
+            ns_catalog = NamespaceCatalog()
+            ZarrIO.load_namespaces(ns_catalog, path=self.store_path, file=readIO.file)
+            self.assertEqual(ns_catalog.namespaces, ("test_core",))
+        
+    def test_load_namespaces_with_path_and_file_not_matching(self):
+        """Test that an error is raised when path and file parameters don't match."""
+        # Try to load the spec using mismatched path and file parameters
+        fake_path = 'test2.zarr'
+
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as readIO:
+            
+            msg = (f"You provided {fake_path} as this object's path, "
+                   f"but supplied a file with filename: {os.path.abspath(self.store_path)}")
+            ns_catalog = NamespaceCatalog()
+            with self.assertRaisesWith(ValueError, msg):
+                readIO.load_namespaces(ns_catalog, path=fake_path, file=readIO.file)
+
+    def test_load_namespaces_with_no_path_and_no_file(self):
+        """Test that an error is raised when path and file parameters don't match."""
+        # Try to load the spec using mismatched path and file parameters
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as readIO:
+
+            msg = "Either the 'path' or 'file' argument must be supplied."
+            ns_catalog = NamespaceCatalog()
+            with self.assertRaisesWith(ValueError, msg):
+                readIO.load_namespaces(ns_catalog)
