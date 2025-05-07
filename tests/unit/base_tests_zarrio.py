@@ -243,6 +243,31 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
         self.assertSetEqual(source_types, read_types)
+    
+    def test_cache_spec_consolidated(self):
+        tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
+
+        # Setup all the data we need
+        foo1 = Foo("foo1", [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+        foo2 = Foo("foo2", [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+        foobucket = FooBucket("test_bucket", [foo1, foo2])
+        foofile = FooFile(buckets=[foobucket])
+
+        # Write the first file
+        tempIO.write(foofile, cache_spec=True, consolidate_metadata=True)
+        tempIO.close()
+
+        # Check that the spec is cached
+        readIO = ZarrIO(self.store_path, manager=self.manager, mode="r")
+        self.assertIn('.specloc', readIO.file.attrs.keys())
+        
+        # Load the spec and assert that it is valid
+        ns_catalog = NamespaceCatalog()
+        ZarrIO.load_namespaces(ns_catalog, self.store_path)
+        self.assertEqual(ns_catalog.namespaces, ("test_core",))
+        source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
+        read_types = CacheSpecTestHelper.get_types(ns_catalog)
+        self.assertSetEqual(source_types, read_types)
 
     def test_write_int(self, test_data=None):
         data = np.arange(100, 200, 10).reshape(2, 5) if test_data is None else test_data

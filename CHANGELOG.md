@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Bug Fixes
+* Fix saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
+
 ## 0.11.1 (April 8, 2025)
 
 ### Changed
