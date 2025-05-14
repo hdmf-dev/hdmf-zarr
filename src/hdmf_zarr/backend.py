@@ -334,7 +334,7 @@ class ZarrIO(HDMFIO):
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
         cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context, consolidate_metadata = popargs(
-            "cache_spec", "number_of_jobs", "max_threads_per_process", "multiprocessing_context", 
+            "cache_spec", "number_of_jobs", "max_threads_per_process", "multiprocessing_context",
             "consolidate_metadata", kwargs
         )
 
@@ -1397,7 +1397,7 @@ class ZarrIO(HDMFIO):
         # standard write
         else:
             try:
-                dset[:] = np.array(data)
+                dset[:] = np.array(data, dtype=dtype)
             # If data is an h5py.Dataset then this will copy the data
             # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
