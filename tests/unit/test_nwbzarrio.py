@@ -4,9 +4,13 @@ import os
 import shutil
 from datetime import datetime
 from dateutil.tz import tzlocal
+import numpy as np
 
 try:
     from pynwb import NWBFile
+    from pynwb.ophys import PlaneSegmentation
+    from pynwb.testing.mock.file import mock_NWBFile
+    from pynwb.testing.mock.ophys import mock_ImagingPlane
 
     PYNWB_AVAILABLE = True
 except ImportError:
@@ -52,3 +56,41 @@ class TestNWBZarrIO(unittest.TestCase):
         nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))
+
+
+@unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")
+class TestNWBZarrIOCompoundDtype(unittest.TestCase):
+    def setUp(self):
+        self.filepath = "test_io.zarr"
+
+    def tearDown(self):
+        if os.path.exists(self.filepath):
+            shutil.rmtree(self.filepath)
+
+    def test_write_dataset_compound_dtype(self):
+        # Create a mock NWB file with pixel_mask PlaneSegmentation
+        nwbfile = mock_NWBFile()
+        n_rois = 10
+        plane_segmentation = PlaneSegmentation(
+            description="no description.",
+            imaging_plane=mock_ImagingPlane(nwbfile=nwbfile),
+            name="PlaneSegmentation",
+        )
+        for _ in range(n_rois):
+            pixel_mask = [(x, x, 1.0) for x in range(10)]
+            plane_segmentation.add_roi(pixel_mask=pixel_mask)
+        if "ophys" not in nwbfile.processing:
+            nwbfile.create_processing_module("ophys", "ophys")
+        nwbfile.processing["ophys"].add(plane_segmentation)
+
+        # write it to disk
+        with NWBZarrIO(self.filepath, "w") as read_io:
+            read_io.write(nwbfile)
+
+        # read it back
+        with NWBZarrIO(self.filepath, "r") as read_io:
+            nwbfile = read_io.read()
+            expected_dtype = np.dtype([('x', '<u4'), ('y', '<u4'), ('weight', '<f4')])
+            actual_dtype = nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data.dtype
+
+            self.assertEqual(actual_dtype.descr, expected_dtype.descr)
