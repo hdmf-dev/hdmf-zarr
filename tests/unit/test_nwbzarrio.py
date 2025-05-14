@@ -57,6 +57,8 @@ class TestNWBZarrIO(unittest.TestCase):
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))
 
+
+@unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")
 class TestNWBZarrIOCompoundDtype(unittest.TestCase):
     def setUp(self):
         self.filepath = "test_io.zarr"
