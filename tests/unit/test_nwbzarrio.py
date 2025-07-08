@@ -141,7 +141,9 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
             exported_nwbfile = export_read_io.read()
             
             # Check that the exported data still has the correct shape
-            exported_pixel_mask_data = exported_nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data
+            exported_pixel_mask_data = (
+                exported_nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data
+            )
             self.assertEqual(exported_pixel_mask_data.shape, (15,))  # Still 15 records, not (15, 3)
             
             # Check that the data is still correct
@@ -154,7 +156,9 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
             double_export_path = self.filepath + "_double_exported"
             with NWBZarrIO(double_export_path, "w") as double_export_io:
                 exported_nwbfile.set_modified()
-                double_export_io.export(nwbfile=exported_nwbfile, src_io=export_read_io, write_args=dict(link_data=False))
+                double_export_io.export(
+                    nwbfile=exported_nwbfile, src_io=export_read_io, write_args=dict(link_data=False)
+                )
 
         # Clean up additional files
         if os.path.exists(export_path):
