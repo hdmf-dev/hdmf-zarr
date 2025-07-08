@@ -1356,7 +1356,6 @@ class ZarrIO(HDMFIO):
             data_shape = (len(data),)
             # if we have a compound data type
             if dtype.names:
-                data_shape = get_data_shape(data)
                 # If strings are part of our compound type then we need to use Object type instead
                 # otherwise we try to keep the native compound datatype that numpy is using
                 for substype in dtype.fields.items():
