@@ -5,6 +5,7 @@
 ### Bug Fixes
 * Fix saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
 * Correctly write a compound dataset. @mavaylon1 [276](https://github.com/hdmf-dev/hdmf-zarr/pull/276)
+* Fixed pixel mask data shape expansion bug in __list_fill__ method that was incorrectly duplicating compound data type values during export operations. @pauladkisson [280](https://github.com/hdmf-dev/hdmf-zarr/pull/280)
 
 ## 0.11.1 (April 8, 2025)
 
