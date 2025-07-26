@@ -47,7 +47,7 @@ nwbfile = NWBFile(
 
 # Create a device
 device = nwbfile.create_device(
-    name="array", description="the best array", manufacturer="Probe Company 9000"
+    name="array", description="the best array",
 )
 
 # Add electrodes and electrode groups to the NWB file
