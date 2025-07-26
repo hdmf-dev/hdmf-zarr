@@ -2,8 +2,11 @@
 
 ## Upcoming
 
+### Changed
+* Added `ZarrDataIO.get_io_params`. @rly [#282](https://github.com/hdmf-dev/hdmf-zarr/pull/282)
+
 ### Bug Fixes
-* Fix saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
+* Fixed saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
 * Correctly write a compound dataset. @mavaylon1 [276](https://github.com/hdmf-dev/hdmf-zarr/pull/276)
 * Fixed pixel mask data shape expansion bug in __list_fill__ method that was incorrectly duplicating compound data type values during export operations. @pauladkisson [280](https://github.com/hdmf-dev/hdmf-zarr/pull/280)
 

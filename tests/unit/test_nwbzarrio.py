@@ -41,7 +41,7 @@ class TestNWBZarrIO(unittest.TestCase):
         )
 
         # Create a device
-        nwbfile.create_device(name="array", description="the best array", manufacturer="Probe Company 9000")
+        nwbfile.create_device(name="array", description="the best array")
         with NWBZarrIO(path=self.filepath, mode="w") as io:
             io.write(nwbfile)
 

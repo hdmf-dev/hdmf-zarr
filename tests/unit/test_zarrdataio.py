@@ -12,6 +12,7 @@ import h5py
 import os
 import shutil
 import unittest
+import zarr
 
 import numpy as np
 
@@ -254,3 +255,8 @@ class TestZarrDataIO(TestCase):
         self.assertEqual(re_zarrdataio.io_settings["fill_value"], str("None"))
         # Close the HDF5 file
         h5file.close()
+
+    def test_zarr_data_io_get_io_params(self):
+        z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype='int32')
+        io = ZarrDataIO(z, link_data=True)
+        assert io.get_io_params().get("link_data")

@@ -494,6 +494,14 @@ class ZarrDataIO(DataIO):
         """Dict with the io settings to use"""
         return self.__iosettings
 
+    def get_io_params(self) -> dict:
+        """
+        Returns a dict with the I/O parameters specified in this DataIO.
+        """
+        ret = dict(self.__iosettings)
+        ret['link_data'] = self.__link_data
+        return ret
+
     @staticmethod
     def from_h5py_dataset(h5dataset, **kwargs):
         """
