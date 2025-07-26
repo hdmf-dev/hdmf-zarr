@@ -257,6 +257,6 @@ class TestZarrDataIO(TestCase):
         h5file.close()
 
     def test_zarr_data_io_get_io_params(self):
-        z = zarr.array(shape=(10000, 10000), chunks=(1000, 1000), dtype='int32')
+        z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype='int32')
         io = ZarrDataIO(z, link_data=True)
         assert io.get_io_params().get("link_data")
