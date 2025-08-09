@@ -151,6 +151,8 @@ class ZarrIO(HDMFIO):
         self.__dci_queue = None  # Will be initialized on call to io.write
         # Codec class to be used. Alternates, e.g., =numcodecs.JSON
         self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
+        # Cache for consolidated metadata to avoid repeated opening of the same files
+        self.__consolidated_cache = {}
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
             source_path = self.__path.path
@@ -334,8 +336,12 @@ class ZarrIO(HDMFIO):
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
         cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context, consolidate_metadata = popargs(
-            "cache_spec", "number_of_jobs", "max_threads_per_process", "multiprocessing_context",
-            "consolidate_metadata", kwargs
+            "cache_spec",
+            "number_of_jobs",
+            "max_threads_per_process",
+            "multiprocessing_context",
+            "consolidate_metadata",
+            kwargs,
         )
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
@@ -562,25 +568,44 @@ class ZarrIO(HDMFIO):
     def __open_file_consolidated(self, store, mode, synchronizer=None, storage_options=None):
         """
         This method will check to see if the metadata has been consolidated.
-        If so, use open_consolidated.
+        If so, use open_consolidated. Uses caching to avoid repeated opening of the same files.
         """
         # This check is just a safeguard for possible errors in the future. But this should never happen
         if mode == "r-":
             raise ValueError("Mode r- not allowed for reading with consolidated metadata")
+
+        # Create a cache key based on the store path and parameters
+        if hasattr(store, "path"):
+            store_path = store.path
+        else:
+            store_path = str(store)
+
+        # Create a cache key that includes relevant parameters
+        cache_key = (store_path, mode, str(synchronizer), str(storage_options))
+
+        # Check if we already have this file cached
+        if cache_key in self.__consolidated_cache:
+            return self.__consolidated_cache[cache_key]
+
+        # Open the file and cache the result
         try:
-            return zarr.open_consolidated(
+            zarr_obj = zarr.open_consolidated(
                 store=store,
                 mode=mode,
                 synchronizer=synchronizer,
                 storage_options=storage_options,
             )
         except KeyError:  # A KeyError is raised when the '/.zmetadata' does not exist
-            return zarr.open(
+            zarr_obj = zarr.open(
                 store=store,
                 mode=mode,
                 synchronizer=synchronizer,
                 storage_options=storage_options,
             )
+
+        # Cache the result
+        self.__consolidated_cache[cache_key] = zarr_obj
+        return zarr_obj
 
     @docval(
         {"name": "parent", "type": Group, "doc": "the parent Zarr object"},

@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## 0.11.3 (August 8, 2025)
+
+### Added
+- Cache consolidated metadata in `ZarrIO` to avoid repeated metadata reads, significantly improving performance for datasets with many references. @rly [#290](https://github.com/hdmf-dev/hdmf-zarr/pull/290)
+
+
 ## 0.11.2 (July 28, 2025)
 
 ### Added
@@ -9,6 +15,7 @@
 * Fixed saving of the cached specs in the consolidated metadata. @stephprince [#274](https://github.com/hdmf-dev/hdmf-zarr/pull/274)
 * Fixed writing of compound dtype datasets. @mavaylon1 [#276](https://github.com/hdmf-dev/hdmf-zarr/pull/276)
 * Fixed pixel mask data shape expansion bug in `__list_fill__` method that was incorrectly duplicating compound data type values during export operations. @pauladkisson [#280](https://github.com/hdmf-dev/hdmf-zarr/pull/280)
+
 
 ## 0.11.1 (April 8, 2025)
 
@@ -25,6 +32,7 @@
 * Clarified docs and updated links to say that only Zarr v2 is currently supported. @rly [#257](https://github.com/hdmf-dev/hdmf-zarr/pull/257)
 * Removed `ZarrIO.get_zarr_parent_path` and `ZarrIO.is_zarr_file` methods. @rly [#256](https://github.com/hdmf-dev/hdmf-zarr/pull/256)
 * Fixed bug in how links and references are stored in the Zarr file. They are now written as relative paths from the Zarr file, using "." to indicate the current file. This is how hdmf-zarr wrote internal links and references pre-0.10.0. @rly [#256](https://github.com/hdmf-dev/hdmf-zarr/pull/256)
+
 
 ## 0.10.0 (December 18, 2024)
 
