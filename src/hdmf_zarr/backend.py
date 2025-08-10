@@ -575,10 +575,7 @@ class ZarrIO(HDMFIO):
             raise ValueError("Mode r- not allowed for reading with consolidated metadata")
 
         # Create a cache key based on the store path and parameters
-        if hasattr(store, "path"):
-            store_path = store.path
-        else:
-            store_path = str(store)
+        store_path = getattr(store, "path", str(store))
 
         # Create a cache key that includes relevant parameters
         cache_key = (store_path, mode, str(synchronizer), str(storage_options))
