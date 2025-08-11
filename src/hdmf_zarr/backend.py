@@ -159,15 +159,6 @@ class ZarrIO(HDMFIO):
         super().__init__(manager, source=source_path)
 
     @property
-    def file(self):
-        """
-        The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
-        May be None in case open has not been called yet, e.g., if no data has been
-        read or written yet via this instance.
-        """
-        return self.__file
-
-    @property
     def _file(self):
         """
         The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
@@ -248,7 +239,7 @@ class ZarrIO(HDMFIO):
         """Return True if the file is remote, False otherwise"""
         from zarr.storage import FSStore
 
-        if isinstance(self.file.store, FSStore):
+        if isinstance(self.__file.store, FSStore):
             return True
         else:
             return False
