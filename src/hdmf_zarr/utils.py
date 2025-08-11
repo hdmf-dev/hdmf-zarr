@@ -381,7 +381,11 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        source = "%s:%s" % (os.path.abspath(self.__group.store.path), self.__group.name)
+        if isinstance(self.__group.store, zarr.storage.ConsolidatedMetadataStore):
+            fpath = self.__group.store.store.path
+        else:
+            fpath = self.__group.store.path
+        source = "%s:%s" % (os.path.abspath(fpath), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 
@@ -499,7 +503,7 @@ class ZarrDataIO(DataIO):
         Returns a dict with the I/O parameters specified in this DataIO.
         """
         ret = dict(self.__iosettings)
-        ret['link_data'] = self.__link_data
+        ret["link_data"] = self.__link_data
         return ret
 
     @staticmethod

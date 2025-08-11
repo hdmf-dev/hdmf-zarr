@@ -18,11 +18,11 @@ from tests.unit.base_tests_zarrio import (
     BaseTestExportZarrToZarr,
 )
 from zarr.storage import DirectoryStore, NestedDirectoryStore
-from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
+from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
-from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
+from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
 import shutil
