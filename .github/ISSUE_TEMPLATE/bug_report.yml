@@ -53,11 +53,12 @@ body:
     attributes:
       label: Python Version
       options:
+        - "3.14"
         - "3.13"
         - "3.12"
         - "3.11"
         - "3.10"
-        - "3.9"
+        - older (please specify in "Package Versions" below)
     validations:
       required: true
   - type: textarea
