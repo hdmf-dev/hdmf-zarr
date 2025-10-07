@@ -316,7 +316,7 @@ class ZarrIO(HDMFIO):
         cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
     ) -> dict:
         if SPEC_LOC_ATTR not in f.attrs:
-            msg = "No cached namespaces found in %s" % f.store.path
+            msg = "No cached namespaces found in %s" % cls.__get_store_path(f.store)
             warnings.warn(msg)
             return {}
 
