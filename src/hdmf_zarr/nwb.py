@@ -44,7 +44,7 @@ class NWBZarrIO(ZarrIO):
 
         if load_namespaces:
             tm = get_type_map()
-            super().load_namespaces(tm, path, storage_options)
+            super().load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
             manager = BuildManager(tm)
         else:
             if manager is not None and extensions is not None:

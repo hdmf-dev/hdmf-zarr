@@ -160,7 +160,7 @@ class ZarrIO(HDMFIO):
         super().__init__(manager, source=source_path)
 
     @property
-    def file(self):
+    def _file(self):
         """
         The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
         May be None in case open has not been called yet, e.g., if no data has been
@@ -240,7 +240,7 @@ class ZarrIO(HDMFIO):
         """Return True if the file is remote, False otherwise"""
         from zarr.storage import FSStore
 
-        if isinstance(self.file.store, FSStore):
+        if isinstance(self.__file.store, FSStore):
             return True
         else:
             return False
@@ -256,6 +256,13 @@ class ZarrIO(HDMFIO):
             "name": "path",
             "type": (str, Path, *SUPPORTED_ZARR_STORES),
             "doc": "the path to the Zarr file or a supported Zarr store",
+            "default": None,
+        },
+        {
+            "name": "file",
+            "type": zarr.Group,
+            "doc": "An already opened Zarr group",
+            "default": None,
         },
         {
             "name": "storage_options",
@@ -270,12 +277,18 @@ class ZarrIO(HDMFIO):
         ),
         rtype=dict,
     )
-    def load_namespaces(cls, namespace_catalog, path, storage_options, namespaces=None) -> dict:
+    def load_namespaces(cls, namespace_catalog, path, file, storage_options, namespaces=None) -> dict:
         """
         Load cached namespaces from a file.
         """
-        # TODO: how to use storage_options here?
-        f = zarr.open(path, mode="r", storage_options=storage_options)
+        if path is not None and file is not None:
+            raise ValueError("Only one of 'path' and 'file' must be provided.")
+
+        if path is not None:
+            # TODO: how to use storage_options here?
+            f = zarr.open(path, mode="r", storage_options=storage_options)
+        else:
+            f = file
         return cls.__load_namespaces(namespace_catalog, namespaces, f)
 
     @docval(
