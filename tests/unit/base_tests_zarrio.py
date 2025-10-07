@@ -243,7 +243,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
         self.assertSetEqual(source_types, read_types)
-    
+
     def test_cache_spec_consolidated(self):
         tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
 
@@ -259,8 +259,8 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
         # Check that the spec is cached
         readIO = ZarrIO(self.store_path, manager=self.manager, mode="r")
-        self.assertIn('.specloc', readIO.file.attrs.keys())
-        
+        self.assertIn(".specloc", readIO._file.attrs.keys())
+
         # Load the spec and assert that it is valid
         ns_catalog = NamespaceCatalog()
         ZarrIO.load_namespaces(ns_catalog, self.store_path)
@@ -377,7 +377,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                 }
                 # Read the dict with the definition of the reference from the raw Zarr file and compare
                 # to also check that reference (included object id's) are defined correctly
-                self.assertDictEqual(reader.file["baz_data"][i], expected_value)
+                self.assertDictEqual(reader._file["baz_data"][i], expected_value)
                 # Also test using the low-level reference functions
                 zarr_ref = ZarrReference(**expected_value)
                 # Check the ZarrReference first
@@ -569,7 +569,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset_builder = DatasetBuilder("test_dataset", 10, attributes={})
         tempIO = ZarrIO(self.store_path, mode="w")
         self.assertFalse(tempIO.get_builder_exists_on_disk(builder=dset_builder))  # Make sure is False is before write
-        tempIO.write_dataset(tempIO.file, dset_builder)
+        tempIO.write_dataset(tempIO._file, dset_builder)
         self.assertTrue(tempIO.get_builder_exists_on_disk(builder=dset_builder))  # Make sure is True after write
         tempIO.close()
 
@@ -578,7 +578,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         dset_builder = DatasetBuilder("test_dataset", 10, attributes={})
         self.assertFalse(tempIO.get_written(dset_builder))  # Make sure False is returned before write
-        tempIO.write_dataset(tempIO.file, dset_builder)
+        tempIO.write_dataset(tempIO._file, dset_builder)
         self.assertTrue(tempIO.get_written(dset_builder))  # Make sure True is returned after write
         self.assertTrue(tempIO.get_written(dset_builder, check_on_disk=True))  # Make sure its also on disk
         # Now delete it from disk and check again.
@@ -606,7 +606,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         # write the attribute
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        testgroup = tempIO.file  # For testing we just use our file and create some attributes
+        testgroup = tempIO._file  # For testing we just use our file and create some attributes
         attr = {name: value}
         tempIO.write_attributes(testgroup, attr)
         # read the attribute
@@ -684,7 +684,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         with self.assertWarnsWith(
             UserWarning, "Could not determine source_object_id for builder with path: /dataset_1"
         ):
-            tempIO.write_attributes(obj=tempIO.file, attributes=attr)
+            tempIO.write_attributes(obj=tempIO._file, attributes=attr)
         expected_value = {
             "attr1": {
                 "zarr_dtype": "object",
@@ -696,7 +696,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                 },
             }
         }
-        self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
+        self.assertDictEqual(tempIO._file.attrs.asdict(), expected_value)
         tempIO.close()
 
     def test_write_attributes_write_reference_to_referencebuilder(self):
@@ -709,7 +709,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         with self.assertWarnsWith(
             UserWarning, "Could not determine source_object_id for builder with path: /dataset_1"
         ):
-            tempIO.write_attributes(obj=tempIO.file, attributes=attr)
+            tempIO.write_attributes(obj=tempIO._file, attributes=attr)
         expected_value = {
             "attr1": {
                 "zarr_dtype": "object",
@@ -721,7 +721,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                 },
             }
         }
-        self.assertDictEqual(tempIO.file.attrs.asdict(), expected_value)
+        self.assertDictEqual(tempIO._file.attrs.asdict(), expected_value)
         tempIO.close()
 
     ##########################################
@@ -731,8 +731,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = 10
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTupleEqual(dset.shape, (1,))
         self.assertEqual(dset[()], a)
         tempIO.close()
@@ -741,8 +741,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = "test string"
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTupleEqual(dset.shape, (1,))
         self.assertEqual(dset[()], a)
         tempIO.close()
@@ -754,8 +754,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = np.arange(30).reshape(5, 2, 3)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a.tolist(), attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a.tolist(), attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a))
         tempIO.close()
 
@@ -763,8 +763,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), chunks=(1, 1, 3))
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertEqual(dset.chunks, (1, 1, 3))
         tempIO.close()
@@ -773,8 +773,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = ZarrDataIO(np.arange(20).reshape(5, 4), fillvalue=-1)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertEqual(dset.fill_value, -1)
         tempIO.close()
@@ -785,8 +785,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertTrue(dset.compressor == compressor)
         tempIO.close()
@@ -798,8 +798,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = ZarrDataIO(np.arange(30, dtype="i4").reshape(5, 2, 3), compressor=compressor, filters=filters)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", a, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertTrue(dset.compressor == compressor)
         self.assertListEqual(dset.filters, filters)
@@ -811,8 +811,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_dataset_iterable(self):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", range(10), attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", range(10), attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), list(range(10)))
         tempIO.close()
 
@@ -830,8 +830,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         ]
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", data, attributes={}, dtype=dt))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", data, attributes={}, dtype=dt))
+        dset = tempIO._file["test_dataset"]
         self.assertEqual(dset["a"].tolist(), data["a"].tolist())
         self.assertEqual(dset["b"].tolist(), data["b"].tolist())
         tempIO.close()
@@ -853,8 +853,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         ]
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", data, attributes={}, dtype=dt))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", data, attributes={}, dtype=dt))
+        dset = tempIO._file["test_dataset"]
         # Test that all elements match. dset return np.void types so we just compare strings for simplicity
         for i in range(10):
             self.assertEqual(str(dset[i]), str(data[i]))
@@ -869,8 +869,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         daiter = DataChunkIterator.from_iterable(aiter, buffer_size=2)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(parent=tempIO.file, builder=DatasetBuilder("test_dataset", daiter, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(parent=tempIO._file, builder=DatasetBuilder("test_dataset", daiter, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), a.tolist())
         tempIO.close()
 
@@ -882,8 +882,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         wrapped_daiter = ZarrDataIO(data=daiter, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", wrapped_daiter, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_daiter, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertEqual(dset.shape, a.shape)
         self.assertListEqual(dset[:].tolist(), a.tolist())
         self.assertTrue(dset.compressor == compressor)
@@ -893,8 +893,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dci = DataChunkIterator(data=np.arange(10), buffer_size=2)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", dci, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", dci, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), list(range(10)))
         tempIO.close()
 
@@ -904,8 +904,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor, chunks=(2,))
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), list(range(10)))
         self.assertTrue(dset.compressor == compressor)
         self.assertEqual(dset.chunks, (2,))
@@ -922,8 +922,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
-        dset = tempIO.file["test_dataset"]
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
+        dset = tempIO._file["test_dataset"]
         self.assertEqual(dset.chunks, (5, 1, 1))
         self.assertTrue(dset.compressor == compressor)
         tempIO.close()
@@ -935,9 +935,9 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = DatasetBuilder("test_dataset", np.arange(10), attributes={})
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        tempIO.write_dataset(tempIO.file, builder=dset)
-        softlink = DatasetBuilder("test_softlink", tempIO.file["test_dataset"], attributes={})
-        tempIO.write_dataset(tempIO.file, builder=softlink)
+        tempIO.write_dataset(tempIO._file, builder=dset)
+        softlink = DatasetBuilder("test_softlink", tempIO._file["test_dataset"], attributes={})
+        tempIO.write_dataset(tempIO._file, builder=softlink)
         tempf = zarr.open(store=self.store_path, mode="r")
         expected_link = {
             "name": "test_softlink",
@@ -952,30 +952,30 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(
-            tempIO.file,
+            tempIO._file,
             DatasetBuilder("test_dataset", np.arange(10), attributes={}),
         )
         tempIO.write_dataset(
-            tempIO.file,
-            DatasetBuilder("test_copy", tempIO.file["test_dataset"], attributes={}),
+            tempIO._file,
+            DatasetBuilder("test_copy", tempIO._file["test_dataset"], attributes={}),
             link_data=False,
         )
         # NOTE: In HDF5 this would be a HardLink. Since Zarr does not support links, this will be a copy instead.
-        self.assertListEqual(tempIO.file["test_dataset"][:].tolist(), tempIO.file["test_copy"][:].tolist())
+        self.assertListEqual(tempIO._file["test_dataset"][:].tolist(), tempIO._file["test_copy"][:].tolist())
         tempIO.close()
 
     def test_link_dataset_zarrdataio_input(self):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(
-            tempIO.file,
+            tempIO._file,
             DatasetBuilder("test_dataset", np.arange(10), attributes={}),
         )
         tempIO.write_dataset(
-            tempIO.file,
+            tempIO._file,
             DatasetBuilder(
                 "test_softlink",
-                ZarrDataIO(data=tempIO.file["test_dataset"], link_data=True),
+                ZarrDataIO(data=tempIO._file["test_dataset"], link_data=True),
                 attributes={},
             ),
         )
@@ -993,26 +993,26 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(
-            tempIO.file,
+            tempIO._file,
             DatasetBuilder("test_dataset", np.arange(10), attributes={}),
         )
         tempIO.write_dataset(
-            tempIO.file,
+            tempIO._file,
             DatasetBuilder(
                 "test_copy",
-                ZarrDataIO(data=tempIO.file["test_dataset"], link_data=False),  # Force dataset copy
+                ZarrDataIO(data=tempIO._file["test_dataset"], link_data=False),  # Force dataset copy
                 attributes={},
             ),
             link_data=True,
         )  # Make sure the default behavior is set to link the data
         # NOTE: In HDF5 this would be a HardLink. Since Zarr does not support links, this will be a copy instead.
-        self.assertListEqual(tempIO.file["test_dataset"][:].tolist(), tempIO.file["test_copy"][:].tolist())
+        self.assertListEqual(tempIO._file["test_dataset"][:].tolist(), tempIO._file["test_copy"][:].tolist())
         tempIO.close()
 
     def test_list_fill_empty(self):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
-        dset = tempIO.__list_fill__(tempIO.file, "empty_dataset", [], options={"dtype": int, "io_settings": {}})
+        dset = tempIO.__list_fill__(tempIO._file, "empty_dataset", [], options={"dtype": int, "io_settings": {}})
         self.assertTupleEqual(dset.shape, (0,))
         tempIO.close()
 
@@ -1020,7 +1020,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         with self.assertRaisesRegex(Exception, r"cannot add empty_dataset to / - could not determine type"):
-            tempIO.__list_fill__(tempIO.file, "empty_dataset", [])
+            tempIO.__list_fill__(tempIO._file, "empty_dataset", [])
         tempIO.close()
 
 
@@ -1317,7 +1317,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 },
                 "zarr_dtype": "object",
             }
-            self.assertEqual(read_io.file.attrs["foo_ref_attr"], expected_attr_reference)
+            self.assertEqual(read_io._file.attrs["foo_ref_attr"], expected_attr_reference)
 
             # make sure the attribute reference resolves to the container within the same file
             self.assertIs(read_foofile2.foo_ref_attr, read_foofile2.buckets["bucket1"].foos["foo1"])
