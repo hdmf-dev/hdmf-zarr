@@ -90,8 +90,8 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
         # read it back
         with NWBZarrIO(self.filepath, "r") as read_io:
             nwbfile = read_io.read()
-            expected_dtype = np.dtype([('x', '<u4'), ('y', '<u4'), ('weight', '<f4')])
-            actual_dtype = nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data.dtype
+            expected_dtype = np.dtype([("x", "<u4"), ("y", "<u4"), ("weight", "<f4")])
+            actual_dtype = nwbfile.processing["ophys"].data_interfaces["PlaneSegmentation"].pixel_mask.data.dtype
 
             self.assertEqual(actual_dtype.descr, expected_dtype.descr)
 
@@ -119,16 +119,16 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
         # read it back
         with NWBZarrIO(self.filepath, "r") as read_io:
             read_nwbfile = read_io.read()
-            
+
             # Check that the data has the correct shape
-            pixel_mask_data = read_nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data
+            pixel_mask_data = read_nwbfile.processing["ophys"].data_interfaces["PlaneSegmentation"].pixel_mask.data
             self.assertEqual(pixel_mask_data.shape, (15,))  # 5 ROIs * 3 pixels = 15 records
-            
+
             # Check that the data is not duplicated
             first_record = pixel_mask_data[0]
-            self.assertEqual(first_record['x'], 0)
-            self.assertEqual(first_record['y'], 0)
-            self.assertEqual(first_record['weight'], 1.0)
+            self.assertEqual(first_record["x"], 0)
+            self.assertEqual(first_record["y"], 0)
+            self.assertEqual(first_record["weight"], 1.0)
 
             # Export to a new file
             export_path = self.filepath + "_exported"
@@ -139,18 +139,18 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
         # Read the exported file
         with NWBZarrIO(export_path, "r") as export_read_io:
             exported_nwbfile = export_read_io.read()
-            
+
             # Check that the exported data still has the correct shape
             exported_pixel_mask_data = (
-                exported_nwbfile.processing["ophys"].data_interfaces['PlaneSegmentation'].pixel_mask.data
+                exported_nwbfile.processing["ophys"].data_interfaces["PlaneSegmentation"].pixel_mask.data
             )
             self.assertEqual(exported_pixel_mask_data.shape, (15,))  # Still 15 records, not (15, 3)
-            
+
             # Check that the data is still correct
             first_record = exported_pixel_mask_data[0]
-            self.assertEqual(first_record['x'], 0)
-            self.assertEqual(first_record['y'], 0)
-            self.assertEqual(first_record['weight'], 1.0)
+            self.assertEqual(first_record["x"], 0)
+            self.assertEqual(first_record["y"], 0)
+            self.assertEqual(first_record["weight"], 1.0)
 
             # Test double export (this should not fail)
             double_export_path = self.filepath + "_double_exported"

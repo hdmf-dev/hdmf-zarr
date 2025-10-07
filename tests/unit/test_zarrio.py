@@ -18,11 +18,11 @@ from tests.unit.base_tests_zarrio import (
     BaseTestExportZarrToZarr,
 )
 from zarr.storage import DirectoryStore, NestedDirectoryStore
-from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
+from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
 from hdmf_zarr.backend import ZarrIO
-from .utils import BuildDatasetShapeMixin, BarData, BarDataHolder
+from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
 import shutil
@@ -202,11 +202,11 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         # Confirm that opening the file 'r' mode indeed uses the consolidated metadata
         with ZarrIO(self.store_path, mode="r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
+            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
         # Confirm that opening the file IN 'r-' mode indeed forces a regular open without consolidated metadata
         with ZarrIO(self.store_path, mode="r-") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io.file.store, zarr.storage.DirectoryStore)
+            self.assertIsInstance(read_io._file.store, zarr.storage.DirectoryStore)
 
     def test_force_open_without_consolidated_fails(self):
         """

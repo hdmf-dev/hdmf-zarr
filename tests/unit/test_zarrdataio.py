@@ -24,7 +24,7 @@ except ImportError:
     HDF5PLUGIN = False
 from hdmf.testing import TestCase
 from hdmf_zarr.utils import ZarrDataIO
-from tests.unit.utils import get_temp_filepath
+from tests.unit.helpers.utils import get_temp_filepath
 
 
 class TestZarrDataIO(TestCase):
@@ -257,6 +257,6 @@ class TestZarrDataIO(TestCase):
         h5file.close()
 
     def test_zarr_data_io_get_io_params(self):
-        z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype='int32')
+        z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype="int32")
         io = ZarrDataIO(z, link_data=True)
         assert io.get_io_params().get("link_data")

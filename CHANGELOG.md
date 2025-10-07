@@ -1,5 +1,15 @@
 # HDMF-ZARR Changelog
 
+## 0.12.0 (October 8, 2025)
+
+### Changed
+- Renamed `ZarrIO.file` property to `ZarrIO._file` to be consistent with PyNWB validator. @rly [#294](https://github.com/hdmf-dev/hdmf-zarr/pull/294)
+- When loading namespaces with `ZarrIO`, all namespaces are now passed to `namespace_catalog.load_namespaces` to handle ordering of loading and detection of version conflicts, to be consistent with `HDF5IO`. @rly [#294](https://github.com/hdmf-dev/hdmf-zarr/pull/294)
+- Renamed test module `tests/unit/utils.py` to `tests/unit/helpers/utils.py`. [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)
+
+### Added
+- Added `ZarrIO.load_namespaces_io` method to load namespaces from a given Zarr group into a given `NamespaceCatalog`. @rly [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)
+
 ## 0.11.3 (August 8, 2025)
 
 ### Added

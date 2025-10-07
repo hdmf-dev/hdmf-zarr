@@ -6,6 +6,7 @@ import shutil
 import warnings
 import numpy as np
 import tempfile
+from typing import Union, Optional
 import logging
 
 # Zarr imports
@@ -159,7 +160,7 @@ class ZarrIO(HDMFIO):
         super().__init__(manager, source=source_path)
 
     @property
-    def file(self):
+    def _file(self):
         """
         The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
         May be None in case open has not been called yet, e.g., if no data has been
@@ -239,7 +240,7 @@ class ZarrIO(HDMFIO):
         """Return True if the file is remote, False otherwise"""
         from zarr.storage import FSStore
 
-        if isinstance(self.file.store, FSStore):
+        if isinstance(self.__file.store, FSStore):
             return True
         else:
             return False
@@ -255,6 +256,13 @@ class ZarrIO(HDMFIO):
             "name": "path",
             "type": (str, Path, *SUPPORTED_ZARR_STORES),
             "doc": "the path to the Zarr file or a supported Zarr store",
+            "default": None,
+        },
+        {
+            "name": "file",
+            "type": zarr.Group,
+            "doc": "An already opened Zarr group",
+            "default": None,
         },
         {
             "name": "storage_options",
@@ -263,26 +271,68 @@ class ZarrIO(HDMFIO):
             "default": None,
         },
         {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        returns=(
+            "dict mapping the names of the loaded namespaces to a dict mapping included namespace names and "
+            "the included data types"
+        ),
+        rtype=dict,
     )
-    def load_namespaces(cls, namespace_catalog, path, storage_options, namespaces=None):
+    def load_namespaces(cls, namespace_catalog, path, file, storage_options, namespaces=None) -> dict:
         """
         Load cached namespaces from a file.
         """
-        # TODO: how to use storage_options here?
-        f = zarr.open(path, mode="r", storage_options=storage_options)
-        if SPEC_LOC_ATTR not in f.attrs:
-            msg = "No cached namespaces found in %s" % path
-            warnings.warn(msg)
+        if path is not None and file is not None:
+            raise ValueError("Only one of 'path' and 'file' must be provided.")
+
+        if path is not None:
+            # TODO: how to use storage_options here?
+            f = zarr.open(path, mode="r", storage_options=storage_options)
         else:
-            spec_group = f[f.attrs[SPEC_LOC_ATTR]]
-            if namespaces is None:
-                namespaces = list(spec_group.keys())
-            for ns in namespaces:
-                ns_group = spec_group[ns]
-                latest_version = list(ns_group.keys())[-1]
-                ns_group = ns_group[latest_version]
-                reader = ZarrSpecReader(ns_group)
-                namespace_catalog.load_namespaces("namespace", reader=reader)
+            f = file
+        return cls.__load_namespaces(namespace_catalog, namespaces, f)
+
+    @docval(
+        {
+            "name": "namespace_catalog",
+            "type": (NamespaceCatalog, TypeMap),
+            "doc": "the NamespaceCatalog or TypeMap to load namespaces into",
+        },
+        {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        returns=(
+            "dict mapping the names of the loaded namespaces to a dict mapping included namespace names and "
+            "the included data types"
+        ),
+        rtype=dict,
+    )
+    def load_namespaces_io(self, **kwargs):
+        """Load cached namespaces from this ZarrIO object itself."""
+        namespace_catalog, namespaces = getargs("namespace_catalog", "namespaces", kwargs)
+        if not self.__file:
+            raise UnsupportedOperation("Cannot load namespaces from closed Zarr file '%s'" % self.source)
+        return self.__load_namespaces(namespace_catalog, namespaces, self.__file)
+
+    @classmethod
+    def __load_namespaces(
+        cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
+    ) -> dict:
+        if SPEC_LOC_ATTR not in f.attrs:
+            msg = "No cached namespaces found in %s" % cls.__get_store_path(f.store)
+            warnings.warn(msg)
+            return {}
+
+        spec_group = f[f.attrs[SPEC_LOC_ATTR]]
+        if namespaces is None:
+            namespaces = list(spec_group.keys())
+
+        readers = dict()
+        for ns in namespaces:
+            ns_group = spec_group[ns]
+            latest_version = list(ns_group.keys())[-1]
+            latest_ns_group = ns_group[latest_version]
+            readers[ns] = ZarrSpecReader(latest_ns_group)
+
+        d = namespace_catalog.load_namespaces("namespace", reader=readers)
+        return d
 
     @docval(
         {"name": "container", "type": Container, "doc": "the Container object to write"},

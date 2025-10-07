@@ -51,7 +51,7 @@ from hdmf.testing import TestCase
 from hdmf.common import DynamicTable
 from hdmf.common import CSRMatrix
 
-from tests.unit.utils import (
+from tests.unit.helpers.utils import (
     Foo,
     FooBucket,
     FooFile,

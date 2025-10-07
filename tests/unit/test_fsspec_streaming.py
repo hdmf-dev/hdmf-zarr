@@ -1,6 +1,6 @@
 import unittest
 from hdmf_zarr import NWBZarrIO
-from .utils import check_s3fs_ffspec_installed
+from .helpers.utils import check_s3fs_ffspec_installed
 
 import zarr
 
@@ -38,10 +38,10 @@ class TestFSSpecStreaming(unittest.TestCase):
         """
         with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io.file.store, zarr.storage.ConsolidatedMetadataStore)
+            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
         with NWBZarrIO(self.https_s3_path, mode="-r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io.file.store, zarr.storage.FSStore)
+            self.assertIsInstance(read_io._file.store, zarr.storage.FSStore)
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming_via_read_nwb(self):
