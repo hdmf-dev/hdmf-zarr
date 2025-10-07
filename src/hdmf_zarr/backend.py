@@ -6,6 +6,7 @@ import shutil
 import warnings
 import numpy as np
 import tempfile
+from typing import Union, Optional
 import logging
 
 # Zarr imports
@@ -270,22 +271,52 @@ class ZarrIO(HDMFIO):
             "default": None,
         },
         {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        returns=(
+            "dict mapping the names of the loaded namespaces to a dict mapping included namespace names and "
+            "the included data types"
+        ),
+        rtype=dict,
     )
-    def load_namespaces(cls, namespace_catalog, path, file, storage_options, namespaces=None):
+    def load_namespaces(cls, namespace_catalog, path, file, storage_options, namespaces=None) -> dict:
         """
         Load cached namespaces from a file.
         """
         if path is not None and file is not None:
             raise ValueError("Only one of 'path' and 'file' must be provided.")
 
-        # TODO: how to use storage_options here?
         if path is not None:
+            # TODO: how to use storage_options here?
             f = zarr.open(path, mode="r", storage_options=storage_options)
         else:
             f = file
+        return cls.__load_namespaces(namespace_catalog, namespaces, f)
 
+    @docval(
+        {
+            "name": "namespace_catalog",
+            "type": (NamespaceCatalog, TypeMap),
+            "doc": "the NamespaceCatalog or TypeMap to load namespaces into",
+        },
+        {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        returns=(
+            "dict mapping the names of the loaded namespaces to a dict mapping included namespace names and "
+            "the included data types"
+        ),
+        rtype=dict,
+    )
+    def load_namespaces_io(self, **kwargs):
+        """Load cached namespaces from this ZarrIO object itself."""
+        namespace_catalog, namespaces = getargs("namespace_catalog", "namespaces", kwargs)
+        if not self.__file:
+            raise UnsupportedOperation("Cannot load namespaces from closed Zarr file '%s'" % self.source)
+        return self.__load_namespaces(namespace_catalog, namespaces, self.__file)
+
+    @classmethod
+    def __load_namespaces(
+        cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
+    ) -> dict:
         if SPEC_LOC_ATTR not in f.attrs:
-            msg = "No cached namespaces found in %s" % f.store.path
+            msg = "No cached namespaces found in %s" % cls.__get_store_path(f.store)
             warnings.warn(msg)
             return {}
 

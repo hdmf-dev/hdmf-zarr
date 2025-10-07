@@ -4,6 +4,7 @@ Module defining the base unit test cases for ZarrIO.
 The actual tests are then instantiated with various different backends in the
 test_zarrio.py module."""
 
+from abc import ABCMeta, abstractmethod
 import unittest
 import os
 import numpy as np
@@ -14,7 +15,7 @@ import warnings
 import zarr
 from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO, ZarrReference
-from tests.unit.utils import Baz, BazData, BazBucket, get_baz_buildmanager
+from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager
 
 # Try to import numcodecs and disable compression tests if it is not available
 try:
@@ -28,11 +29,10 @@ from hdmf.spec.namespace import NamespaceCatalog
 from hdmf.build import GroupBuilder, DatasetBuilder, LinkBuilder, ReferenceBuilder, OrphanContainerBuildError
 from hdmf.data_utils import DataChunkIterator
 from hdmf.testing import TestCase
-from hdmf.backends.io import HDMFIO, UnsupportedOperation
+from hdmf.backends.io import UnsupportedOperation
 
-from tests.unit.utils import Foo, FooBucket, FooFile, get_foo_buildmanager, CacheSpecTestHelper
-
-from abc import ABCMeta, abstractmethod
+from tests.unit.helpers.utils import Foo, FooBucket, FooFile, get_foo_buildmanager, CacheSpecTestHelper
+from tests.unit.helpers.io import DoNothingIO
 
 
 def total_size(source):
@@ -223,7 +223,6 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.root = reader.read_builder()
 
     def test_cache_spec(self):
-
         tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
 
         # Setup all the data we need
@@ -268,6 +267,25 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         source_types = CacheSpecTestHelper.get_types(self.manager.namespace_catalog)
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
         self.assertSetEqual(source_types, read_types)
+
+    def test_load_namespaces_io(self):
+        tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
+
+        # Setup all the data we need
+        foo1 = Foo("foo1", [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+        foo2 = Foo("foo2", [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+        foobucket = FooBucket("test_bucket", [foo1, foo2])
+        foofile = FooFile(buckets=[foobucket])
+
+        # Write the first file
+        tempIO.write(foofile, cache_spec=True)
+        tempIO.close()
+
+        # Load the spec and assert that it is valid
+        readIO = ZarrIO(self.store_path, manager=self.manager, mode="r")
+        ns_catalog = NamespaceCatalog()
+        readIO.load_namespaces_io(ns_catalog)
+        self.assertEqual(ns_catalog.namespaces, ("test_core",))
 
     def test_write_int(self, test_data=None):
         data = np.arange(100, 200, 10).reshape(2, 5) if test_data is None else test_data
@@ -1584,25 +1602,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
             write_io.write(foofile)
 
-        class OtherIO(HDMFIO):
-
-            @staticmethod
-            def can_read(path):
-                pass
-
-            def read_builder(self):
-                pass
-
-            def write_builder(self, **kwargs):
-                pass
-
-            def open(self):
-                pass
-
-            def close(self):
-                pass
-
-        with OtherIO() as read_io:
+        with DoNothingIO() as read_io:
             with ZarrIO(self.store_path[1], mode="w") as export_io:
                 msg = "When a container is provided, src_io must have a non-None manager (BuildManager) property."
                 with self.assertRaisesWith(ValueError, msg):
@@ -1617,31 +1617,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
             write_io.write(foofile)
 
-        class OtherIO(HDMFIO):
-
-            def __init__(self, manager):
-                super().__init__(manager=manager)
-
-            @staticmethod
-            def can_read(path):
-                pass
-
-            def read_builder(self):
-                pass
-
-            def write_builder(self, **kwargs):
-                pass
-
-            def open(self):
-                pass
-
-            def close(self):
-                pass
-
-        with OtherIO(manager=get_foo_buildmanager()) as read_io:
+        with DoNothingIO(manager=get_foo_buildmanager()) as read_io:
             with ZarrIO(self.store_path[1], mode="w") as export_io:
                 msg = (
-                    "Cannot export from non-Zarr backend OtherIO to Zarr with write argument link_data=True. "
+                    "Cannot export from non-Zarr backend DoNothingIO to Zarr with write argument link_data=True. "
                     "Set write_args={'link_data': False}"
                 )
                 with self.assertRaisesWith(UnsupportedOperation, msg):

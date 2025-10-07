@@ -1,6 +1,6 @@
 import unittest
 from hdmf_zarr import NWBZarrIO
-from .utils import check_s3fs_ffspec_installed
+from .helpers.utils import check_s3fs_ffspec_installed
 
 import zarr
 
