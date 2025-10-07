@@ -295,7 +295,7 @@ class ZarrIO(HDMFIO):
         """Load cached namespaces from this ZarrIO object itself."""
         namespace_catalog, namespaces = getargs("namespace_catalog", "namespaces", kwargs)
         if not self.__file:
-            raise UnsupportedOperation("Cannot load namespaces from closed HDF5 file '%s'" % self.source)
+            raise UnsupportedOperation("Cannot load namespaces from closed Zarr file '%s'" % self.source)
         return self.__load_namespaces(namespace_catalog, namespaces, self.__file)
 
     @classmethod
