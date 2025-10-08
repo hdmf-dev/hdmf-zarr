@@ -8,6 +8,7 @@ authors = [
   { name="Oliver Ruebel", email="oruebel@lbl.gov" },
   { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
   { name="Ryan Ly", email="rly@lbl.gov" },
+  { name="Stephanie Prince", email="smprince@lbl.gov" },
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
