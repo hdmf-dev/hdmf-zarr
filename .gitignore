@@ -146,3 +146,5 @@ dmypy.json
 
 # Version
 _version.py
+
+.ruff_cache
