@@ -50,6 +50,7 @@ full = [
 
 # development dependencies
 test = [
+    "black",
     "codespell",
     "hdf5plugin",  # hdf5plugin is used to test conversion of plugin filters
     "pre-commit",
