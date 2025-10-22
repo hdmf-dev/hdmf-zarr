@@ -8,6 +8,7 @@ authors = [
   { name="Oliver Ruebel", email="oruebel@lbl.gov" },
   { name="Matthew Avaylon", email="mavaylon@lbl.gov" },
   { name="Ryan Ly", email="rly@lbl.gov" },
+  { name="Stephanie Prince", email="smprince@lbl.gov" },
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
@@ -33,7 +34,7 @@ dependencies = [
     "hdmf>=4.1.0",
     "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
     "numpy>=1.24.0",
-    "numcodecs>=0.10.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with zarr<3
+    "numcodecs>=0.12.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with zarr<3
     "pynwb>=2.8.3",
     "threadpoolctl>=3.1.0",
 ]
@@ -49,6 +50,7 @@ full = [
 
 # development dependencies
 test = [
+    "black",
     "codespell",
     "hdf5plugin",  # hdf5plugin is used to test conversion of plugin filters
     "pre-commit",

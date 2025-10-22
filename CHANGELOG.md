@@ -6,6 +6,7 @@
 - Renamed `ZarrIO.file` property to `ZarrIO._file` to be consistent with PyNWB validator. @rly [#294](https://github.com/hdmf-dev/hdmf-zarr/pull/294)
 - When loading namespaces with `ZarrIO`, all namespaces are now passed to `namespace_catalog.load_namespaces` to handle ordering of loading and detection of version conflicts, to be consistent with `HDF5IO`. @rly [#294](https://github.com/hdmf-dev/hdmf-zarr/pull/294)
 - Renamed test module `tests/unit/utils.py` to `tests/unit/helpers/utils.py`. [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)
+- Bumped minimum required version of `numcodecs` to 0.12.0 to address installation issues with Python 3.9 on MacOS. @rly [#299](https://github.com/hdmf-dev/hdmf-zarr/pull/299)
 
 ### Added
 - Added `ZarrIO.load_namespaces_io` method to load namespaces from a given Zarr group into a given `NamespaceCatalog`. @rly [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)

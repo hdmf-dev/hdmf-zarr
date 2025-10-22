@@ -3,6 +3,6 @@
 hdmf==4.1.0
 zarr==2.18.0
 numpy==1.24.0
-numcodecs==0.10.0
+numcodecs==0.12.0
 pynwb==2.8.3
 threadpoolctl==3.1.0
