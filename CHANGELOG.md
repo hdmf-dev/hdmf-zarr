@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Changed
+- Dropped testing for Python 3.9. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
+- Added support for Python 3.14. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
+
 ## 0.12.0 (October 8, 2025)
 
 ### Changed
