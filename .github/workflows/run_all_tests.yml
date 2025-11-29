@@ -51,7 +51,7 @@ jobs:
           - { name: macos-python3.14-prerelease  , test-tox-env: py314-prerelease, python-ver: "3.14", os: macos-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # tags are required to determine the version
 
@@ -107,7 +107,7 @@ jobs:
           - { name: macos-gallery-python3.14-prerelease  , test-tox-env: gallery-py314-prerelease, python-ver: "3.14", os: macos-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # tags are required to determine the version
 
@@ -149,7 +149,7 @@ jobs:
           - { name: conda-linux-python3.14-prerelease, test-tox-env: py314-prerelease, python-ver: "3.14", os: ubuntu-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # tags are required to determine the version
 
