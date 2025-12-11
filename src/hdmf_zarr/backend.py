@@ -69,8 +69,23 @@ class ZarrIO(HDMFIO):
 
     @staticmethod
     def generate_dataset_html(dataset):
-        """Generates an html representation for a dataset for the ZarrIO class"""
+        """
+        Generates an HTML representation for a dataset for the ZarrIO class.
 
+        This method extracts metadata from a Zarr array using its info_items() method
+        and formats it as an HTML table for display in Jupyter notebooks and other
+        HTML-based interfaces.
+
+        Parameters
+        ----------
+        dataset : zarr.core.Array
+            The Zarr array for which to generate an HTML representation
+
+        Returns
+        -------
+        str
+            HTML representation of the dataset
+        """
         # get info from zarr array and generate html repr
         zarr_info_dict = {k: v for k, v in dataset.info_items()}
         repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
