@@ -108,7 +108,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
             io.write_builder(group_builder, consolidate_metadata=False)
         
         # Read back and check that nbytes_stored is available
-        with ZarrIO(str(self.test_path), mode='r-') as io:
+        with ZarrIO(str(self.test_path), mode='r') as io:
             builder = io.read_builder()
             data_builder = builder['data']
             

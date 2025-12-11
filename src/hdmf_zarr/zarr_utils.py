@@ -20,8 +20,7 @@ from hdmf.utils import docval, popargs, get_docval
 # Monkey-patch ConsolidatedMetadataStore.getsize to fix compression info display
 # This is a workaround for zarr issue where ConsolidatedMetadataStore.getsize() returns -1
 # because it checks only the metadata store instead of the underlying chunk store.
-# See: https://github.com/hdmf-dev/hdmf-zarr/issues/XXX
-_original_consolidated_getsize = ConsolidatedMetadataStore.getsize
+# Without this fix, the array .info property does not display "No. bytes stored" and "Storage ratio".
 
 
 def _fixed_consolidated_getsize(self, path):
