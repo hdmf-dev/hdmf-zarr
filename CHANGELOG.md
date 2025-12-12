@@ -11,6 +11,9 @@
 ### Added
 - Added `ZarrIO.load_namespaces_io` method to load namespaces from a given Zarr group into a given `NamespaceCatalog`. @rly [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)
 
+### Fixed
+- Fixed zarr array `.info` property to display compression data ("No. bytes stored" and "Storage ratio") when using consolidated metadata stores by patching `ConsolidatedMetadataStore.getsize()` to query the underlying chunk store. @rly [#305](https://github.com/hdmf-dev/hdmf-zarr/pull/305)
+
 ## 0.11.3 (August 8, 2025)
 
 ### Added
