@@ -2,19 +2,15 @@
 Tests for zarr array info display with compression data
 """
 import unittest
-import os
 import shutil
 import tempfile
 from pathlib import Path
 
 import numpy as np
-import zarr
 from numcodecs import Blosc
 
 from hdmf_zarr import ZarrIO, ZarrDataIO
-from hdmf.spec import GroupSpec, DatasetSpec
-from hdmf.build import GroupBuilder, DatasetBuilder, BuildManager, TypeMap
-from hdmf.backends.utils import NamespaceToBuilderHelper
+from hdmf.build import GroupBuilder, DatasetBuilder
 
 
 class TestZarrCompressionInfo(unittest.TestCase):
