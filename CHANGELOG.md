@@ -10,6 +10,7 @@
 
 ### Added
 - Added `ZarrIO.load_namespaces_io` method to load namespaces from a given Zarr group into a given `NamespaceCatalog`. @rly [#292](https://github.com/hdmf-dev/hdmf-zarr/pull/292)
+- Added `ZarrIO.generate_dataset_html` method to generate rich HTML representations of Zarr arrays for display in Jupyter notebooks. [#306](https://github.com/hdmf-dev/hdmf-zarr/pull/306)
 
 ## 0.11.3 (August 8, 2025)
 
