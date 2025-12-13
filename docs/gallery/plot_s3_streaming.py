@@ -25,7 +25,7 @@ Or install the dependencies separately:
     pip install fsspec s3fs
 
 """
-# sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_nwbzarrio.png'
+# sphinx_gallery_thumbnail_path = 'figures/gallery_thumbnail_plot_streaming_s3.png'
 
 ###############################################################################
 # Streaming from a Public S3 Bucket
