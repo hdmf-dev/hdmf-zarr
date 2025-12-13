@@ -361,7 +361,8 @@ class ZarrSpecWriter(SpecWriter):
             compressor=None,
         )
         dset[()] = data
-        dset.attrs["zarr_dtype"] = np.dtype(object).str
+        # Use "object" to be consistent with __serial_dtype__ in backend.py
+        dset.attrs["zarr_dtype"] = "object"
         return dset
 
     def write_spec(self, spec, path):
