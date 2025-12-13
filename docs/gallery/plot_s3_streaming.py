@@ -31,11 +31,13 @@ Or install the dependencies separately:
 # Streaming from a Public S3 Bucket
 # ----------------------------------
 #
-# To read an NWB Zarr file from a public S3 bucket, you can simply provide the S3 URL
-# to :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. For public buckets, you need to specify
-# ``storage_options=dict(anon=True)`` to enable anonymous access.
+# To read an NWB Zarr file from a public S3 bucket, you can provide the S3 URL
+# to :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. For HTTPS URLs (``https://``), no
+# additional configuration is needed. For ``s3://`` protocol URLs, you need to
+# specify ``storage_options=dict(anon=True)`` to enable anonymous access.
 #
-# Here we demonstrate reading from a public dataset in the DANDI Archive:
+# Here we demonstrate reading from a public dataset in the DANDI Archive using
+# an HTTPS URL:
 
 from hdmf_zarr import NWBZarrIO
 
