@@ -189,13 +189,13 @@ print(f"Zarr version: {zarr.__version__}")
 #     :ref:`sec-zarr-storage` section of the hdmf-zarr documentation.
 
 ###############################################################################
-# Using the Convenience Function
-# -------------------------------
+# Using the Convenience Method
+# ----------------------------
 #
-# :py:class:`~hdmf_zarr.nwb.NWBZarrIO` provides a convenience function
+# :py:class:`~hdmf_zarr.nwb.NWBZarrIO` provides a convenience static method
 # :py:meth:`~hdmf_zarr.nwb.NWBZarrIO.read_nwb` for quick read access:
 
-# Read file directly using the convenience function
+# Read file directly using the convenience static method
 try:
     nwbfile = NWBZarrIO.read_nwb(s3_url)
     print(f"Session Start Time: {nwbfile.session_start_time}")
