@@ -1253,8 +1253,10 @@ class ZarrIO(HDMFIO):
                 )
                 dset.attrs["zarr_dtype"] = type_str
                 dset[...] = arr
+            # If the compound data type contains only regular data (i.e., no references) then we can write it as usual
+            elif len(np.shape(data)) == 0:
+                dset = self.__scalar_fill__(parent, name, data, options)
             else:
-                # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options["dtype"]):
@@ -1290,6 +1292,9 @@ class ZarrIO(HDMFIO):
             elif isinstance(data, AbstractDataChunkIterator):
                 dset = self.__setup_chunked_dataset__(parent, name, data, options)
                 self.__dci_queue.append(dataset=dset, data=data)
+            # Check for scalar (0-dimensional) data before checking __len__
+            elif len(np.shape(data)) == 0:
+                dset = self.__scalar_fill__(parent, name, data, options)
             elif hasattr(data, "__len__"):
                 dset = self.__list_fill__(parent, name, data, options)
             else:
@@ -1397,7 +1402,6 @@ class ZarrIO(HDMFIO):
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
         io_settings = dict()
-        is_scalar_compound = False  # Track if we're dealing with a scalar compound dtype
         if options is not None:
             dtype = options.get("dtype")
             if options.get("io_settings") is not None:
@@ -1428,16 +1432,8 @@ class ZarrIO(HDMFIO):
                 data_shape = get_data_shape(data)  # pragma: no cover
         # Deal with object dtype
         elif isinstance(dtype, np.dtype):
-            # Check if data is 0-dimensional (scalar)
-            if hasattr(data, 'ndim') and data.ndim == 0:
-                # For scalar arrays, use [()] to access the value
-                data = data[()]
-                # Use shape=(1,) to match __scalar_fill__ behavior for backward compatibility
-                data_shape = (1,)
-                is_scalar_compound = True
-            else:
-                data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
-                data_shape = (len(data),)
+            data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
+            data_shape = (len(data),)
             # if we have a compound data type
             if dtype.names:
                 # If strings are part of our compound type then we need to use Object type instead
@@ -1449,7 +1445,7 @@ class ZarrIO(HDMFIO):
                         break
             # sometimes bytes and strings can hide as object in numpy array so lets try
             # to write those as strings and bytes rather than as objects
-            elif isinstance(data, np.ndarray) and data.ndim > 0 and len(data) > 0:
+            elif len(data) > 0 and isinstance(data, np.ndarray):
                 if isinstance(data.item(0), bytes):
                     dtype = bytes
                     data_shape = get_data_shape(data)
@@ -1457,7 +1453,7 @@ class ZarrIO(HDMFIO):
                     dtype = str
                     data_shape = get_data_shape(data)
             # Set encoding for objects
-            elif not dtype.names:  # Only set object codec if it's not a compound type
+            else:
                 dtype = object
                 io_settings["object_codec"] = self.__codec_cls()
         # Determine the shape from the data if all other cases have not been hit
@@ -1480,11 +1476,7 @@ class ZarrIO(HDMFIO):
         # standard write
         else:
             try:
-                # Wrap scalar compound data in a list for shape=(1,) datasets
-                if is_scalar_compound and data_shape == (1,):
-                    dset[:] = np.array([data], dtype=dtype)
-                else:
-                    dset[:] = np.array(data, dtype=dtype)
+                dset[:] = np.array(data, dtype=dtype)
             # If data is an h5py.Dataset then this will copy the data
             # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
@@ -1518,7 +1510,17 @@ class ZarrIO(HDMFIO):
             io_settings["object_codec"] = self.__codec_cls()
 
         dset = parent.require_dataset(name, shape=(1,), dtype=dtype, **io_settings)
-        dset[:] = data
+        # For scalar compound dtypes, wrap the data in an array
+        if isinstance(dtype, np.dtype) and dtype.names is not None:
+            # Check if data is a 0-dimensional array
+            if hasattr(data, 'ndim') and data.ndim == 0:
+                # Extract the scalar value and wrap it in an array
+                dset[:] = np.array([data[()]], dtype=dtype)
+            else:
+                # If data is already a tuple/scalar value, wrap it
+                dset[:] = np.array([data], dtype=dtype)
+        else:
+            dset[:] = data
         type_str = "scalar"
         dset.attrs["zarr_dtype"] = type_str
         return dset
