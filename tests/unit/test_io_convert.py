@@ -1078,4 +1078,102 @@ class TestFooExternalLinkZarrToHDF5(MixinTestCaseConvert, TestCase):
         self.ios.append(read_io)
         exportContainer = read_io.read()
         return exportContainer
+
+
+class TestAddHDF5ObjectsAndExportToZarr(TestCase):
+    """
+    Test the scenario from issue where user reads objects from HDF5 file B, adds them to
+    HDF5 file A, and then exports file A to Zarr. The objects from file B should be
+    automatically reset to avoid cross-backend linking issues.
+    """
+
+    def setUp(self):
+        self.manager = get_foo_buildmanager()
+        self.filenames = []
+        self.ios = []
+
+    def tearDown(self):
+        for io in self.ios:
+            if io is not None:
+                io.close()
+        for fn in self.filenames:
+            if fn is not None and os.path.exists(fn):
+                if os.path.isdir(fn):
+                    shutil.rmtree(fn)
+                else:
+                    os.remove(fn)
+
+    def test_add_hdf5_objects_and_export_to_zarr(self):
+        """
+        Test that objects from an HDF5 file can be added to another container and
+        exported to Zarr without needing manual reset_parent calls.
+        """
+        # Create HDF5 file A with some initial content
+        file_a_path = get_temp_filepath()
+        self.filenames.append(file_a_path)
+        
+        foo_a1 = Foo(name='foo_a1', my_data=np.arange(10))
+        bucket_a = FooBucket(name='bucket_a', foos=[foo_a1])
+        foofile_a = FooFile(name='root', buckets=[bucket_a])
+        
+        with HDF5IO(file_a_path, manager=self.manager, mode='w') as io_a:
+            io_a.write(foofile_a)
+
+        # Create HDF5 file B with objects to be added to file A
+        file_b_path = get_temp_filepath()
+        self.filenames.append(file_b_path)
+        
+        foo_b1 = Foo(name='foo_b1', my_data=np.arange(20, 30))
+        foo_b2 = Foo(name='foo_b2', my_data=np.arange(30, 40))
+        bucket_b = FooBucket(name='bucket_b', foos=[foo_b1, foo_b2])
+        foofile_b = FooFile(name='root', buckets=[bucket_b])
+        
+        with HDF5IO(file_b_path, manager=self.manager, mode='w') as io_b:
+            io_b.write(foofile_b)
+
+        # Read file A and file B
+        with HDF5IO(file_a_path, manager=self.manager, mode='r') as io_a:
+            read_foofile_a = io_a.read()
+            
+            # Verify that foo_a1 has container_source set from HDF5
+            self.assertIsNotNone(read_foofile_a.buckets['bucket_a'].foos['foo_a1'].container_source)
+            
+            with HDF5IO(file_b_path, manager=self.manager, mode='r') as io_b:
+                read_foofile_b = io_b.read()
+                
+                # Add objects from file B to file A
+                # These objects have container_source pointing to file_b_path
+                foo_from_b = read_foofile_b.buckets['bucket_b'].foos['foo_b1']
+                self.assertIsNotNone(foo_from_b.container_source)
+                self.assertIn(file_b_path, str(foo_from_b.container_source))
+                
+                # Add the object to file A's bucket
+                read_foofile_a.buckets['bucket_a'].add_foo(foo_from_b)
+                
+                # Export file A to Zarr - this should automatically reset parent on foo_from_b
+                zarr_path = get_temp_filepath() + '.zarr'
+                self.filenames.append(zarr_path)
+                
+                with ZarrIO(zarr_path, mode='w', manager=self.manager) as export_io:
+                    # This should NOT raise an error about cross-backend linking
+                    # because reset_parent should be called automatically
+                    export_io.export(src_io=io_a, container=read_foofile_a, write_args={'link_data': False})
+
+        # Verify the exported Zarr file contains all the data
+        with ZarrIO(zarr_path, mode='r', manager=self.manager) as read_io:
+            read_foofile_zarr = read_io.read()
+            
+            # Check that all Foos are present
+            self.assertIn('foo_a1', read_foofile_zarr.buckets['bucket_a'].foos)
+            self.assertIn('foo_b1', read_foofile_zarr.buckets['bucket_a'].foos)
+            
+            # Verify data integrity
+            np.testing.assert_array_equal(
+                read_foofile_zarr.buckets['bucket_a'].foos['foo_a1'].my_data[:],
+                np.arange(10)
+            )
+            np.testing.assert_array_equal(
+                read_foofile_zarr.buckets['bucket_a'].foos['foo_b1'].my_data[:],
+                np.arange(20, 30)
+            )
 """
