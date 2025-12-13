@@ -123,7 +123,7 @@ except Exception as e:
 # The :py:class:`~hdmf_zarr.nwb.NWBZarrIO` class automatically uses consolidated
 # metadata when opening files in read mode (``mode='r'``). To force reading
 # without consolidated metadata (e.g., for testing or when metadata has changed),
-# you can use ``mode='-r'``:
+# you can use ``mode='r-'``:
 #
 # .. code-block:: python
 #
@@ -133,7 +133,7 @@ except Exception as e:
 #         # io._file.store is a zarr.storage.ConsolidatedMetadataStore
 #
 #     # Read WITHOUT consolidated metadata (slower)
-#     with NWBZarrIO(s3_url, mode="-r") as io:
+#     with NWBZarrIO(s3_url, mode="r-") as io:
 #         io.open()
 #         # io._file.store is a zarr.storage.FSStore
 #
