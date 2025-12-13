@@ -390,7 +390,12 @@ class ZarrSpecReader(SpecReader):
         self.__cache = None
 
     def __read(self, path):
-        s = self.__group[path][0]
+        dset = self.__group[path]
+        # Support both old-style shape (1,) and new-style shape () scalars
+        if dset.shape == ():
+            s = dset[()]
+        else:
+            s = dset[0]
         d = json.loads(s)
         return d
 
