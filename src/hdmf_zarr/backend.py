@@ -1384,6 +1384,9 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get("bytes")
         elif not hasattr(data, "__len__"):
             return type(data)
+        # Handle 0-dimensional numpy arrays (scalars with compound dtype)
+        elif hasattr(data, 'ndim') and data.ndim == 0:
+            return data.dtype
         else:
             if len(data) == 0:
                 raise ValueError("cannot determine type for empty data")
@@ -1394,6 +1397,7 @@ class ZarrIO(HDMFIO):
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
         io_settings = dict()
+        is_scalar_compound = False  # Track if we're dealing with a scalar compound dtype
         if options is not None:
             dtype = options.get("dtype")
             if options.get("io_settings") is not None:
@@ -1424,8 +1428,16 @@ class ZarrIO(HDMFIO):
                 data_shape = get_data_shape(data)  # pragma: no cover
         # Deal with object dtype
         elif isinstance(dtype, np.dtype):
-            data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
-            data_shape = (len(data),)
+            # Check if data is 0-dimensional (scalar)
+            if hasattr(data, 'ndim') and data.ndim == 0:
+                # For scalar arrays, use [()] to access the value
+                data = data[()]
+                # Use shape=(1,) to match __scalar_fill__ behavior for backward compatibility
+                data_shape = (1,)
+                is_scalar_compound = True
+            else:
+                data = data[:]  # load the data in case we come from HDF5 or another on-disk data source we don't know
+                data_shape = (len(data),)
             # if we have a compound data type
             if dtype.names:
                 # If strings are part of our compound type then we need to use Object type instead
@@ -1437,7 +1449,7 @@ class ZarrIO(HDMFIO):
                         break
             # sometimes bytes and strings can hide as object in numpy array so lets try
             # to write those as strings and bytes rather than as objects
-            elif len(data) > 0 and isinstance(data, np.ndarray):
+            elif isinstance(data, np.ndarray) and data.ndim > 0 and len(data) > 0:
                 if isinstance(data.item(0), bytes):
                     dtype = bytes
                     data_shape = get_data_shape(data)
@@ -1445,7 +1457,7 @@ class ZarrIO(HDMFIO):
                     dtype = str
                     data_shape = get_data_shape(data)
             # Set encoding for objects
-            else:
+            elif not dtype.names:  # Only set object codec if it's not a compound type
                 dtype = object
                 io_settings["object_codec"] = self.__codec_cls()
         # Determine the shape from the data if all other cases have not been hit
@@ -1468,7 +1480,11 @@ class ZarrIO(HDMFIO):
         # standard write
         else:
             try:
-                dset[:] = np.array(data, dtype=dtype)
+                # Wrap scalar compound data in a list for shape=(1,) datasets
+                if is_scalar_compound and data_shape == (1,):
+                    dset[:] = np.array([data], dtype=dtype)
+                else:
+                    dset[:] = np.array(data, dtype=dtype)
             # If data is an h5py.Dataset then this will copy the data
             # For compound data types containing strings Zarr sometimes does not like writing multiple values
             # try to write them one-at-a-time instead then
