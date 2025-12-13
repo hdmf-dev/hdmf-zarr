@@ -394,8 +394,10 @@ class ZarrSpecReader(SpecReader):
         # Support both old-style shape (1,) and new-style shape () scalars
         if dset.shape == ():
             s = dset[()]
-        else:
+        elif dset.shape == (1,):
             s = dset[0]
+        else:
+            raise ValueError(f"Unexpected shape {dset.shape} for spec dataset {path}")
         d = json.loads(s)
         return d
 

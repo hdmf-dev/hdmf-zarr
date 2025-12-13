@@ -1657,7 +1657,8 @@ class ZarrIO(HDMFIO):
         # By default, use the zarr.core.Array as data for lazy data load
         data = zarr_obj
 
-        # Read scalar dataset - both old style (dtype == "scalar") and new style (shape == ())
+        # Read scalar dataset - old style scalars have dtype == "scalar" with shape (1,),
+        # while new style scalars have shape () with actual dtype stored in zarr_dtype
         if dtype == "scalar" or zarr_obj.shape == ():
             data = zarr_obj[()]
 
