@@ -47,7 +47,7 @@ jobs:
           - { name: macos-python3.12             , test-tox-env: py312           , python-ver: "3.12", os: macos-latest }
           - { name: macos-python3.13             , test-tox-env: py313           , python-ver: "3.13", os: macos-latest }
           - { name: macos-python3.13-optional    , test-tox-env: py313-optional  , python-ver: "3.13", os: macos-latest }
-          - { name: macos-python3.13-prerelease  , test-tox-env: py313-prerelease, python-ver: "3.13", os: macos-latest }          
+          - { name: macos-python3.13-prerelease  , test-tox-env: py313-prerelease, python-ver: "3.13", os: macos-latest }
           # No prebuilt wheels for numcodecs==0.15.1 for Python 3.14 on PyPI and cannot build numcodecs == 0.15.1 on macos-latest
           # So testing on macos-latest (arm64) is disabled. See https://github.com/hdmf-dev/hdmf-zarr/pull/298
           # - { name: macos-python3.14             , test-tox-env: py314           , python-ver: "3.14", os: macos-latest }
