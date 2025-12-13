@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Added
+- Added documentation about how the `zarr_dtype` attribute is used to specify a compound dtype (structured array) for a dataset. @rly [#313](https://github.com/hdmf-dev/hdmf-zarr/pull/313)
+
 ## 0.12.0 (October 8, 2025)
 
 ### Changed
