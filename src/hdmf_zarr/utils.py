@@ -398,7 +398,10 @@ class ZarrSpecReader(SpecReader):
         elif dset.shape == (1,):
             s = dset[0]
         else:
-            raise ValueError(f"Unexpected shape {dset.shape} for spec dataset {path}")
+            raise ValueError(
+                f"Unexpected shape {dset.shape} for spec dataset {path}. "
+                f"Expected shape () or (1,) for scalar spec datasets."
+            )
         d = json.loads(s)
         return d
 
