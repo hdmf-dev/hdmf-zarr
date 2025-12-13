@@ -355,13 +355,13 @@ class ZarrSpecWriter(SpecWriter):
         data = self.stringify(d)
         dset = self.__group.require_dataset(
             name,
-            shape=(1,),
+            shape=(),
             dtype=object,
             object_codec=numcodecs.JSON(),
             compressor=None,
         )
-        dset.attrs["zarr_dtype"] = "scalar"
-        dset[0] = data
+        dset[()] = data
+        dset.attrs["zarr_dtype"] = np.dtype(object).str
         return dset
 
     def write_spec(self, spec, path):

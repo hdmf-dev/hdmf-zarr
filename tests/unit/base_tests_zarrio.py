@@ -751,7 +751,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
         dset = tempIO._file["test_dataset"]
-        self.assertTupleEqual(dset.shape, (1,))
+        self.assertTupleEqual(dset.shape, ())
         self.assertEqual(dset[()], a)
         tempIO.close()
 
@@ -761,7 +761,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
         dset = tempIO._file["test_dataset"]
-        self.assertTupleEqual(dset.shape, (1,))
+        self.assertTupleEqual(dset.shape, ())
         self.assertEqual(dset[()], a)
         tempIO.close()
 

@@ -1501,10 +1501,9 @@ class ZarrIO(HDMFIO):
         if dtype == object:  # noqa: E721
             io_settings["object_codec"] = self.__codec_cls()
 
-        dset = parent.require_dataset(name, shape=(1,), dtype=dtype, **io_settings)
-        dset[:] = data
-        type_str = "scalar"
-        dset.attrs["zarr_dtype"] = type_str
+        dset = parent.require_dataset(name, shape=(), dtype=dtype, **io_settings)
+        dset[()] = data
+        dset.attrs["zarr_dtype"] = np.dtype(dtype).str
         return dset
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
