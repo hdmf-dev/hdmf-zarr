@@ -385,14 +385,14 @@ class ZarrIO(HDMFIO):
     )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
-        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context, consolidate_metadata = popargs(
+        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "cache_spec",
             "number_of_jobs",
             "max_threads_per_process",
             "multiprocessing_context",
-            "consolidate_metadata",
             kwargs,
         )
+        consolidate_metadata = kwargs["consolidate_metadata"]
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -400,7 +400,7 @@ class ZarrIO(HDMFIO):
             multiprocessing_context=multiprocessing_context,
         )
 
-        super(ZarrIO, self).write(**kwargs)
+        super().write(**kwargs)
         if cache_spec:
             self.__cache_spec()
 
@@ -494,6 +494,7 @@ class ZarrIO(HDMFIO):
             )
 
         write_args["export_source"] = src_io.source  # pass export_source=src_io.source to write_builder
+        write_args["consolidate_metadata"] = consolidate_metadata
         ckwargs = kwargs.copy()
         ckwargs["write_args"] = write_args
         if not write_args.get("link_data", True):
