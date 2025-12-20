@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Fixed
+- Fixed bug where the cached spec was not included in consolidated metadata when exporting using `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
+
+
 ## 0.12.0 (October 8, 2025)
 
 ### Changed
