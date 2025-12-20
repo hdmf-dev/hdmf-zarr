@@ -1170,6 +1170,25 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with zarr.open(self.store_path[1], mode="r") as zarr_io:
             self.assertTrue("specifications" in zarr_io.keys())
 
+    def test_cache_spec_consolidated(self):
+        """Test that exporting with cache_spec and consolidate_metadata writes .specloc to consolidated metadata."""
+        foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket("bucket1", [foo1])
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
+            write_io.write(foofile)
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="r") as read_io:
+            read_foofile = read_io.read()
+
+            with ZarrIO(self.store_path[1], mode="w") as export_io:
+                export_io.export(src_io=read_io, container=read_foofile, cache_spec=True, consolidate_metadata=True)
+
+        # Verify that .specloc is in the consolidated metadata (readable after consolidation)
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
+            self.assertIn(".specloc", read_io._file.attrs.keys())
+
     def test_soft_link_group(self):
         """
         Test that exporting a written file with soft linked groups keeps links within the file." ,i.e, we have

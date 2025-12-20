@@ -457,6 +457,12 @@ class ZarrIO(HDMFIO):
             ),
             "default": None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "default": True,
+        },
     )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
@@ -472,6 +478,7 @@ class ZarrIO(HDMFIO):
         number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
         )
+        consolidate_metadata = popargs("consolidate_metadata", kwargs)
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -500,6 +507,10 @@ class ZarrIO(HDMFIO):
                         name=namespace, namespace=src_io.manager.namespace_catalog.get_namespace(namespace)
                     )
             self.__cache_spec()
+
+        # Reconsolidate metadata after the spec has been cached
+        if consolidate_metadata:
+            zarr.consolidate_metadata(store=self.path)
 
     def get_written(self, builder, check_on_disk=False):
         """
