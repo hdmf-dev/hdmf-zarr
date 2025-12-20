@@ -25,7 +25,7 @@ jobs:
           - { name: windows-python3.10-minimum , test-tox-env: py310-minimum , python-ver: "3.10", os: windows-latest }
           - { name: windows-python3.14         , test-tox-env: py314         , python-ver: "3.14", os: windows-latest }
           - { name: windows-python3.14-optional, test-tox-env: py314-optional, python-ver: "3.14", os: windows-latest }
-          - { name: macos-python3.10-minimum   , test-tox-env: py310-minimum , python-ver: "3.10", os: macos-13 }
+          - { name: macos-python3.10-minimum   , test-tox-env: py310-minimum , python-ver: "3.10", os: macos-15-intel }
           - { name: macos-python3.13           , test-tox-env: py313         , python-ver: "3.13", os: macos-latest }
           - { name: macos-python3.13-optional  , test-tox-env: py313-optional, python-ver: "3.13", os: macos-latest }
           # No prebuilt wheels for numcodecs==0.15.1 for Python 3.14 on PyPI and cannot build numcodecs == 0.15.1 on macos-latest
