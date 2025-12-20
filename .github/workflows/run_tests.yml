@@ -19,15 +19,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-python3.9-minimum    , test-tox-env: py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: linux-python3.13           , test-tox-env: py313         , python-ver: "3.13", os: ubuntu-latest }
-          - { name: linux-python3.13-optional  , test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest }
-          - { name: windows-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: windows-latest }
-          - { name: windows-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: windows-latest }
-          - { name: windows-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: windows-latest }
-          - { name: macos-python3.9-minimum    , test-tox-env: py39-minimum  , python-ver: "3.9" , os: macos-latest }
+          - { name: linux-python3.10-minimum   , test-tox-env: py310-minimum , python-ver: "3.10", os: ubuntu-latest }
+          - { name: linux-python3.14           , test-tox-env: py314         , python-ver: "3.14", os: ubuntu-latest }
+          - { name: linux-python3.14-optional  , test-tox-env: py314-optional, python-ver: "3.14", os: ubuntu-latest }
+          - { name: windows-python3.10-minimum , test-tox-env: py310-minimum , python-ver: "3.10", os: windows-latest }
+          - { name: windows-python3.14         , test-tox-env: py314         , python-ver: "3.14", os: windows-latest }
+          - { name: windows-python3.14-optional, test-tox-env: py314-optional, python-ver: "3.14", os: windows-latest }
+          - { name: macos-python3.10-minimum   , test-tox-env: py310-minimum , python-ver: "3.10", os: macos-13 }
           - { name: macos-python3.13           , test-tox-env: py313         , python-ver: "3.13", os: macos-latest }
           - { name: macos-python3.13-optional  , test-tox-env: py313-optional, python-ver: "3.13", os: macos-latest }
+          # No prebuilt wheels for numcodecs==0.15.1 for Python 3.14 on PyPI and cannot build numcodecs == 0.15.1 on macos-latest
+          # So testing on macos-latest (arm64) is disabled. See https://github.com/hdmf-dev/hdmf-zarr/pull/298
+          # - { name: macos-python3.14           , test-tox-env: py314         , python-ver: "3.14", os: macos-latest }
+          # - { name: macos-python3.14-optional  , test-tox-env: py314-optional, python-ver: "3.14", os: macos-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
@@ -75,10 +79,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-gallery-python3.9-minimum    , test-tox-env: gallery-py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: linux-gallery-python3.13-optional  , test-tox-env: gallery-py313-optional, python-ver: "3.13", os: ubuntu-latest }
-          - { name: windows-gallery-python3.9-minimum  , test-tox-env: gallery-py39-minimum  , python-ver: "3.9" , os: windows-latest }
-          - { name: windows-gallery-python3.13-optional, test-tox-env: gallery-py313-optional, python-ver: "3.13", os: windows-latest }
+          - { name: linux-gallery-python3.10-minimum   , test-tox-env: gallery-py310-minimum , python-ver: "3.10", os: ubuntu-latest }
+          - { name: linux-gallery-python3.14-optional  , test-tox-env: gallery-py314-optional, python-ver: "3.14", os: ubuntu-latest }
+          - { name: windows-gallery-python3.10-minimum , test-tox-env: gallery-py310-minimum , python-ver: "3.10", os: windows-latest }
+          - { name: windows-gallery-python3.14-optional, test-tox-env: gallery-py314-optional, python-ver: "3.14", os: windows-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
@@ -113,9 +117,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: conda-linux-python3.9-minimum  , test-tox-env: py39-minimum  , python-ver: "3.9" , os: ubuntu-latest }
-          - { name: conda-linux-python3.13         , test-tox-env: py313         , python-ver: "3.13", os: ubuntu-latest }
-          - { name: conda-linux-python3.13-optional, test-tox-env: py313-optional, python-ver: "3.13", os: ubuntu-latest }
+          - { name: conda-linux-python3.10-minimum , test-tox-env: py310-minimum , python-ver: "3.10", os: ubuntu-latest }
+          - { name: conda-linux-python3.14         , test-tox-env: py314         , python-ver: "3.14", os: ubuntu-latest }
+          - { name: conda-linux-python3.14-optional, test-tox-env: py314-optional, python-ver: "3.14", os: ubuntu-latest }
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
