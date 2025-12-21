@@ -4,6 +4,12 @@
 
 ### Fixed
 - Fixed zarr array `.info` property to display compression data ("No. bytes stored" and "Storage ratio") when using consolidated metadata stores by patching `ConsolidatedMetadataStore.getsize()` to query the underlying chunk store. @rly [#305](https://github.com/hdmf-dev/hdmf-zarr/pull/305)
+- Fixed bug where the cached spec was not included in consolidated metadata when exporting using `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
+- Fixed bug where consolidated metadata was always written by `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
+
+### Changed
+- Dropped testing for Python 3.9. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
+- Added support for Python 3.14. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
 
 ## 0.12.0 (October 8, 2025)
 

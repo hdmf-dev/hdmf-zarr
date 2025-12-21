@@ -13,16 +13,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0  # tags are required to determine the version
-      
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
 
       - name: Install HDMF_Zarr Requirements
         run: |
           python -m pip install ".[test]"
-          
+
       - name: Clone and Install HDMF Dev Branch
         run: |
           git clone https://github.com/hdmf-dev/hdmf.git --recurse-submodules
