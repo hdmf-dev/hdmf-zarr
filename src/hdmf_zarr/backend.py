@@ -410,14 +410,14 @@ class ZarrIO(HDMFIO):
     )
     def write(self, **kwargs):
         """Overwrite the write method to add support for caching the specification and parallelization."""
-        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context, consolidate_metadata = popargs(
+        cache_spec, number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "cache_spec",
             "number_of_jobs",
             "max_threads_per_process",
             "multiprocessing_context",
-            "consolidate_metadata",
             kwargs,
         )
+        consolidate_metadata = kwargs["consolidate_metadata"]
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -425,7 +425,7 @@ class ZarrIO(HDMFIO):
             multiprocessing_context=multiprocessing_context,
         )
 
-        super(ZarrIO, self).write(**kwargs)
+        super().write(**kwargs)
         if cache_spec:
             self.__cache_spec()
 
@@ -482,6 +482,12 @@ class ZarrIO(HDMFIO):
             ),
             "default": None,
         },
+        {
+            "name": "consolidate_metadata",
+            "type": bool,
+            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "default": True,
+        },
     )
     def export(self, **kwargs):
         """Export data read from a file from any backend to Zarr.
@@ -497,6 +503,7 @@ class ZarrIO(HDMFIO):
         number_of_jobs, max_threads_per_process, multiprocessing_context = popargs(
             "number_of_jobs", "max_threads_per_process", "multiprocessing_context", kwargs
         )
+        consolidate_metadata = popargs("consolidate_metadata", kwargs)
 
         self.__dci_queue = ZarrIODataChunkIteratorQueue(
             number_of_jobs=number_of_jobs,
@@ -512,6 +519,7 @@ class ZarrIO(HDMFIO):
             )
 
         write_args["export_source"] = src_io.source  # pass export_source=src_io.source to write_builder
+        write_args["consolidate_metadata"] = consolidate_metadata
         ckwargs = kwargs.copy()
         ckwargs["write_args"] = write_args
         if not write_args.get("link_data", True):
@@ -525,6 +533,10 @@ class ZarrIO(HDMFIO):
                         name=namespace, namespace=src_io.manager.namespace_catalog.get_namespace(namespace)
                     )
             self.__cache_spec()
+
+        # Reconsolidate metadata after the spec has been cached
+        if consolidate_metadata:
+            zarr.consolidate_metadata(store=self.path)
 
     def get_written(self, builder, check_on_disk=False):
         """
