@@ -28,6 +28,7 @@ jobs:
           - { os: macos-latest  , opt_req: false }
     env:  # used by codecov-action
       OS: ${{ matrix.os }}
+      # No prebuilt wheels for numcodecs==0.15.1 for Python 3.14 on PyPI and cannot build numcodecs == 0.15.1 on macos-latest
       PYTHON: '3.13'
     steps:
       - name: Checkout repo
