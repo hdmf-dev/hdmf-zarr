@@ -327,12 +327,37 @@ The mappings of data types is as follows
     |  * "reference"           | dataset. See                       |                |
     |  * "object"              | :ref:`sec-zarr-storage-references` |                |
     +--------------------------+------------------------------------+----------------+
-    |  * compound dtype        | Compound data type                 |                |
+    |  * compound dtype        | Compound data type. Stored in      |                |
+    |                          | ``zarr_dtype`` as a list of dicts  |                |
+    |                          | with ``"name"`` and ``"dtype"``    |                |
+    |                          | keys (see example below).          |                |
     +--------------------------+------------------------------------+----------------+
     |  * "isodatetime"         | ASCII ISO8061 datetime string.     | variable       |
     |                          | For example                        |                |
     |                          | ``2018-09-28T14:43:54.123+02:00``  |                |
     +--------------------------+------------------------------------+----------------+
+
+.. note::
+
+    For compound dtypes, the ``zarr_dtype`` attribute is stored as a list of dictionaries,
+    where each dictionary describes a field in the compound type. For example:
+
+    .. code-block:: json
+
+        "zarr_dtype": [
+            {
+                "dtype": "uint32",
+                "name": "x"
+            },
+            {
+                "dtype": "uint32",
+                "name": "y"
+            },
+            {
+                "dtype": "float32",
+                "name": "weight"
+            }
+        ]
 
 
 .. _sec-zarr-caching-specifications:

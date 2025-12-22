@@ -268,6 +268,26 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         read_types = CacheSpecTestHelper.get_types(ns_catalog)
         self.assertSetEqual(source_types, read_types)
 
+    def test_cache_spec_no_consolidation(self):
+        """Test that writing with cache_spec but without consolidate_metadata still writes .specloc."""
+        tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
+
+        # Setup all the data we need
+        foo1 = Foo("foo1", [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+        foo2 = Foo("foo2", [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+        foobucket = FooBucket("test_bucket", [foo1, foo2])
+        foofile = FooFile(buckets=[foobucket])
+
+        # Write without consolidating metadata
+        tempIO.write(foofile, cache_spec=True, consolidate_metadata=False)
+        tempIO.close()
+
+        # Verify that .specloc is written (use r- mode to force read without consolidated metadata)
+        readIO = ZarrIO(self.store_path, manager=self.manager, mode="r-")
+        self.assertIn(".specloc", readIO._file.attrs.keys())
+
+        assert not os.path.exists(os.path.join(self.store_path, ".zmetadata"))
+
     def test_load_namespaces_io(self):
         tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
 
@@ -1182,6 +1202,27 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(ValueError, msg):
                     export_io.export(src_io=read_io, container=dummy_file)
 
+    def test_export_no_consolidation(self):
+        """Test that exporting with consolidate_metadata=False works."""
+        foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket("bucket1", [foo1])
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
+            write_io.write(foofile, consolidate_metadata=False)
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="r") as read_io:
+            read_foofile = read_io.read()
+
+            with ZarrIO(self.store_path[1], mode="w") as export_io:
+                export_io.export(src_io=read_io, container=read_foofile, consolidate_metadata=False)
+
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r-") as read_io:
+            read_foofile = read_io.read()
+            self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
+        
+        assert not os.path.exists(os.path.join(self.store_path[1], ".zmetadata"))
+
     def test_cache_spec_disabled(self):
         """Test that exporting with cache_spec disabled works."""
         foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
@@ -1216,6 +1257,46 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with zarr.open(self.store_path[1], mode="r") as zarr_io:
             self.assertTrue("specifications" in zarr_io.keys())
 
+    def test_cache_spec_consolidated(self):
+        """Test that exporting with cache_spec and consolidate_metadata writes .specloc to consolidated metadata."""
+        foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket("bucket1", [foo1])
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
+            write_io.write(foofile)
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="r") as read_io:
+            read_foofile = read_io.read()
+
+            with ZarrIO(self.store_path[1], mode="w") as export_io:
+                export_io.export(src_io=read_io, container=read_foofile, cache_spec=True, consolidate_metadata=True)
+
+        # Verify that .specloc is in the consolidated metadata (readable after consolidation)
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r") as read_io:
+            self.assertIn(".specloc", read_io._file.attrs.keys())
+
+    def test_cache_spec_no_consolidation(self):
+        """Test that exporting with cache_spec but without consolidate_metadata still writes .specloc."""
+        foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)
+        foobucket = FooBucket("bucket1", [foo1])
+        foofile = FooFile(buckets=[foobucket])
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="w") as write_io:
+            write_io.write(foofile, consolidate_metadata=False)
+
+        with ZarrIO(self.store_path[0], manager=get_foo_buildmanager(), mode="r") as read_io:
+            read_foofile = read_io.read()
+
+            with ZarrIO(self.store_path[1], mode="w") as export_io:
+                export_io.export(src_io=read_io, container=read_foofile, cache_spec=True, consolidate_metadata=False)
+
+        # Verify that .specloc is written (use r- mode to force read without consolidated metadata)
+        with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r-") as read_io:
+            self.assertIn(".specloc", read_io._file.attrs.keys())
+
+        assert not os.path.exists(os.path.join(self.store_path[1], ".zmetadata"))
+        
     def test_soft_link_group(self):
         """
         Test that exporting a written file with soft linked groups keeps links within the file." ,i.e, we have
