@@ -24,7 +24,7 @@ from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 from hdmf.backends.io import HDMFIO
 from hdmf.backends.errors import UnsupportedOperation
 from hdmf.backends.utils import NamespaceToBuilderHelper, WriteStatusTracker
-from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape
+from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape, generate_array_html_repr
 from hdmf.build import Builder, GroupBuilder, DatasetBuilder, LinkBuilder, BuildManager, ReferenceBuilder, TypeMap
 from hdmf.data_utils import AbstractDataChunkIterator
 from hdmf.spec import RefSpec, DtypeSpec, NamespaceCatalog
@@ -66,6 +66,31 @@ class ZarrIO(HDMFIO):
             return True
         except Exception:
             return False
+
+    @staticmethod
+    def generate_dataset_html(dataset):
+        """
+        Generates an HTML representation for a dataset for the ZarrIO class.
+
+        This method extracts metadata from a Zarr array using its info_items() method
+        and formats it as an HTML table for display in Jupyter notebooks and other
+        HTML-based interfaces.
+
+        Parameters
+        ----------
+        dataset : zarr.core.Array
+            The Zarr array for which to generate an HTML representation
+
+        Returns
+        -------
+        str
+            HTML representation of the dataset
+        """
+        # get info from zarr array and generate html repr
+        zarr_info_dict = {k: v for k, v in dataset.info_items()}
+        repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
+
+        return repr_html
 
     @docval(
         {
