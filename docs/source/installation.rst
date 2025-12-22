@@ -31,7 +31,7 @@ often useful to use the ``dev`` branch of the ``hdmf`` GitHub repository.
 
 .. code-block::
 
-    conda create --name hdmf-zarr-dev python=3.13
+    conda create --name hdmf-zarr-dev python=3.14
     conda activate hdmf-zarr-dev
 
     git clone --recurse-submodules https://github.com/hdmf-dev/hdmf.git
