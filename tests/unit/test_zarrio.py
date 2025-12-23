@@ -21,6 +21,7 @@ from zarr.storage import DirectoryStore, NestedDirectoryStore
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
+import numpy as np
 from hdmf_zarr.backend import ZarrIO
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
@@ -335,3 +336,56 @@ class TestDatasetOfReferences(TestCase):
             read_container = append_io.read()
             self.assertEqual(len(read_container.baz_data.data), 11)
             self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
+
+
+class TestGenerateDatasetHtml(TestCase):
+    """Test the generate_dataset_html static method"""
+
+    def test_generate_dataset_html_basic(self):
+        """Test basic HTML generation for a Zarr array"""
+        # Create a test zarr array
+        store = zarr.MemoryStore()
+        z = zarr.open_array(store, mode="w", shape=(100, 100), chunks=(10, 10), dtype="f4", compressor=zarr.Blosc())
+        z[:] = np.random.random((100, 100))
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify that HTML is generated and contains expected content
+        self.assertIsInstance(html, str)
+        self.assertIn("Zarr Array", html)
+        self.assertIn("float32", html)
+        self.assertIn("(100, 100)", html)
+        self.assertIn("(10, 10)", html)  # chunk shape
+        self.assertIn("table", html)  # Should contain HTML table
+
+    def test_generate_dataset_html_with_compression(self):
+        """Test HTML generation includes compression information"""
+        # Create a zarr array with specific compression
+        store = zarr.MemoryStore()
+        compressor = zarr.Blosc(cname="zstd", clevel=9)
+        z = zarr.open_array(store, mode="w", shape=(50, 50), chunks=(25, 25), dtype="i4", compressor=compressor)
+        z[:] = np.arange(2500).reshape(50, 50)
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify compression info is included
+        self.assertIn("Compressor", html)
+        self.assertIn("zstd", html)
+        self.assertIn("int32", html)
+
+    def test_generate_dataset_html_no_compression(self):
+        """Test HTML generation for uncompressed array"""
+        # Create an uncompressed zarr array
+        store = zarr.MemoryStore()
+        z = zarr.open_array(store, mode="w", shape=(10, 10), chunks=(5, 5), dtype="f8", compressor=None)
+        z[:] = np.random.random((10, 10))
+
+        # Generate HTML representation
+        html = ZarrIO.generate_dataset_html(z)
+
+        # Verify basic info is present
+        self.assertIn("Zarr Array", html)
+        self.assertIn("float64", html)
+        self.assertIn("(10, 10)", html)

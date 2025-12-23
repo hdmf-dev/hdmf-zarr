@@ -2,6 +2,9 @@
 
 ## Upcoming
 
+### Added
+- Added `ZarrIO.generate_dataset_html` method to generate rich HTML representations of Zarr arrays for display in Jupyter notebooks. @rly [#306](https://github.com/hdmf-dev/hdmf-zarr/pull/306)
+
 ### Fixed
 - Fixed zarr array `.info` property to display compression data ("No. bytes stored" and "Storage ratio") when using consolidated metadata stores by patching `ConsolidatedMetadataStore.getsize()` to query the underlying chunk store. @rly [#305](https://github.com/hdmf-dev/hdmf-zarr/pull/305)
 - Fixed bug where the cached spec was not included in consolidated metadata when exporting using `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
@@ -11,6 +14,7 @@
 - Updated documentation about how the `zarr_dtype` attribute is used to specify a compound dtype (structured array) for a dataset. @rly [#313](https://github.com/hdmf-dev/hdmf-zarr/pull/313)
 - Dropped testing for Python 3.9. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
 - Added support for Python 3.14. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
+
 
 ## 0.12.0 (October 8, 2025)
 
