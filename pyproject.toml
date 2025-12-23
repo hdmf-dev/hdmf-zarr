@@ -34,7 +34,7 @@ dependencies = [
     "hdmf>=4.1.0",
     "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
     "numpy>=1.24.0",
-    "numcodecs>=0.12.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with some versions of zarr 2.18.* and those versions do not include this restriction
+    "numcodecs>=0.13.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with some versions of zarr 2.18.* and those versions do not include this restriction
     "pynwb>=2.8.3",
     "threadpoolctl>=3.1.0",
 ]
