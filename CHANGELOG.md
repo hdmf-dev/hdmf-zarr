@@ -14,6 +14,7 @@
 - Updated documentation about how the `zarr_dtype` attribute is used to specify a compound dtype (structured array) for a dataset. @rly [#313](https://github.com/hdmf-dev/hdmf-zarr/pull/313)
 - Dropped testing for Python 3.9. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
 - Added support for Python 3.14. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
+- Write scalar datasets with shape () instead of shape (1,). @rly [#310](https://github.com/hdmf-dev/hdmf-zarr/pull/310)
 
 
 ## 0.12.0 (October 8, 2025)
