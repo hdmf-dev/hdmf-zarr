@@ -148,3 +148,5 @@ dmypy.json
 _version.py
 
 .ruff_cache
+zarr_test*.zarr
+*.nwb.zarr

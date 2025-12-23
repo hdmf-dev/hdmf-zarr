@@ -9,11 +9,39 @@ from copy import copy
 import numpy as np
 
 from zarr import Array
+from zarr.storage import ConsolidatedMetadataStore, getsize as zarr_getsize
 
 from hdmf.build import DatasetBuilder
 from hdmf.data_utils import append_data
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
 from hdmf.utils import docval, popargs, get_docval
+
+
+# Monkey-patch ConsolidatedMetadataStore.getsize to fix compression info display
+# This is a workaround for zarr issue where ConsolidatedMetadataStore.getsize() returns -1
+# because it checks only the metadata store (which is a KVStore containing metadata as dicts)
+# instead of the underlying chunk store.
+# Without this fix, the array .info property does not display "No. bytes stored" and "Storage ratio".
+
+
+def _fixed_consolidated_getsize(self, path):
+    """
+    Fixed getsize method that delegates to the underlying store for chunk data.
+    
+    This fixes the issue where consolidated metadata stores return -1 for nbytes_stored,
+    which causes the array .info to not display "No. bytes stored" and "Storage ratio".
+    
+    Note: We only use the chunk size from the underlying store because the metadata
+    store (KVStore) stores metadata as dictionaries which cannot be sized by zarr's
+    getsize function (it returns -1).
+    """
+    # Get size from the underlying store (for actual chunk data)
+    # The meta_store is a KVStore that stores metadata as dicts, so zarr_getsize
+    # always returns -1 for it.
+    return zarr_getsize(self.store, path)
+
+
+ConsolidatedMetadataStore.getsize = _fixed_consolidated_getsize
 
 
 class ZarrDataset(HDMFDataset):
