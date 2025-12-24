@@ -1426,7 +1426,7 @@ class ZarrIO(HDMFIO):
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
 
-    __reserve_attribute = ("zarr_dtype", "zarr_link")
+    __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
