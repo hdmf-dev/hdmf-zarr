@@ -9,6 +9,7 @@
 - Fixed zarr array `.info` property to display compression data ("No. bytes stored" and "Storage ratio") when using consolidated metadata stores by patching `ConsolidatedMetadataStore.getsize()` to query the underlying chunk store. @rly [#305](https://github.com/hdmf-dev/hdmf-zarr/pull/305)
 - Fixed bug where the cached spec was not included in consolidated metadata when exporting using `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
 - Fixed bug where consolidated metadata was always written by `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
+- Fixed bug where the `specifications` group and its contents were read during `ZarrIO.read_builder`. @rly [#322](https://github.com/hdmf-dev/hdmf-zarr/pull/322)
 
 ### Changed
 - Updated documentation about how the `zarr_dtype` attribute is used to specify a compound dtype (structured array) for a dataset. @rly [#313](https://github.com/hdmf-dev/hdmf-zarr/pull/313)

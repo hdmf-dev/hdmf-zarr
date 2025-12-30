@@ -1430,7 +1430,7 @@ class ZarrIO(HDMFIO):
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
 
-    __reserve_attribute = ("zarr_dtype", "zarr_link")
+    __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
@@ -1552,7 +1552,12 @@ class ZarrIO(HDMFIO):
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
     def read_builder(self):
-        f_builder = self.__read_group(self.__file, ROOT_NAME)
+        # ignore cached specs when reading builder
+        ignore_groups = set()
+        specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
+        if specloc is not None:
+            ignore_groups.add(self.__file[specloc].name)
+        f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
         return f_builder
 
     def __set_built(self, zarr_obj, builder):
@@ -1608,7 +1613,9 @@ class ZarrIO(HDMFIO):
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
 
-    def __read_group(self, zarr_obj, name=None):
+    def __read_group(self, zarr_obj, name=None, ignore_groups=set()):
+        # NOTE: ignore_groups is a set of group names to skip when reading and only
+        # used when reading the root group to skip the specification group
         ret = self.__get_built(zarr_obj)
         if ret is not None:
             return ret
@@ -1630,6 +1637,8 @@ class ZarrIO(HDMFIO):
 
         # read sub groups
         for sub_name, sub_group in zarr_obj.groups():
+            if sub_group.name in ignore_groups:
+                continue
             sub_builder = self.__read_group(sub_group, sub_name)
             ret.set_group(sub_builder)
 

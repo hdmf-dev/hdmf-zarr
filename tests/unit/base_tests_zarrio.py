@@ -288,6 +288,30 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
 
         assert not os.path.exists(os.path.join(self.store_path, ".zmetadata"))
 
+    def test_read_builder_excludes_specifications(self):
+        """Test that read_builder excludes the specifications group from the returned builder."""
+        tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
+
+        # Setup all the data we need
+        foo1 = Foo("foo1", [0, 1, 2, 3, 4], "I am foo1", 17, 3.14)
+        foo2 = Foo("foo2", [5, 6, 7, 8, 9], "I am foo2", 34, 6.28)
+        foobucket = FooBucket("test_bucket", [foo1, foo2])
+        foofile = FooFile(buckets=[foobucket])
+
+        # Write with cache_spec=True to create the specifications group
+        tempIO.write(foofile, cache_spec=True)
+        tempIO.close()
+
+        # Verify that the specifications group exists in the Zarr file
+        zarr_file = zarr.open(self.store_path, mode="r")
+        self.assertIn("specifications", zarr_file.keys())
+
+        # Read the builder and verify the specifications group is excluded
+        readIO = ZarrIO(self.store_path, manager=self.manager, mode="r")
+        builder = readIO.read_builder()
+        self.assertNotIn("specifications", builder.groups)
+        readIO.close()
+
     def test_load_namespaces_io(self):
         tempIO = ZarrIO(self.store_path, manager=self.manager, mode="w")
 
@@ -1174,7 +1198,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[1], manager=get_foo_buildmanager(), mode="r-") as read_io:
             read_foofile = read_io.read()
             self.assertContainerEqual(foofile, read_foofile, ignore_hdmf_attrs=True)
-        
+
         assert not os.path.exists(os.path.join(self.store_path[1], ".zmetadata"))
 
     def test_cache_spec_disabled(self):
@@ -1250,7 +1274,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             self.assertIn(".specloc", read_io._file.attrs.keys())
 
         assert not os.path.exists(os.path.join(self.store_path[1], ".zmetadata"))
-        
+
     def test_soft_link_group(self):
         """
         Test that exporting a written file with soft linked groups keeps links within the file." ,i.e, we have
