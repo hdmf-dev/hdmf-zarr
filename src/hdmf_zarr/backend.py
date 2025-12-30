@@ -1724,17 +1724,15 @@ class ZarrIO(HDMFIO):
             if has_reference:
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
                 is_ref_dataset = True
-        elif self.__is_ref(dtype) and zarr_obj.shape != ():
-            # Array of references (but not scalar objects with shape (), which are typically
-            # spec data stored as JSON strings, not data references. Wrapping spec datasets
-            # in BuilderZarrReferenceDataset would cause errors during export/read.)
+        elif self.__is_ref(dtype):
+            # Dataset of references
             data = BuilderZarrReferenceDataset(data, self)
             is_ref_dataset = True
 
         # Read scalar dataset immediately for simple types (not object/reference types).
         # Old style scalars have dtype == "scalar" with shape (1,), while new style scalars  
-        # have shape () with actual dtype stored in zarr_dtype. Object-dtype scalars (e.g., 
-        # spec JSON data) and reference datasets should remain as lazy arrays for proper handling.
+        # have shape () with actual dtype stored in zarr_dtype. Object-dtype and reference 
+        # datasets should remain as lazy arrays for proper handling.
         if not is_ref_dataset and (dtype == "scalar" or (zarr_obj.shape == () and dtype != "object")):
             data = zarr_obj[()]
 
