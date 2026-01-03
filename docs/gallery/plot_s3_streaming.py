@@ -55,15 +55,16 @@ except Exception as e:
     print(f"Note: Could not access S3 file (network access may be required): {e}")
 
 ###############################################################################
-# For S3 URLs with the ``s3://`` protocol, you need to provide the ``storage_options``
-# parameter explicitly:
-
-# Example with s3:// protocol (this is a placeholder URL)
-# s3_path = "s3://your-bucket/path/to/file.nwb.zarr/"
+# .. note::
 #
-# with NWBZarrIO(s3_path, mode="r", storage_options=dict(anon=True)) as io:
-#     nwbfile = io.read()
-#     print(f"Identifier: {nwbfile.identifier}")
+#     For S3 URLs with the ``s3://`` protocol, you need to provide the ``storage_options``
+#     parameter explicitly. For example:
+#
+#     .. code-block:: python
+#
+#         s3_path = "s3://your-bucket/path/to/file.nwb.zarr/"
+#         with NWBZarrIO(s3_path, mode="r", storage_options=dict(anon=True)) as io:
+#             nwbfile = io.read()
 
 ###############################################################################
 # Accessing Private S3 Buckets
@@ -117,72 +118,29 @@ except Exception as e:
 # during read operations.
 
 ###############################################################################
-# Performance Comparison: With vs. Without Consolidated Metadata
-# ---------------------------------------------------------------
-#
-# The :py:class:`~hdmf_zarr.nwb.NWBZarrIO` class automatically uses consolidated
-# metadata when opening files in read mode (``mode='r'``). To force reading
-# without consolidated metadata (e.g., for testing or when metadata has changed),
-# you can use ``mode='r-'``:
-#
-# .. code-block:: python
-#
-#     # Read WITH consolidated metadata (fast, default)
-#     with NWBZarrIO(s3_url, mode="r") as io:
-#         io.open()
-#         # io._file.store is a zarr.storage.ConsolidatedMetadataStore
-#
-#     # Read WITHOUT consolidated metadata (slower)
-#     with NWBZarrIO(s3_url, mode="r-") as io:
-#         io.open()
-#         # io._file.store is a zarr.storage.FSStore
-#
-# Using consolidated metadata is especially critical when streaming from S3 due to
-# network latency. Without consolidated metadata, opening a complex NWB file could
-# require hundreds or thousands of individual S3 requests.
-
-###############################################################################
 # Generating and Updating Consolidated Metadata
 # ----------------------------------------------
 #
 # When you create or modify a Zarr file, you should consolidate the metadata
 # to ensure optimal performance for readers, especially those streaming from S3.
-#
-# **When writing files**, :py:class:`~hdmf_zarr.nwb.NWBZarrIO` automatically
-# consolidates metadata by default:
-#
-# .. code-block:: python
-#
-#     # Metadata is automatically consolidated
-#     with NWBZarrIO(path="myfile.nwb.zarr", mode="w") as io:
-#         io.write(nwbfile)
-#
-# **To disable automatic consolidation** (not recommended for files that will be
-# read from S3):
-#
-# .. code-block:: python
-#
-#     with NWBZarrIO(path="myfile.nwb.zarr", mode="w") as io:
-#         io.write(nwbfile, consolidate_metadata=False)
-#
-# **If you modify a Zarr file** after creation (e.g., by directly using zarr APIs),
-# you need to manually update the consolidated metadata:
-
-import zarr
-
-# Example: Update consolidated metadata for a Zarr file
-# Uncomment the following lines to use with your own file:
-# path = "myfile.nwb.zarr"
-# zarr.consolidate_metadata(path)
-
-# For demonstration, we can show how to check if a file has consolidated metadata:
-print(f"Zarr version: {zarr.__version__}")
-
-###############################################################################
-# This ensures that the ``.zmetadata`` file reflects the current state of the
-# Zarr store. This step is critical before uploading modified files to S3.
+# By default, :py:class:`~hdmf_zarr.nwb.NWBZarrIO` automatically consolidates
+# metadata when writing files. See the
+# :py:meth:`~hdmf_zarr.nwb.NWBZarrIO.write` method's ``consolidate_metadata``
+# parameter for more details.
 #
 # .. note::
+#
+#     If you modify a Zarr file after creation (e.g., by directly using zarr APIs),
+#     you need to manually update the consolidated metadata:
+#
+#     .. code-block:: python
+#
+#         import zarr
+#         path = "myfile.nwb.zarr"
+#         zarr.consolidate_metadata(path)
+#
+#     This ensures that the ``.zmetadata`` file reflects the current state of the
+#     Zarr store. This step is critical before uploading modified files to S3.
 #
 #     For more details on consolidated metadata, see the
 #     :zarr-docs:`Zarr documentation <tutorial.html#consolidating-metadata>` and the
@@ -201,6 +159,13 @@ try:
     print(f"Session Start Time: {nwbfile.session_start_time}")
 except Exception as e:
     print(f"Note: Could not access S3 file (network access may be required): {e}")
+
+###############################################################################
+# .. note::
+#
+#     PyNWB also provides a more general :py:func:`~pynwb.NWBHDF5IO.read` method that
+#     can automatically detect and use the appropriate IO class (HDF5 or Zarr) based
+#     on the file path or URL.
 
 ###############################################################################
 # Best Practices for S3 Streaming
@@ -224,16 +189,3 @@ except Exception as e:
 # 6. **Consider network costs**: While streaming is convenient, repeated access to
 #    the same data may be less efficient than downloading the file once for local
 #    access.
-
-###############################################################################
-# Summary
-# -------
-#
-# This tutorial covered:
-#
-# * How to stream NWB Zarr files from public and private S3 buckets
-# * The critical importance of consolidated metadata for S3 performance
-# * How to generate and update consolidated metadata using ``zarr.consolidate_metadata()``
-# * Best practices for working with NWB Zarr files on S3
-#
-# For more information on Zarr storage in hdmf-zarr, see :ref:`sec-zarr-storage`.
