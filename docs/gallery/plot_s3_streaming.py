@@ -109,9 +109,8 @@ except Exception as e:
 # significantly slow down file opening and data access.
 #
 # **Consolidated metadata** addresses this by storing all metadata in a single
-# ``.zmetadata`` file at the root of the Zarr store. This dramatically reduces
-# the number of S3 requests needed to open a file, improving performance by
-# orders of magnitude.
+# ``.zmetadata`` file at the root of the Zarr store. This helps improve read performance
+# by reducing the number of S3 requests needed to open a file.
 #
 # By default, :py:class:`~hdmf_zarr.nwb.NWBZarrIO` consolidates metadata when
 # writing files, and automatically uses consolidated metadata when available
