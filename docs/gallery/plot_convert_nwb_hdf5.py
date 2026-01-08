@@ -14,19 +14,22 @@ back again to HDF5. The NWB standard is defined using :hdmf-docs:`HDMF <>` and u
 # -----
 #
 # Here we use a small NWB file from the DANDI neurophysiology data archive from
-# `Dandiset 000009 <https://dandiarchive.org/dandiset/000009/0.220126.1903>`_ as an example.
+# `Dandiset 001333 <https://dandiarchive.org/dandiset/001333/0.250327.2220>`_ as an example.
 # To download the file directly from DANDI we can use:
 #
 # .. code-block:: python
 #    :linenos:
 #
+#    import os
 #    from dandi.dandiapi import DandiAPIClient
-#    dandiset_id = "000009"
-#    filepath = "sub-anm00239123/sub-anm00239123_ses-20170627T093549_ecephys+ogen.nwb"   # ~0.5MB file
+#
+#    dandiset_id = "001333"
+#    filepath = "sub-healthy-simulated-beta/sub-healthy-simulated-beta_ses-162_ecephys.nwb"   # 220 KiB file
 #    with DandiAPIClient() as client:
 #        asset = client.get_dandiset(dandiset_id, 'draft').get_asset_by_path(filepath)
-#        s3_path = asset.get_content_url(follow_redirects=1, strip_query=True)
-#        filename = os.path.basename(asset.path)
+#
+#    s3_path = asset.get_content_url(follow_redirects=1, strip_query=True)
+#    filename = os.path.basename(asset.path)
 #    asset.download(filename)
 #
 # We here use a local copy of a small file from this Dandiset as an example:
@@ -37,11 +40,10 @@ import os
 import shutil
 from pynwb import NWBHDF5IO
 from hdmf_zarr.nwb import NWBZarrIO
-from contextlib import suppress
 
 # Input file to convert
 basedir = "resources"
-filename = os.path.join(basedir, "sub_anm00239123_ses_20170627T093549_ecephys_and_ogen.nwb")
+filename = os.path.join(basedir, "sub-healthy-simulated-beta_ses-162_ecephys.nwb")
 # Zarr file to generate for converting from HDF5 to Zarr
 zarr_filename = "test_zarr_" + os.path.basename(filename) + ".zarr"
 # HDF5 file to generate for converting from Zarr to HDF5
@@ -53,20 +55,20 @@ for fname in [zarr_filename, hdf_filename]:
         print("Removing %s" % fname)
         if os.path.isfile(fname):  # Remove a single file (here the HDF5 file)
             os.remove(fname)
-        else:  # remove whole directory and subtree (here the Zarr file)
-            shutil.rmtree(zarr_filename)
+        else:  # Remove whole directory and subtree (here the Zarr file)
+            shutil.rmtree(fname)
 
 ###############################################################################
 # Convert the NWB file from HDF5 to Zarr
 # --------------------------------------
 #
-# To convert files between storage backends, we use HMDF's :hdmf-docs:`export <export.html>` functionality.
+# To convert files between storage backends, we use HDMF's :hdmf-docs:`export <export.html>` functionality.
 # As this is an NWB file, we here use the :py:class:`pynwb.NWBHDF5IO` backend for reading the file from
 # from HDF5 and use the :py:class:`~hdmf_zarr.nwb.NWBZarrIO` backend to export the file to Zarr.
 
-with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:  # Create HDF5 IO object for read
-    with NWBZarrIO(zarr_filename, mode='w') as export_io:         # Create Zarr IO object for write
-        export_io.export(src_io=read_io, write_args=dict(link_data=False))   # Export from HDF5 to Zarr
+with NWBHDF5IO(filename, 'r') as read_io:  # Create HDF5 IO object for read
+    with NWBZarrIO(zarr_filename, 'w') as export_io:  # Create Zarr IO object for write
+        export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from HDF5 to Zarr
 
 ###############################################################################
 # .. note::
@@ -77,27 +79,27 @@ with NWBHDF5IO(filename, 'r', load_namespaces=False) as read_io:  # Create HDF5 
 # Read the Zarr file back in
 # --------------------------
 
-zr = NWBZarrIO(zarr_filename, 'r')
-zf = zr.read()
+zarr_io = NWBZarrIO(zarr_filename, 'r')
+nwb_zarr = zarr_io.read()
 
 ###############################################################################
 # The basic behavior of the :py:class:`~pynwb.file.NWBFile` object is the same.
 
 # Print the NWBFile to illustrate that
-print(zf)
+print(nwb_zarr)
 
 ###############################################################################
 # The main difference is that datasets are now represented by Zarr arrays compared
 # to h5py Datasets when reading from HDF5.
 
-print(type(zf.trials['start_time'].data))
+print(type(nwb_zarr.electrodes['label'].data))
 
 ###############################################################################
-# For illustration purposes, we here show a few columns of the
-# :pynwb-docs:`Trials <tutorials/general/plot_timeintervals.html>` table.
+# For illustration purposes, we here show the NWB
+# :pynwb-docs:`Electrodes <tutorials/domain/ecephys.html>` table.
 
-zf.trials.to_dataframe()[['start_time', 'stop_time', 'type', 'photo_stim_type']]
-zr.close()
+print(nwb_zarr.electrodes.to_dataframe())
+zarr_io.close()
 
 ###############################################################################
 # Convert the Zarr file back to HDF5
@@ -105,10 +107,9 @@ zr.close()
 #
 # Using the same approach as above, we can now convert our Zarr file back to HDF5.
 
-with suppress(Exception):  # TODO: This is a temporary ignore on the convert_dtype exception.
-    with NWBZarrIO(zarr_filename, mode='r') as read_io:  # Create Zarr IO object for read
-        with NWBHDF5IO(hdf_filename, 'w') as export_io:  # Create HDF5 IO object for write
-            export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from Zarr to HDF5
+with NWBZarrIO(zarr_filename, 'r') as read_io:  # Create Zarr IO object for read
+    with NWBHDF5IO(hdf_filename, 'w') as export_io:  # Create HDF5 IO object for write
+        export_io.export(src_io=read_io, write_args=dict(link_data=False))  # Export from Zarr to HDF5
 
 ###############################################################################
 # Read the new HDF5 file back
@@ -117,6 +118,6 @@ with suppress(Exception):  # TODO: This is a temporary ignore on the convert_dty
 # Now our file has been converted from HDF5 to Zarr and back again to HDF5.
 # Here we check that we can still read that file.
 
-with suppress(Exception):  # TODO: This is a temporary ignore on the convert_dtype exception.
-    with NWBHDF5IO(hdf_filename, 'r') as hr:
-        hf = hr.read()
+with NWBHDF5IO(hdf_filename, 'r') as hdf5_io:
+    nwb_hdf5 = hdf5_io.read()
+    print(nwb_hdf5)
