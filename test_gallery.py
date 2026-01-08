@@ -33,7 +33,7 @@ _numpy_warning_re = "numpy.ufunc size changed, may indicate binary incompatibili
 _distutils_warning_re = "distutils Version classes are deprecated. Use packaging.version instead."
 
 _cached_namespace_warning_re = (
-    r"Ignoring the following cached namespace(s) because another version is already loaded:.*"
+    r"Ignoring the following cached namespace\(s\) because another version is already loaded:.*"
 )
 
 _experimental_warning_re = (
