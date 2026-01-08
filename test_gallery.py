@@ -10,6 +10,7 @@ import sys
 import traceback
 import warnings
 
+
 TOTAL = 0
 FAILURES = 0
 ERRORS = 0
@@ -61,6 +62,11 @@ _deprecation_warning_call_docval_func = (
     "is set), then you will need to pop the extra arguments out of kwargs before calling the function."
 )
 
+_deprecation_warning_device_manufacturer = (
+    "The 'manufacturer' field is deprecated. Instead, use DeviceModel.manufacturer and link to that DeviceModel "
+    "from this Device."
+)
+
 _deprecation_warning_pandas_pyarrow_re = r"\nPyarrow will become a required dependency of pandas.*"
 
 _deprecation_warning_datetime = r"datetime.datetime.utcfromtimestamp() *"
@@ -86,6 +92,11 @@ def run_gallery_tests():
                 gallery_file_names.append(os.path.join(root, f))
 
     warnings.simplefilter("error")
+    # Suppress deprecation warning from numcodecs's _destroy atexit callback.
+    # This filter must be set AFTER simplefilter("error") so it's not cleared.
+    # This is fixed in numcodecs 0.16.0, so this can be removed when we bump
+    # the minimum numcodecs version to >=0.16.0.
+    warnings.filterwarnings("ignore", message="Call to deprecated function.*_destroy", category=DeprecationWarning)
 
     TOTAL += len(gallery_file_names)
     curr_dir = os.getcwd()
@@ -106,6 +117,9 @@ def run_gallery_tests():
                 )
                 warnings.filterwarnings("ignore", message=_experimental_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_user_warning_transpose, category=UserWarning)
+                warnings.filterwarnings(
+                    "ignore", message=_deprecation_warning_device_manufacturer, category=DeprecationWarning
+                )
                 warnings.filterwarnings(
                     # this warning is triggered from pandas when HDMF is installed with the minimum requirements
                     "ignore",
