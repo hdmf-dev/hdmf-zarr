@@ -32,6 +32,10 @@ _numpy_warning_re = "numpy.ufunc size changed, may indicate binary incompatibili
 
 _distutils_warning_re = "distutils Version classes are deprecated. Use packaging.version instead."
 
+_cached_namespace_warning_re = (
+    r"Ignoring the following cached namespace(s) because another version is already loaded:.*"
+)
+
 _experimental_warning_re = (
     "The ZarrIO backend is experimental. It is under active development. "
     "The ZarrIO backend may change any time and backward compatibility is not guaranteed."
@@ -115,6 +119,7 @@ def run_gallery_tests():
                 warnings.filterwarnings(
                     "ignore", message=_deprecation_warning_call_docval_func, category=PendingDeprecationWarning
                 )
+                warnings.filterwarnings("ignore", message=_cached_namespace_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_experimental_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_user_warning_transpose, category=UserWarning)
                 warnings.filterwarnings(
