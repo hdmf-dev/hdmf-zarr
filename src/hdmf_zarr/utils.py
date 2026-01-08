@@ -355,13 +355,14 @@ class ZarrSpecWriter(SpecWriter):
         data = self.stringify(d)
         dset = self.__group.require_dataset(
             name,
-            shape=(1,),
+            shape=(),
             dtype=object,
             object_codec=numcodecs.JSON(),
             compressor=None,
         )
-        dset.attrs["zarr_dtype"] = "scalar"
-        dset[0] = data
+        dset[()] = data
+        # Use "object" to be consistent with __serial_dtype__ in backend.py
+        dset.attrs["zarr_dtype"] = "object"
         return dset
 
     def write_spec(self, spec, path):
@@ -390,7 +391,17 @@ class ZarrSpecReader(SpecReader):
         self.__cache = None
 
     def __read(self, path):
-        s = self.__group[path][0]
+        dset = self.__group[path]
+        # Support both old-style shape (1,) and new-style shape () scalars
+        if dset.shape == ():
+            s = dset[()]
+        elif dset.shape == (1,):
+            s = dset[0]
+        else:
+            raise ValueError(
+                f"Unexpected shape {dset.shape} for spec dataset {path}. "
+                f"Expected shape () or (1,) for scalar spec datasets."
+            )
         d = json.loads(s)
         return d
 

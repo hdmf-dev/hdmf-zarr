@@ -1193,8 +1193,10 @@ class ZarrIO(HDMFIO):
                 dset = parent[name]
         # When converting data between backends we may see an HDMFDataset, e.g., a H55ReferenceDataset, with references
         elif isinstance(data, HDMFDataset):
+            # Check if data has a shape and if it's a scalar (shape == ())
+            has_len = hasattr(data, 'shape') and data.shape != ()
             # If we have a dataset of containers we need to make the references to the containers
-            if len(data) > 0 and isinstance(data[0], Container):
+            if has_len and len(data) > 0 and isinstance(data[0], Container):
                 ref_data = [self._create_ref(data[i], ref_link_source=self.path) for i in range(len(data))]
                 shape = (len(data),)
                 type_str = "object"
@@ -1217,11 +1219,13 @@ class ZarrIO(HDMFIO):
                 # We can/should not update the data in the builder itself so we load the data here and instead
                 # force write_dataset when we call it recursively to use the data we loaded, rather than the
                 # dataset that is set on the builder
+                # For scalar datasets (shape ()), use [()] instead of [:]
+                loaded_data = data[()] if hasattr(data, 'shape') and data.shape == () else data[:]
                 dset = self.write_dataset(
                     parent=parent,
                     builder=builder,
                     link_data=link_data,
-                    force_data=data[:],
+                    force_data=loaded_data,
                     export_source=export_source,
                 )
                 self._written_builders.set_written(builder)  # record that the builder has been written
@@ -1538,9 +1542,11 @@ class ZarrIO(HDMFIO):
         if dtype == object:  # noqa: E721
             io_settings["object_codec"] = self.__codec_cls()
 
-        dset = parent.require_dataset(name, shape=(1,), dtype=dtype, **io_settings)
-        dset[:] = data
-        type_str = "scalar"
+        # Set the type_str
+        type_str = self.__serial_dtype__(dtype)
+
+        dset = parent.require_dataset(name, shape=(), dtype=dtype, **io_settings)
+        dset[()] = data
         dset.attrs["zarr_dtype"] = type_str
         return dset
 
@@ -1704,10 +1710,9 @@ class ZarrIO(HDMFIO):
         # By default, use the zarr.core.Array as data for lazy data load
         data = zarr_obj
 
-        # Read scalar dataset
-        if dtype == "scalar":
-            data = zarr_obj[()]
-
+        # Check if this is a reference dataset or compound dataset with references first,
+        # before deciding whether to load scalar data immediately
+        is_ref_dataset = False
         if isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
@@ -1718,9 +1723,18 @@ class ZarrIO(HDMFIO):
             retrieved_dtypes = [dtype_dict["dtype"] for dtype_dict in dtype]
             if has_reference:
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
+                is_ref_dataset = True
         elif self.__is_ref(dtype):
-            # Array of references
+            # Dataset of references
             data = BuilderZarrReferenceDataset(data, self)
+            is_ref_dataset = True
+
+        # Read scalar dataset immediately for simple types (not object/reference types).
+        # Old style scalars have dtype == "scalar" with shape (1,), while new style scalars  
+        # have shape () with actual dtype stored in zarr_dtype. Object-dtype and reference 
+        # datasets should remain as lazy arrays for proper handling.
+        if not is_ref_dataset and (dtype == "scalar" or (zarr_obj.shape == () and dtype != "object")):
+            data = zarr_obj[()]
 
         kwargs["data"] = data
         if name is None:
