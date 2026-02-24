@@ -41,13 +41,13 @@ test_table = DynamicTable(
 # To define custom settings for write (e.g., for chunking and compression) we simply
 # wrap our data array using  :py:class:`~hdmf_zarr.utils.ZarrDataIO`.
 
-from numcodecs import Blosc
+from zarr.codecs import BloscCodec
 
 data_with_data_io = ZarrDataIO(
     data=data * 3,
     chunks=(10, 10),
     fillvalue=0,
-    compressor=Blosc(cname='zstd', clevel=1, shuffle=Blosc.SHUFFLE)
+    compressor=BloscCodec(cname='zstd', clevel=1, shuffle='shuffle')
 )
 
 ###############################################################################

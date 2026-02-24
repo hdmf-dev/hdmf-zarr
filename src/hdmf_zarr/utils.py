@@ -14,7 +14,6 @@ from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
 from warnings import warn
 
-import numcodecs
 import zarr
 import numpy as np
 from zarr import Group
