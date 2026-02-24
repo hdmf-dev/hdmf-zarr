@@ -84,6 +84,7 @@ _deprecation_warning_numpy = (
 _zarr_numcodecs_warning_re = r"Numcodecs codecs are not in the Zarr version 3 specification.*"
 _zarr_consolidated_warning_re = r"Consolidated metadata is currently not part in the Zarr format 3 specification.*"
 _zarr_unstable_dtype_warning_re = r"The data type .* does not have a Zarr V3 specification.*"
+_hdmf_dtype_conversion_warning_re = r"Spec '.*': Value with data type .* is being converted to data type .*"
 
 
 def run_gallery_tests():
@@ -171,6 +172,7 @@ def run_gallery_tests():
                 warnings.filterwarnings("ignore", message=_zarr_numcodecs_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_zarr_consolidated_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_zarr_unstable_dtype_warning_re, category=FutureWarning)
+                warnings.filterwarnings("ignore", message=_hdmf_dtype_conversion_warning_re, category=UserWarning)
                 _import_from_file(script_abs)
         except Exception:
             print(traceback.format_exc())
