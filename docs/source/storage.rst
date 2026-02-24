@@ -4,7 +4,7 @@
 Storage Specification
 =====================
 
-hdmf-zarr currently uses the Zarr :zarr-docs:`DirectoryStore <api/storage.html#zarr.storage.DirectoryStore>`,
+hdmf-zarr currently uses the Zarr :zarr-docs:`LocalStore <api/zarr/storage/index.html#zarr.storage.LocalStore>`,
 which uses directories and files on a standard file system to serialize data.
 
 Format Mapping

@@ -142,7 +142,7 @@ except Exception as e:
 #     Zarr store. This step is critical before uploading modified files to S3.
 #
 #     For more details on consolidated metadata, see the
-#     :zarr-docs:`Zarr documentation <tutorial.html#consolidating-metadata>` and the
+#     `Zarr documentation <https://zarr.readthedocs.io/en/stable/user-guide/consolidated_metadata.html>`_ and the
 #     :ref:`sec-zarr-storage` section of the hdmf-zarr documentation.
 
 ###############################################################################

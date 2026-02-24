@@ -5,6 +5,7 @@ from .helpers.utils import check_s3fs_ffspec_installed
 HAVE_FSSPEC = check_s3fs_ffspec_installed()
 
 
+@unittest.skip("S3 test files are in zarr v2 format with object_codec which is not supported by zarr v3")
 class TestFSSpecStreaming(unittest.TestCase):
 
     def setUp(self):

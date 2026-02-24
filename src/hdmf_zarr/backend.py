@@ -1125,11 +1125,16 @@ class ZarrIO(HDMFIO):
         This replaces zarr.copy() which is not available in zarr v3.
         """
         # Create the new array with the same properties
+        source_dtype = source.dtype
+        # zarr v3 cannot create arrays with object dtype - convert to StringDType
+        if source_dtype == np.dtype("O"):
+            source_dtype = np.dtypes.StringDType()
+
         kwargs = {
             "name": name,
             "shape": source.shape,
             "chunks": source.chunks,
-            "dtype": source.dtype,
+            "dtype": source_dtype,
         }
 
         # Copy compressors/codecs if available (zarr v3 uses 'compressors' plural)
@@ -1504,6 +1509,9 @@ class ZarrIO(HDMFIO):
             if options.get("io_settings") is not None:
                 io_settings = options.get("io_settings")
         # Determine the dtype
+        # np.ndarray as a type is not a valid dtype - force re-resolution from data
+        if dtype is np.ndarray:
+            dtype = None
         if not isinstance(dtype, type):
             try:
                 dtype = self.__resolve_dtype__(dtype, data)
@@ -1605,6 +1613,9 @@ class ZarrIO(HDMFIO):
             io_settings = options.get("io_settings")
             if io_settings is None:
                 io_settings = dict()
+        # np.ndarray as a type is not a valid dtype - force re-resolution from data
+        if dtype is np.ndarray:
+            dtype = None
         if not isinstance(dtype, type):
             try:
                 dtype = self.__resolve_dtype__(dtype, data)
