@@ -1286,30 +1286,45 @@ class ZarrIO(HDMFIO):
                 # cast and store compound dataset
                 arr = np.array(new_items, dtype=dtype)
                 # For compound datasets with refs, serialize ref fields as JSON strings
-                # and use a string-compatible compound dtype
-                new_dtype_v3 = []
+                # and use a string-compatible compound dtype.
+                # First, convert object fields to string values so we can determine the
+                # max string length needed for each field dynamically.
+                str_fields = {}  # field_name -> list of string values
                 for field in options["dtype"]:
-                    if field["dtype"] is str or field["dtype"] in (
-                        "str", "text", "utf", "utf8", "utf-8", "isodatetime", "object",
-                    ):
-                        new_dtype_v3.append((field["name"], "U256"))
-                    elif isinstance(field["dtype"], dict):
-                        new_dtype_v3.append((field["name"], "U256"))
-                    else:
-                        new_dtype_v3.append((field["name"], self.__resolve_dtype_helper__(field["dtype"])))
-                dtype_v3 = np.dtype(new_dtype_v3)
-
-                # Convert object fields to JSON strings
-                new_arr = np.empty(len(arr), dtype=dtype_v3)
-                for field_name in dtype.names:
-                    field_dtype = dtype[field_name]
-                    if np.issubdtype(field_dtype, np.object_):
+                    field_name = field["name"]
+                    is_str_field = (
+                        field["dtype"] is str
+                        or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime", "object")
+                        or isinstance(field["dtype"], dict)
+                    )
+                    if is_str_field:
+                        str_vals = []
                         for idx in range(len(arr)):
                             val = arr[field_name][idx]
                             if isinstance(val, dict):
-                                new_arr[field_name][idx] = json.dumps(val)
+                                str_vals.append(json.dumps(val))
                             else:
-                                new_arr[field_name][idx] = str(val) if val is not None else ""
+                                str_vals.append(str(val) if val is not None else "")
+                        str_fields[field_name] = str_vals
+
+                # Build dtype with string lengths sized to fit actual data
+                new_dtype_v3 = []
+                for field in options["dtype"]:
+                    field_name = field["name"]
+                    if field_name in str_fields:
+                        max_len = max((len(s) for s in str_fields[field_name]), default=1)
+                        max_len = max(max_len, 1)  # ensure at least U1
+                        new_dtype_v3.append((field_name, f"U{max_len}"))
+                    else:
+                        new_dtype_v3.append((field_name, self.__resolve_dtype_helper__(field["dtype"])))
+                dtype_v3 = np.dtype(new_dtype_v3)
+
+                # Fill the array with converted values
+                new_arr = np.empty(len(arr), dtype=dtype_v3)
+                for field_name in dtype.names:
+                    if field_name in str_fields:
+                        for idx, val in enumerate(str_fields[field_name]):
+                            new_arr[field_name][idx] = val
                     else:
                         new_arr[field_name] = arr[field_name]
 
@@ -1504,16 +1519,29 @@ class ZarrIO(HDMFIO):
                         has_strings = True
                         break
                 if has_strings:
+                    # Convert data to numpy array so we can index by field name.
+                    # Use object dtype for string/flexible fields to avoid truncation
+                    # when the original dtype has zero-length strings (e.g. <U0).
+                    if not isinstance(data, np.ndarray):
+                        obj_dtype = np.dtype([
+                            (fn, "O") if (np.issubdtype(dtype[fn], np.flexible)
+                                          or np.issubdtype(dtype[fn], np.object_))
+                            else (fn, dtype[fn])
+                            for fn in dtype.names
+                        ])
+                        data = np.array(data, dtype=obj_dtype)
                     # In zarr v3, convert string fields to fixed-length strings
+                    # with lengths dynamically sized to fit the actual data
                     new_fields = []
                     for field_name in dtype.names:
                         field_dtype = dtype[field_name]
                         # Check if this is a nested struct dtype (has .names attribute)
-                        # If so, preserve it instead of converting to U256
                         if field_dtype.names is not None:
                             new_fields.append((field_name, field_dtype))
                         elif np.issubdtype(field_dtype, np.flexible) or np.issubdtype(field_dtype, np.object_):
-                            new_fields.append((field_name, "U256"))
+                            max_len = max((len(str(v)) for v in data[field_name]), default=1)
+                            max_len = max(max_len, 1)  # ensure at least U1
+                            new_fields.append((field_name, f"U{max_len}"))
                         else:
                             new_fields.append((field_name, field_dtype))
                     dtype = np.dtype(new_fields)

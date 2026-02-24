@@ -524,9 +524,12 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         read_builder = self.root["ref_dataset"]
 
         # ensure the array was written as a compound array
-        # In zarr v3, string/object fields are stored as fixed-length Unicode (U256)
-        ref_dtype = np.dtype([("id", "<i4"), ("name", "U256"), ("reference", "U256")])
-        self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
+        # In zarr v3, string/object fields are stored as fixed-length Unicode
+        # with lengths dynamically sized to fit the data
+        dset_dtype = read_builder.data.dataset.dtype
+        self.assertEqual(dset_dtype["id"], np.dtype("<i4"))
+        self.assertTrue(np.issubdtype(dset_dtype["name"], np.str_))
+        self.assertTrue(np.issubdtype(dset_dtype["reference"], np.str_))
 
         # Load the elements of each entry in the compound dataset and compare the index, string, and referenced array
         for i, v in enumerate(read_builder["data"]):
