@@ -17,7 +17,7 @@ from warnings import warn
 import numcodecs
 import zarr
 import numpy as np
-from zarr.hierarchy import Group
+from zarr import Group
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -158,7 +158,8 @@ class ZarrIODataChunkIteratorQueue(deque):
 
                 iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
-                    buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
+                    store_path = str(zarr_dataset.store.root) if hasattr(zarr_dataset.store, 'root') else str(zarr_dataset.store)
+                    buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (
                         math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
@@ -353,12 +354,10 @@ class ZarrSpecWriter(SpecWriter):
 
     def __write(self, d, name):
         data = self.stringify(d)
-        dset = self.__group.require_dataset(
+        dset = self.__group.require_array(
             name,
             shape=(1,),
-            dtype=object,
-            object_codec=numcodecs.JSON(),
-            compressor=None,
+            dtype=np.dtypes.StringDType(),
         )
         dset.attrs["zarr_dtype"] = "scalar"
         dset[0] = data
@@ -381,16 +380,16 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        if isinstance(self.__group.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = self.__group.store.store.path
-        else:
-            fpath = self.__group.store.path
+        fpath = str(self.__group.store)
         source = "%s:%s" % (os.path.abspath(fpath), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 
     def __read(self, path):
         s = self.__group[path][0]
+        # In zarr v3, string arrays may return numpy StringDType scalars
+        # Ensure we have a plain Python string for json.loads
+        s = str(s) if not isinstance(s, str) else s
         d = json.loads(s)
         return d
 
@@ -404,6 +403,36 @@ class ZarrSpecReader(SpecReader):
             self.__cache = self.__read(ns_path)
         ret = self.__cache["namespaces"]
         return ret
+
+
+def _numcodec_to_zarr_v3(codec):
+    """Convert a numcodecs codec to a zarr v3 codec wrapper.
+
+    In zarr v3, raw numcodecs codec objects cannot be passed directly.
+    They must be wrapped using the zarr.codecs.numcodecs wrappers.
+    If the codec is already a zarr v3 codec, it is returned as-is.
+    """
+    from zarr.abc.codec import BaseCodec
+    if isinstance(codec, BaseCodec):
+        return codec
+    if isinstance(codec, numcodecs.abc.Codec):
+        config = codec.get_config()
+        codec_id = config.pop("id")
+        # Use zarr.codecs.numcodecs wrappers which accept the same config
+        import zarr.codecs.numcodecs as zarr_numcodecs
+        wrapper_map = {cls.__name__: cls for cls in [
+            getattr(zarr_numcodecs, name)
+            for name in dir(zarr_numcodecs)
+            if not name.startswith("_")
+        ] if isinstance(cls, type)}
+        # Map from numcodecs codec_id to wrapper class name
+        codec_class_name = type(codec).__name__
+        if codec_class_name in wrapper_map:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
+                return wrapper_map[codec_class_name](**config)
+    raise TypeError(f"Cannot convert {type(codec)} to a zarr v3 codec")
 
 
 class ZarrDataIO(DataIO):
@@ -435,10 +464,10 @@ class ZarrDataIO(DataIO):
         },
         {
             "name": "compressor",
-            "type": (numcodecs.abc.Codec, bool),
+            "type": (numcodecs.abc.Codec, list, bool),
             "doc": (
-                "Zarr compressor filter to be used. Set to True to use Zarr default. "
-                "Set to False to disable compression)"
+                "Zarr compressor filter to be used. Can be a single codec or list of codecs. "
+                "Set to True to use Zarr default. Set to False to disable compression)"
             ),
             "default": None,
         },
@@ -476,17 +505,19 @@ class ZarrDataIO(DataIO):
             self.__iosettings["fill_value"] = fill_value
         if compressor is not None:
             if isinstance(compressor, bool):
-                # Disable compression by setting compressor to None
+                # Disable compression by setting compressors to empty list
                 if not compressor:
-                    self.__iosettings["compressor"] = None
+                    self.__iosettings["compressors"] = None
                 # To use default settings simply do not specify any compressor settings
                 else:
                     pass
-            # use the user-specified compressor
+            # use the user-specified compressor(s), converting for zarr v3
+            elif isinstance(compressor, list):
+                self.__iosettings["compressors"] = [_numcodec_to_zarr_v3(c) for c in compressor]
             else:
-                self.__iosettings["compressor"] = compressor
+                self.__iosettings["compressors"] = _numcodec_to_zarr_v3(compressor)
         if filters is not None:
-            self.__iosettings["filters"] = filters
+            self.__iosettings["filters"] = [_numcodec_to_zarr_v3(f) for f in filters]
 
     @property
     def link_data(self) -> bool:
@@ -520,14 +551,20 @@ class ZarrDataIO(DataIO):
 
         :returns: ZarrDataIO object wrapping the dataset
         """
-        filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        all_codecs = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        # In zarr v3, separate compressors (bytes-to-bytes) from filters (array-to-array)
+        compressor_types = (numcodecs.Blosc, numcodecs.Zstd, numcodecs.Zlib, numcodecs.BZ2, numcodecs.LZMA, numcodecs.Shuffle)
+        compressors = [c for c in all_codecs if isinstance(c, compressor_types)]
+        filters = [c for c in all_codecs if not isinstance(c, compressor_types)]
         fillval = h5dataset.fillvalue if "fillvalue" not in kwargs else kwargs.pop("fillvalue")
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
+        compressor = compressors[0] if len(compressors) == 1 else (compressors if compressors else None)
         re = ZarrDataIO(
             data=h5dataset,
-            filters=filters,
+            compressor=compressor if compressor else None,
+            filters=filters if filters else None,
             fillvalue=fillval,
             chunks=chunks,
             **kwargs,

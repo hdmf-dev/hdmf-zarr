@@ -231,9 +231,12 @@ class TestZarrDataIO(TestCase):
         self.assertEqual(re_zarrdataio.data, h5dset)
         self.assertEqual(re_zarrdataio.fillvalue, 100)
         self.assertEqual(re_zarrdataio.chunks, (5, 10))
-        self.assertEqual(len(re_zarrdataio.io_settings["filters"]), 2)
-        self.assertIsInstance(re_zarrdataio.io_settings["filters"][0], numcodecs.Shuffle)
-        self.assertIsInstance(re_zarrdataio.io_settings["filters"][1], numcodecs.Zlib)
+        # In zarr v3, compressors and filters are separated. Shuffle is a BytesBytesCodec (compressor).
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Zlib as ZarrZlib
+        self.assertNotIn("filters", re_zarrdataio.io_settings)
+        self.assertEqual(len(re_zarrdataio.io_settings["compressors"]), 2)
+        self.assertIsInstance(re_zarrdataio.io_settings["compressors"][0], ZarrShuffle)
+        self.assertIsInstance(re_zarrdataio.io_settings["compressors"][1], ZarrZlib)
         # Close the HDF5 file
         h5file.close()
 
