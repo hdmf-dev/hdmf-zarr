@@ -36,7 +36,6 @@ customize the behavior of the mixin.
 import os
 import shutil
 import numpy as np
-import numcodecs
 from datetime import datetime
 from dateutil import tz
 from abc import ABCMeta, abstractmethod

@@ -158,7 +158,8 @@ class ZarrIODataChunkIteratorQueue(deque):
 
                 iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
-                    store_path = str(zarr_dataset.store.root) if hasattr(zarr_dataset.store, 'root') else str(zarr_dataset.store)
+                    store = zarr_dataset.store
+                    store_path = str(store.root) if hasattr(store, 'root') else str(store)
                     buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (
@@ -417,7 +418,7 @@ def _numcodec_to_zarr_v3(codec):
         return codec
     if isinstance(codec, numcodecs.abc.Codec):
         config = codec.get_config()
-        codec_id = config.pop("id")
+        config.pop("id")
         # Use zarr.codecs.numcodecs wrappers which accept the same config
         import zarr.codecs.numcodecs as zarr_numcodecs
         wrapper_map = {cls.__name__: cls for cls in [
@@ -553,7 +554,10 @@ class ZarrDataIO(DataIO):
         """
         all_codecs = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
         # In zarr v3, separate compressors (bytes-to-bytes) from filters (array-to-array)
-        compressor_types = (numcodecs.Blosc, numcodecs.Zstd, numcodecs.Zlib, numcodecs.BZ2, numcodecs.LZMA, numcodecs.Shuffle)
+        compressor_types = (
+            numcodecs.Blosc, numcodecs.Zstd, numcodecs.Zlib,
+            numcodecs.BZ2, numcodecs.LZMA, numcodecs.Shuffle,
+        )
         compressors = [c for c in all_codecs if isinstance(c, compressor_types)]
         filters = [c for c in all_codecs if not isinstance(c, compressor_types)]
         fillval = h5dataset.fillvalue if "fillvalue" not in kwargs else kwargs.pop("fillvalue")

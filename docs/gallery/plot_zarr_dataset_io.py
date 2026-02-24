@@ -103,10 +103,11 @@ intable.to_dataframe()
 # Check dataset settings used.
 #
 for c in intable.columns:
-    print("Name=%s, Chunks=% s, Compressor=%s" %
+    compressors = c.data.compressors if hasattr(c.data, 'compressors') else []
+    print("Name=%s, Chunks=%s, Compressors=%s" %
           (c.name,
            str(c.data.chunks),
-           str(c.data.compressor)))
+           str(compressors)))
 
 ###############################################################################
 #

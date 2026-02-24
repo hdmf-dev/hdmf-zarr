@@ -6,7 +6,6 @@ import os
 import shutil
 import warnings
 import numpy as np
-import tempfile
 from typing import Union, Optional
 import logging
 
@@ -14,7 +13,23 @@ import logging
 import zarr
 from zarr import Group, Array
 from zarr.storage import LocalStore
-import numcodecs
+
+# HDMF-ZARR imports
+from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
+
+# HDMF imports
+from hdmf.backends.io import HDMFIO
+from hdmf.backends.errors import UnsupportedOperation
+from hdmf.backends.utils import NamespaceToBuilderHelper, WriteStatusTracker
+from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape, generate_array_html_repr
+from hdmf.build import Builder, GroupBuilder, DatasetBuilder, LinkBuilder, BuildManager, ReferenceBuilder, TypeMap
+from hdmf.data_utils import AbstractDataChunkIterator
+from hdmf.spec import RefSpec, DtypeSpec, NamespaceCatalog
+from hdmf.query import HDMFDataset
+from hdmf.container import Container
+
+from pathlib import Path
 
 # zarr v3 Array does not implement __len__; add it for compatibility with array-like interfaces
 if not hasattr(Array, "__len__"):
@@ -33,23 +48,6 @@ def _zarr_array_getitem_scalar_fix(self, key):
 
 
 Array.__getitem__ = _zarr_array_getitem_scalar_fix
-
-# HDMF-ZARR imports
-from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
-from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
-
-# HDMF imports
-from hdmf.backends.io import HDMFIO
-from hdmf.backends.errors import UnsupportedOperation
-from hdmf.backends.utils import NamespaceToBuilderHelper, WriteStatusTracker
-from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape, generate_array_html_repr
-from hdmf.build import Builder, GroupBuilder, DatasetBuilder, LinkBuilder, BuildManager, ReferenceBuilder, TypeMap
-from hdmf.data_utils import AbstractDataChunkIterator
-from hdmf.spec import RefSpec, DtypeSpec, NamespaceCatalog
-from hdmf.query import HDMFDataset
-from hdmf.container import Container
-
-from pathlib import Path
 
 
 # Module variables

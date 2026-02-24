@@ -98,7 +98,7 @@ class NWBZarrIO(ZarrIO):
         if isinstance(path, Path):
             path = str(path)
         # determine default storage options to use when opening a file from S3
-        storage_options = {}
+        storage_options = None
         if isinstance(path, str) and path.startswith(("s3://")):
             storage_options = dict(anon=True)
 
