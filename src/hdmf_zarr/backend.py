@@ -135,21 +135,6 @@ class ZarrIO(HDMFIO):
             ),
         },
         {
-            "name": "synchronizer",
-            "type": None,
-            "doc": "Deprecated. Zarr v3 does not support synchronizers. This parameter is ignored.",
-            "default": None,
-        },
-        {
-            "name": "object_codec_class",
-            "type": None,
-            "doc": (
-                "Deprecated. Zarr v3 does not support object codecs. "
-                "References are now stored as JSON-serialized strings. This parameter is ignored."
-            ),
-            "default": None,
-        },
-        {
             "name": "storage_options",
             "type": dict,
             "doc": "Zarr storage options to read remote folders",
@@ -167,32 +152,16 @@ class ZarrIO(HDMFIO):
     )
     def __init__(self, **kwargs):
         self.logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class, storage_options, force_overwrite = popargs(
+        path, manager, mode, storage_options, force_overwrite = popargs(
             "path",
             "manager",
             "mode",
-            "synchronizer",
-            "object_codec_class",
             "storage_options",
             "force_overwrite",
             kwargs,
         )
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
-        if synchronizer is not None and synchronizer is not False:
-            warnings.warn(
-                "The 'synchronizer' parameter is deprecated and ignored in zarr v3. "
-                "Zarr v3 does not support synchronizers.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if object_codec_class is not None:
-            warnings.warn(
-                "The 'object_codec_class' parameter is deprecated and ignored in zarr v3. "
-                "References are now stored as JSON-serialized strings.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         self.__mode = mode
         self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
@@ -232,15 +201,6 @@ class ZarrIO(HDMFIO):
         """The absolute path to the Zarr file"""
         return os.path.abspath(self.source)
 
-    @property
-    def object_codec_class(self):
-        warnings.warn(
-            "The 'object_codec_class' property is deprecated. "
-            "References are now stored as JSON-serialized strings in zarr v3.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return None
 
     @property
     def mode(self):

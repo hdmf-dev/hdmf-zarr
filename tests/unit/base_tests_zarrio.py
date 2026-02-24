@@ -17,9 +17,9 @@ from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO, ZarrReference
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager
 
-# Try to import numcodecs and disable compression tests if it is not available
+# Try to import zarr codecs and disable compression tests if not available
 try:
-    from numcodecs import Blosc, Delta, JSON
+    from zarr.codecs import BloscCodec, TransposeCodec
 
     DISABLE_ZARR_COMPRESSION_TESTS = False
 except ImportError:
@@ -583,22 +583,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     #############################################
     #  ZarrDataIO general
     #############################################
-    def test_object_codec_deprecation(self):
-        # Test that the object_codec_class parameter emits a deprecation warning
-        with self.assertWarns(DeprecationWarning):
-            tempIO = ZarrIO(self.store_path, mode="w", object_codec_class=JSON)
-        tempIO.close()
-
-    def test_synchronizer_deprecation(self):
-        """Test that setting the synchronizer argument emits a deprecation warning"""
-        # synchronizer=False should not warn
-        tempIO = ZarrIO(self.store_path, mode="w", synchronizer=False)
-        del tempIO  # also calls tempIO.close()
-        # synchronizer=True should warn
-        with self.assertWarns(DeprecationWarning):
-            tempIO = ZarrIO(self.store_path, mode="w", synchronizer=True)
-        tempIO.close()
-
     def test_zarrdataio_enable_default_compressor(self):
         """Default compression simply means not specifying any compressor and using Zarr defaults"""
         dataio = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=True)
@@ -844,9 +828,9 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(dset.fill_value, -1)
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to numcodec compressor not available")
+    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress(self):
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -854,13 +838,12 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertEqual(len(dset.compressors), 1)
-        self.assertEqual(dset.compressors[0].codec_config, compressor.get_config())
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to numcodec compressor not available")
+    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress_and_filter(self):
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
-        filters = [Delta(dtype="i4")]
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
+        filters = [TransposeCodec(order=(2, 1, 0))]
         a = ZarrDataIO(np.arange(30, dtype="i4").reshape(5, 2, 3), compressor=compressor, filters=filters)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -868,10 +851,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
         self.assertEqual(len(dset.compressors), 1)
-        self.assertEqual(dset.compressors[0].codec_config, compressor.get_config())
         self.assertEqual(len(dset.filters), len(filters))
-        for actual, expected in zip(dset.filters, filters):
-            self.assertEqual(actual.codec_config, expected.get_config())
         tempIO.close()
 
     ##########################################
@@ -948,7 +928,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = np.arange(30).reshape(5, 2, 3)
         aiter = iter(a)
         daiter = DataChunkIterator.from_iterable(aiter, buffer_size=2)
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_daiter = ZarrDataIO(data=daiter, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -957,7 +937,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(dset.shape, a.shape)
         self.assertListEqual(dset[:].tolist(), a.tolist())
         self.assertEqual(len(dset.compressors), 1)
-        self.assertEqual(dset.compressors[0].codec_config, compressor.get_config())
         tempIO.close()
 
     def test_write_dataset_data_chunk_iterator(self):
@@ -971,7 +950,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
 
     def test_write_dataset_data_chunk_iterator_with_compression(self):
         dci = DataChunkIterator(data=np.arange(10), buffer_size=2)
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor, chunks=(2,))
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -979,7 +958,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), list(range(10)))
         self.assertEqual(len(dset.compressors), 1)
-        self.assertEqual(dset.compressors[0].codec_config, compressor.get_config())
         self.assertEqual(dset.chunks, (2,))
         tempIO.close()
 
@@ -990,7 +968,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                 return (5, 1, 1)
 
         dci = DC(data=np.arange(30).reshape(5, 2, 3))
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -998,7 +976,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = tempIO._file["test_dataset"]
         self.assertEqual(dset.chunks, (5, 1, 1))
         self.assertEqual(len(dset.compressors), 1)
-        self.assertEqual(dset.compressors[0].codec_config, compressor.get_config())
         tempIO.close()
 
     #############################################

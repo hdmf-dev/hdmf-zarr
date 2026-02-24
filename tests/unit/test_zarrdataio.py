@@ -7,7 +7,6 @@ more complex operations and are more akin to integration tests This module focus
 specific unit functions of ZarrDataIO.
 """
 
-import numcodecs
 import h5py
 import os
 import shutil
@@ -141,13 +140,14 @@ class TestZarrDataIO(TestCase):
             shuffle=True,
         )
         # test that we apply shuffle filter on int data
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_int)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Shuffle)
+        self.assertIsInstance(filters[0], ZarrShuffle)
         # test that we apply shuffle filter on float data
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_float)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Shuffle)
+        self.assertIsInstance(filters[0], ZarrShuffle)
         h5file.close()
 
     @unittest.skipIf(not HDF5PLUGIN, "hdf5_plugin not installed")
@@ -160,13 +160,14 @@ class TestZarrDataIO(TestCase):
             data=np.arange(100, dtype="float32"),
             **hdf5plugin.Blosc(cname="blosclz", clevel=9, shuffle=hdf5plugin.Blosc.SHUFFLE),
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply blosc filter on data
+        from zarr.codecs.numcodecs import Blosc as ZarrBlosc
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Blosc)
-        self.assertEqual(filters[0].cname, "blosclz")
-        self.assertEqual(filters[0].clevel, 9)
-        self.assertEqual(filters[0].shuffle, hdf5plugin.Blosc.SHUFFLE)
+        self.assertIsInstance(filters[0], ZarrBlosc)
+        self.assertEqual(filters[0].codec_config["cname"], "blosclz")
+        self.assertEqual(filters[0].codec_config["clevel"], 9)
+        self.assertEqual(filters[0].codec_config["shuffle"], hdf5plugin.Blosc.SHUFFLE)
         h5file.close()
 
     @unittest.skipIf(not HDF5PLUGIN, "hdf5_plugin not installed")
@@ -179,11 +180,12 @@ class TestZarrDataIO(TestCase):
             data=np.arange(100, dtype="float32"),
             **hdf5plugin.Zstd(clevel=22),
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply zstd filter on data
+        from zarr.codecs.numcodecs import Zstd as ZarrZstd
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Zstd)
-        self.assertEqual(filters[0].level, 22)
+        self.assertIsInstance(filters[0], ZarrZstd)
+        self.assertEqual(filters[0].codec_config["level"], 22)
         # Close the HDF5 file
         h5file.close()
 
@@ -197,11 +199,12 @@ class TestZarrDataIO(TestCase):
             compression="gzip",
             compression_opts=2,
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply gzip/zlib filter on data
+        from zarr.codecs.numcodecs import Zlib as ZarrZlib
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Zlib)
-        self.assertEqual(filters[0].level, 2)
+        self.assertIsInstance(filters[0], ZarrZlib)
+        self.assertEqual(filters[0].codec_config["level"], 2)
         # Close the HDF5 file
         h5file.close()
 

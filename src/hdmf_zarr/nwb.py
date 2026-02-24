@@ -1,6 +1,5 @@
 """Module with Zarr backend for NWB for integration with PyNWB"""
 
-import warnings
 from pathlib import Path
 from .backend import ZarrIO, SUPPORTED_ZARR_STORES
 
@@ -35,18 +34,9 @@ class NWBZarrIO(ZarrIO):
         },
     )
     def __init__(self, **kwargs):
-        path, mode, manager, extensions, load_namespaces, synchronizer, storage_options = popargs(
-            "path", "mode", "manager", "extensions", "load_namespaces", "synchronizer", "storage_options", kwargs
+        path, mode, manager, extensions, load_namespaces, storage_options = popargs(
+            "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-
-        # Emit deprecation warning for synchronizer if provided
-        if synchronizer is not None and synchronizer is not False:
-            warnings.warn(
-                "The 'synchronizer' parameter is deprecated and ignored in zarr v3. "
-                "Zarr v3 does not support synchronizers.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         io_modes_that_create_file = ["w", "w-", "x"]
         if mode in io_modes_that_create_file or manager is not None or extensions is not None:

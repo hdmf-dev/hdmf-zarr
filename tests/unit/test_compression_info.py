@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from numcodecs import Blosc
+from zarr.codecs import BloscCodec
 
 from hdmf_zarr import ZarrIO, ZarrDataIO
 from hdmf.build import GroupBuilder, DatasetBuilder
@@ -33,7 +33,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         """
         # Create some test data with compression using ZarrDataIO
         data = np.arange(10000, dtype='i4').reshape(100, 100)
-        compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.SHUFFLE)
+        compressor = BloscCodec(cname='zstd', clevel=3, shuffle='shuffle')
 
         data_io = ZarrDataIO(
             data=data,
@@ -74,7 +74,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         """
         # Create some test data with compression using ZarrDataIO
         data = np.arange(10000, dtype='i4').reshape(100, 100)
-        compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.SHUFFLE)
+        compressor = BloscCodec(cname='zstd', clevel=3, shuffle='shuffle')
 
         data_io = ZarrDataIO(
             data=data,
@@ -115,7 +115,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         """
         # Create some test data with compression using ZarrDataIO
         data = np.arange(10000, dtype='i4').reshape(100, 100)
-        compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.SHUFFLE)
+        compressor = BloscCodec(cname='zstd', clevel=3, shuffle='shuffle')
 
         data_io = ZarrDataIO(
             data=data,
