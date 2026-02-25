@@ -1093,9 +1093,11 @@ class ZarrIO(HDMFIO):
         # Define the chunking options if the user has not set them explicitly. We need chunking for the iterative write.
         if "chunks" not in io_settings:
             recommended_chunks = data.recommended_chunk_shape()
-            # In zarr v3, chunks=True is not valid; omit to use zarr defaults
             if recommended_chunks is not None:
                 io_settings["chunks"] = recommended_chunks
+            else:
+                # omit chunking option to use zarr defaults. Similar to chunks=True in HDF5.
+                pass
         # Define the shape of the data if not provided by the user
         if "shape" not in io_settings:
             io_settings["shape"] = data.recommended_data_shape()
