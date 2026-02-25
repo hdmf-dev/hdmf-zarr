@@ -974,6 +974,10 @@ class ZarrIO(HDMFIO):
                 builder.source if (builder.source is not None and os.path.isdir(builder.source)) else self.source
             )
 
+        # self.path is sometimes given as the ref_link_source. It can
+        # be either a (str, Path, *SUPPORTED_ZARR_STORES). That being said,
+        # when self.path is a Path, it is converted to a str in __init__.
+        # We only have to deal with *SUPPORTED_ZARR_STORES and strings.
         if isinstance(ref_link_source, SUPPORTED_ZARR_STORES):
             ref_link_source = self.__get_store_path(ref_link_source)
         elif not isinstance(ref_link_source, str):
