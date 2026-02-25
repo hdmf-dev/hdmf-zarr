@@ -1046,6 +1046,15 @@ class ZarrIO(HDMFIO):
         group_filename = self.__get_store_path(parent.store)
         if export_source is not None:
             if target_builder.source in (group_filename, export_source):
+                # Case 1:
+                # target_builder.source == export_source
+                # This means we have a SoftLink for a group and so we want the exported link to
+                # also point "inwards" in the file being created.
+                #################################
+                # Case 2:
+                # target_builder.source == group_filename
+                # This is still a SoftLink; however, it is from adding a link to a group after FileA
+                # has been read and we are exporting that to FileB. We still want the link to be "inwards".
                 ref_link_source = group_filename
             else:
                 # Create an ExternalLink to whatever file that has what we are targeting.
@@ -1066,7 +1075,16 @@ class ZarrIO(HDMFIO):
     @classmethod
     def __setup_chunked_dataset__(cls, parent, name, data, options=None):
         """
-        Setup a dataset for writing to one-chunk-at-a-time based on the given DataChunkIterator.
+        Setup a dataset for writing to one-chunk-at-a-time based on the given DataChunkIterator. This
+        is a helper function for write_dataset()
+        :param parent: The parent object to which the dataset should be added
+        :type parent: Zarr Group or File
+        :param name: The name of the dataset
+        :type name: str
+        :param data: The data to be written.
+        :type data: AbstractDataChunkIterator
+        :param options: Dict with options for creating a dataset. available options are 'dtype' and 'io_settings'
+        :type options: dict
         """
         io_settings = {}
         if options is not None:
