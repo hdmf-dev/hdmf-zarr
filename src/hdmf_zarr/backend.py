@@ -13,6 +13,11 @@ import logging
 import zarr
 from zarr import Group, Array
 from zarr.storage import LocalStore
+try:
+    from zarr.storage import FsspecStore
+    FSSPECSTORE_AVAILABLE = True
+except ImportError:
+    FSSPECSTORE_AVAILABLE = False
 
 # HDMF-ZARR imports
 from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
@@ -66,7 +71,13 @@ DEFAULT_SPEC_LOC_DIR = "specifications"
 Default name of the group where specifications should be cached
 """
 
-SUPPORTED_ZARR_STORES = (LocalStore,)
+COMPOUND_DTYPE_MIN_STRING_LENGTH = 512
+"""
+Minimum fixed-length Unicode string size (in characters) for string and reference fields in compound
+dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
+"""
+
+SUPPORTED_ZARR_STORES = (LocalStore,) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -162,13 +173,18 @@ class ZarrIO(HDMFIO):
         )
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
-        self.__mode = mode
         self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
             path = str(path)
         # Convert local paths to absolute for consistent path resolution
         if isinstance(path, str) and not path.startswith(("s3://", "http://", "https://")):
             path = os.path.abspath(path)
+        # FsspecStore is read-only; enforce read mode for remote paths
+        if storage_options is not None and mode != "r":
+            raise ValueError(
+                f"FsspecStore (remote storage) only supports read mode ('r'), but mode='{mode}' was specified."
+            )
+        self.__mode = mode
         self.__path = path
         self.__file = None
         self.__storage_options = storage_options
@@ -249,12 +265,8 @@ class ZarrIO(HDMFIO):
 
     def is_remote(self):
         """Return True if the file is remote, False otherwise"""
-        try:
-            from zarr.storage import FsspecStore
-            if isinstance(self.__file.store, FsspecStore):
-                return True
-        except ImportError:
-            pass
+        if FSSPECSTORE_AVAILABLE and isinstance(self.__file.store, FsspecStore):
+            return True
         return False
 
     @classmethod
@@ -297,12 +309,8 @@ class ZarrIO(HDMFIO):
             raise ValueError("Only one of 'path' and 'file' must be provided.")
 
         if path is not None:
-            if storage_options is not None:
-                from zarr.storage import FsspecStore
-                store = FsspecStore.from_url(str(path), storage_options=storage_options)
-                f = zarr.open(store, mode="r")
-            else:
-                f = zarr.open(path, mode="r")
+            store = cls.__resolve_store(path, storage_options)
+            f = zarr.open(store, mode="r")
         else:
             f = file
         return cls.__load_namespaces(namespace_catalog, namespaces, f)
@@ -637,16 +645,23 @@ class ZarrIO(HDMFIO):
         For local stores, this returns the resolved absolute filesystem path.
         For remote stores, this returns the string representation.
         """
-        from zarr.storage import LocalStore
         if isinstance(store, LocalStore):
             return str(store.root.resolve())
         return str(store)
 
+    @staticmethod
+    def __resolve_store(store, storage_options=None):
+        """Resolve a store path to a Zarr store, using FsspecStore for remote paths."""
+        if storage_options is not None:
+            if not FSSPECSTORE_AVAILABLE:
+                raise ImportError("FsspecStore is required for remote storage but is not available. "
+                                  "Install fsspec to use remote storage options.")
+            return FsspecStore.from_url(str(store), storage_options=storage_options)
+        return store
+
     def __open_file(self, store, mode, storage_options=None):
         """Open a zarr file without consolidated metadata."""
-        if storage_options is not None:
-            from zarr.storage import FsspecStore
-            store = FsspecStore.from_url(str(store), storage_options=storage_options)
+        store = self.__resolve_store(store, storage_options)
         return zarr.open(store=store, mode=mode)
 
     def __open_file_consolidated(self, store, mode, storage_options=None):
@@ -669,11 +684,7 @@ class ZarrIO(HDMFIO):
             return self.__consolidated_cache[cache_key]
 
         # Open the file and cache the result
-        if storage_options is not None:
-            from zarr.storage import FsspecStore
-            open_store = FsspecStore.from_url(str(store), storage_options=storage_options)
-        else:
-            open_store = store
+        open_store = self.__resolve_store(store, storage_options)
 
         try:
             zarr_obj = zarr.open_consolidated(
@@ -799,6 +810,9 @@ class ZarrIO(HDMFIO):
             # Case 2: References
             elif isinstance(value, (Builder, ReferenceBuilder)):
                 refs = self._create_ref(value, ref_link_source=self.path)
+                # Convert ZarrReference to plain dict for JSON serialization.
+                # ZarrReference's __init__ uses docval which prevents reconstruction
+                # by zarr's attribute serialization (dataclasses._asdict_inner).
                 tmp = {"zarr_dtype": "object", "value": dict(refs)}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
@@ -864,15 +878,18 @@ class ZarrIO(HDMFIO):
         """
         Get the full path to the object linked to by the zarr reference
 
-        The function only constructs the links to the targe object, but it does not check if the object exists
+        The function only constructs the links to the target object, but it does not check if the object exists
 
-        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrReference` object
+        :param zarr_ref: A reference to resolve. Can be a dict with `source` and `path` keys,
+            a `ZarrReference` object, a JSON string, or a scalar ``np.ndarray`` of ``StringDType``.
         :return: 1) name of the target object
                  2) the target zarr object within the target file
         """
         # In zarr v3, references may be stored as JSON strings or numpy StringDType scalars
         if isinstance(zarr_ref, np.ndarray):
-            zarr_ref = str(zarr_ref)
+            if zarr_ref.ndim != 0:
+                raise ValueError(f"Expected scalar np.ndarray for zarr_ref, got shape {zarr_ref.shape}")
+            zarr_ref = zarr_ref[()]
         if isinstance(zarr_ref, str):
             zarr_ref = json.loads(zarr_ref)
 
@@ -1307,13 +1324,14 @@ class ZarrIO(HDMFIO):
                                 str_vals.append(str(val) if val is not None else "")
                         str_fields[field_name] = str_vals
 
-                # Build dtype with string lengths sized to fit actual data
+                # Build dtype with string lengths sized to fit actual data, with a minimum
+                # length to support appending rows with longer values
                 new_dtype_v3 = []
                 for field in options["dtype"]:
                     field_name = field["name"]
                     if field_name in str_fields:
                         max_len = max((len(s) for s in str_fields[field_name]), default=1)
-                        max_len = max(max_len, 1)  # ensure at least U1
+                        max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
                         new_dtype_v3.append((field_name, f"U{max_len}"))
                     else:
                         new_dtype_v3.append((field_name, self.__resolve_dtype_helper__(field["dtype"])))
@@ -1531,7 +1549,8 @@ class ZarrIO(HDMFIO):
                         ])
                         data = np.array(data, dtype=obj_dtype)
                     # In zarr v3, convert string fields to fixed-length strings
-                    # with lengths dynamically sized to fit the actual data
+                    # with lengths dynamically sized to fit the actual data, with a minimum
+                    # length to support appending rows with longer values
                     new_fields = []
                     for field_name in dtype.names:
                         field_dtype = dtype[field_name]
@@ -1540,7 +1559,7 @@ class ZarrIO(HDMFIO):
                             new_fields.append((field_name, field_dtype))
                         elif np.issubdtype(field_dtype, np.flexible) or np.issubdtype(field_dtype, np.object_):
                             max_len = max((len(str(v)) for v in data[field_name]), default=1)
-                            max_len = max(max_len, 1)  # ensure at least U1
+                            max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
                             new_fields.append((field_name, f"U{max_len}"))
                         else:
                             new_fields.append((field_name, field_dtype))

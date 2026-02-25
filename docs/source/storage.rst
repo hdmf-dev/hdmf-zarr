@@ -336,6 +336,14 @@ The mappings of data types is as follows
 
 .. note::
 
+    In zarr v3, string and reference fields within compound dtypes are stored as fixed-length
+    Unicode strings (``FixedLengthUTF32``). The string length is dynamically sized to fit the
+    actual data, with a minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH`
+    characters to allow for appending rows with longer values. Reference fields are stored as
+    JSON-serialized strings within these fixed-length fields.
+
+.. note::
+
     For compound dtypes, the ``zarr_dtype`` attribute is stored as a list of dictionaries,
     where each dictionary describes a field in the compound type. For example:
 

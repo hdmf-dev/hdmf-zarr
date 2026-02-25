@@ -487,8 +487,6 @@ class ZarrDataIO(DataIO):
                 else:
                     pass
             # use the user-specified compressor(s)
-            elif isinstance(compressor, list):
-                self.__iosettings["compressors"] = compressor
             else:
                 self.__iosettings["compressors"] = compressor
         if filters is not None:
@@ -534,10 +532,15 @@ class ZarrDataIO(DataIO):
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
-        compressor = compressors[0] if len(compressors) == 1 else (compressors if compressors else None)
+        if len(compressors) == 1:
+            compressor = compressors[0]
+        elif len(compressors) > 1:
+            compressor = compressors
+        else:
+            compressor = None
         re = ZarrDataIO(
             data=h5dataset,
-            compressor=compressor if compressor else None,
+            compressor=compressor,
             filters=filters if filters else None,
             fillvalue=fillval,
             chunks=chunks,
