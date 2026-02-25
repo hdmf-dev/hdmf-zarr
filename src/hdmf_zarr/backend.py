@@ -1023,7 +1023,7 @@ class ZarrIO(HDMFIO):
             parent.attrs["zarr_link"] = []
         zarr_link = list(parent.attrs["zarr_link"])
         if not isinstance(target_source, str):  # a store
-            target_source = str(target_source)
+            target_source = self.__get_store_path(target_source)
         zarr_link.append({"source": target_source, "path": target_path, "name": link_name})
         parent.attrs["zarr_link"] = zarr_link
 
