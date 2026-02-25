@@ -1109,9 +1109,6 @@ class ZarrIO(HDMFIO):
             if isinstance(io_settings["dtype"], str):
                 # map to real dtype if we were given a string
                 io_settings["dtype"] = cls.__dtypes.get(io_settings["dtype"])
-            # zarr v3 requires dtype to be specified explicitly
-            if io_settings["dtype"] is None:
-                io_settings["dtype"] = np.float64
         try:
             dset = parent.create_array(name, **io_settings)
             dset.attrs["zarr_dtype"] = np.dtype(io_settings["dtype"]).str
