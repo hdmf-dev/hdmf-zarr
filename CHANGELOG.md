@@ -14,6 +14,7 @@
 - Fixed issue with `tox.ini` configuration. @rly [#326](https://github.com/hdmf-dev/hdmf-zarr/pull/326)
 
 ### Changed
+- Replaced `requirements-min.txt` with `uv pip install --resolution lowest-direct` in tox and converted `test` and `docs` from optional dependencies to dependency groups (PEP 735), making the project compatible with uv. @h-mayorquin [#327](https://github.com/hdmf-dev/hdmf-zarr/pull/327)
 - Updated documentation about how the `zarr_dtype` attribute is used to specify a compound dtype (structured array) for a dataset. @rly [#313](https://github.com/hdmf-dev/hdmf-zarr/pull/313)
 - Dropped testing for Python 3.9. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
 - Added support for Python 3.14. @rly [#298](https://github.com/hdmf-dev/hdmf-zarr/pull/298)
