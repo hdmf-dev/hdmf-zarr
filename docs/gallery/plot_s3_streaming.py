@@ -39,10 +39,13 @@ Or install the dependencies separately:
 # Here we demonstrate reading from a public dataset in the DANDI Archive using
 # an HTTPS URL:
 
+import warnings
+
 from hdmf_zarr import NWBZarrIO
 
 # Public S3 URL from DANDI Archive (DANDISET 000719)
-s3_url = "https://dandiarchive.s3.amazonaws.com/zarr/7515c603-9940-4598-aa1b-8bf32dc9b10c/"
+# Path: sub-R6_ses-20200206T210000_behavior+ophys_DirectoryStore_rechunked.nwb.zarr
+s3_url = "https://dandiarchive.s3.amazonaws.com/zarr/c8c6b848-fbc6-4f58-85ff-e3f2618ee983/"
 
 # Open the file from S3
 try:
@@ -52,7 +55,7 @@ try:
         print(f"Identifier: {nwbfile.identifier}")
         print(f"Subject ID: {nwbfile.subject.subject_id if nwbfile.subject else 'N/A'}")
 except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+    warnings.warn(f"Note: Could not access S3 file (network access may be required): {e}")
 
 ###############################################################################
 # .. note::
@@ -157,7 +160,7 @@ try:
     nwbfile = NWBZarrIO.read_nwb(s3_url)
     print(f"Session Start Time: {nwbfile.session_start_time}")
 except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+    warnings.warn(f"Note: Could not access S3 file (network access may be required): {e}")
 
 ###############################################################################
 # .. note::
