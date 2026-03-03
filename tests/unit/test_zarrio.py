@@ -226,6 +226,23 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             except ValueError as e:
                 self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
+    def test_is_remote_local_with_consolidated(self):
+        """Test that is_remote() returns False for local stores with consolidated metadata."""
+        self.create_zarr(consolidate_metadata=True)
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            # Confirm the store is wrapped in ConsolidatedMetadataStore
+            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
+            self.assertFalse(read_io.is_remote())
+
+    def test_is_remote_local_without_consolidated(self):
+        """Test that is_remote() returns False for local stores without consolidated metadata."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r-") as read_io:
+            read_io.open()
+            self.assertNotIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
+            self.assertFalse(read_io.is_remote())
+
 
 class TestOverwriteExistingFile(ZarrStoreTestCase):
     def test_force_overwrite_when_file_exists(self):
