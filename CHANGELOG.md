@@ -12,6 +12,7 @@
 - Fixed bug where consolidated metadata was always written by `ZarrIO`. @rly [#315](https://github.com/hdmf-dev/hdmf-zarr/pull/315)
 - Fixed bug where the `specifications` group and its contents were read during `ZarrIO.read_builder`. @rly [#322](https://github.com/hdmf-dev/hdmf-zarr/pull/322)
 - Fixed issue with `tox.ini` configuration. @rly [#326](https://github.com/hdmf-dev/hdmf-zarr/pull/326)
+- Fixed `ZarrIO.is_remote()` returning `False` for remote stores using consolidated metadata, which caused `resolve_ref` to mangle HTTPS URLs and fail with `PathNotFoundError` when reading links. @rly [#328](https://github.com/hdmf-dev/hdmf-zarr/pull/328)
 
 ### Changed
 - Replaced `requirements-min.txt` with `uv pip install --resolution lowest-direct` in tox and converted `test` and `docs` from optional dependencies to dependency groups (PEP 735), making the project compatible with uv. @h-mayorquin [#327](https://github.com/hdmf-dev/hdmf-zarr/pull/327)
