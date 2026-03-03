@@ -80,6 +80,9 @@ docs = [
 "Homepage" = "https://github.com/hdmf-dev/hdmf-zarr"
 "Bug Tracker" = "https://github.com/hdmf-dev/hdmf-zarr/issues"
 
+[tool.uv.sources]
+hdmf = { path = "../hdmf", editable = true }
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
