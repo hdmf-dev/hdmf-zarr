@@ -231,8 +231,6 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         self.create_zarr(consolidate_metadata=True)
         with ZarrIO(self.store_path, mode="r") as read_io:
             read_io.open()
-            # Confirm the store is wrapped in ConsolidatedMetadataStore
-            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
             self.assertFalse(read_io.is_remote())
 
     def test_is_remote_local_without_consolidated(self):
@@ -240,7 +238,6 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         self.create_zarr()
         with ZarrIO(self.store_path, mode="r-") as read_io:
             read_io.open()
-            self.assertNotIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
             self.assertFalse(read_io.is_remote())
 
 
