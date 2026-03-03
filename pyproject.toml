@@ -81,7 +81,7 @@ docs = [
 "Bug Tracker" = "https://github.com/hdmf-dev/hdmf-zarr/issues"
 
 [tool.uv.sources]
-hdmf = { path = "../hdmf", editable = true }
+hdmf = { git = "https://github.com/hdmf-dev/hdmf.git", branch = "remove_duck_typing_for_type" }
 
 [tool.hatch.metadata]
 allow-direct-references = true
