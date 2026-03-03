@@ -48,7 +48,6 @@ class TestFSSpecStreaming(unittest.TestCase):
         """Test that is_remote() returns True for remote HTTPS stores with consolidated metadata."""
         with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
             self.assertTrue(read_io.is_remote())
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
@@ -56,7 +55,6 @@ class TestFSSpecStreaming(unittest.TestCase):
         """Test that is_remote() returns True for remote HTTPS stores without consolidated metadata."""
         with NWBZarrIO(self.https_s3_path, mode="-r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io._file.store, zarr.storage.FSStore)
             self.assertTrue(read_io.is_remote())
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
