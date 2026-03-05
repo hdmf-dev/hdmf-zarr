@@ -47,6 +47,10 @@ full = [
     "s3fs",
 ]
 
+# all runtime optional dependencies
+all = ["hdmf-zarr[full]"]
+
+[dependency-groups]
 # development dependencies
 test = [
     "black",
@@ -57,22 +61,19 @@ test = [
     "pytest-cov",
     "python-dateutil",  # used in some tests
     "ruff",
-    "scipy",  # used in some tests
+    "scipy>=1.7",  # used in some tests
     "tox",
 ]
 
 # documentation dependencies
 docs = [
-    "matplotlib",
-    "scipy",  # used in some docs
+    "matplotlib>=3.6",
+    "scipy>=1.7",  # used in some docs
     "sphinx>=4",  # improved support for docutils>=0.17
     "sphinx_rtd_theme>=1",  # <1 does not work with docutils>=0.17
-    "sphinx-gallery",
-    "sphinx-copybutton",
+    "sphinx-gallery>=0.16",
+    "sphinx-copybutton>=0.5",
 ]
-
-# all possible dependencies
-all = ["hdmf-zarr[full,test,docs]"]
 
 
 [project.urls]
