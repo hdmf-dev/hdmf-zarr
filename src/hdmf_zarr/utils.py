@@ -360,7 +360,7 @@ class ZarrSpecWriter(SpecWriter):
             shape=(1,),
             dtype=np.dtypes.StringDType(),
         )
-        dset.attrs["zarr_dtype"] = "scalar"
+        dset.attrs["_SCALAR"] = True
         dset[0] = data
         return dset
 
@@ -608,7 +608,8 @@ class ZarrDataIO(DataIO):
 
 class ZarrReference(dict):
     """
-    Data structure to describe a reference to another container used with the ZarrIO backend
+    Data structure to describe a reference to another container used with the ZarrIO backend.
+    Only stores ``source`` and ``path`` — the minimal info needed to resolve a reference.
     """
 
     @docval(
@@ -625,28 +626,12 @@ class ZarrReference(dict):
             "doc": "Path of referenced object within the source",
             "default": None,
         },
-        {
-            "name": "object_id",
-            "type": str,
-            "doc": "Object_id of the referenced object (if available)",
-            "default": None,
-        },
-        {
-            "name": "source_object_id",
-            "type": str,
-            "doc": "Object_id of the source (should always be available)",
-            "default": None,
-        },
     )
     def __init__(self, **kwargs):
-        dest_source, dest_path, dest_object_id, dest_source_object_id = getargs(
-            "source", "path", "object_id", "source_object_id", kwargs
-        )
+        dest_source, dest_path = getargs("source", "path", kwargs)
         super(ZarrReference, self).__init__()
         self.source = dest_source
         self.path = dest_path
-        self.object_id = dest_object_id
-        self.source_object_id = dest_source_object_id
 
     @property
     def source(self) -> str:
@@ -656,14 +641,6 @@ class ZarrReference(dict):
     def path(self) -> str:
         return super().__getitem__("path")
 
-    @property
-    def object_id(self) -> str:
-        return super().__getitem__("object_id")
-
-    @property
-    def source_object_id(self) -> str:
-        return super().__getitem__("source_object_id")
-
     @source.setter
     def source(self, source: str):
         super().__setitem__("source", source)
@@ -671,11 +648,3 @@ class ZarrReference(dict):
     @path.setter
     def path(self, path: str):
         super().__setitem__("path", path)
-
-    @object_id.setter
-    def object_id(self, object_id: str):
-        super().__setitem__("object_id", object_id)
-
-    @source_object_id.setter
-    def source_object_id(self, object_id: str):
-        super().__setitem__("source_object_id", object_id)
