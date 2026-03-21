@@ -142,9 +142,9 @@ added on any Group or Dataset in the file.
     Reserved Attribute Name       Usage
     ============================  ======================================================================================
     ``_LINKS``                    Attribute on Groups used to store links. See :ref:`sec-zarr-storage-links`.
-    ``_DTYPE``                    Attribute on Datasets used to specify the data type. Used for object references
-                                  (``"object"``) and regular dtype strings. See :ref:`sec-zarr-storage-references`.
-    ``_COMPOUND_DTYPE``           Attribute on Datasets used to describe compound data types as a list of dicts.
+    ``_DTYPE``                    Attribute on Datasets used to specify the data type. Set to
+                                  ``"object_reference"`` for reference datasets. See :ref:`sec-zarr-storage-references`.
+    ``_REFERENCE_FIELDS``         Attribute on compound Datasets listing field names that contain object references.
     ``_SCALAR``                   Boolean attribute on Datasets (``true``) indicating the dataset holds a scalar value.
     ============================  ======================================================================================
 
@@ -235,20 +235,17 @@ Storing object references in Datasets
 -------------------------------------
 
 To identify that a dataset contains object references, the reserved attribute ``_DTYPE`` is set to
-``'object'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In this way, we can unambiguously
-determine if a dataset stores references that need to be resolved.
+``'object_reference'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In this way, we can
+unambiguously determine if a dataset stores references that need to be resolved.
 
-Similar to Links, object references are defined via dicts, which are stored as elements of
-the Dataset. In contrast to links, individual object references do not have a ``name`` but are identified
-by their location (i.e., index) in the dataset. As such, object references only have the ``source`` with
-the relative path to the target Zarr file, and the ``path`` identifying the object within the source
-Zarr file. The individual object references are defined in the
-:py:class:`~hdmf_zarr.backend.ZarrIO` as :py:class:`~hdmf_zarr.utils.ZarrReference` objects created via
-the :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` helper function.
+Each element of a reference dataset is stored as a **plain target path string** (e.g.,
+``"/general/extracellular_ephys/electrodes"``) in a variable-length string (``StringDType``) array.
+Since ``_DTYPE = "object_reference"`` already marks the dataset as containing references, there is no
+need to wrap each value in a dict. The ``source`` defaults to ``"."`` (same file). For future
+cross-file references, the format can be extended to store dicts instead of plain strings.
 
-In zarr v3, :py:class:`~hdmf_zarr.backend.ZarrIO` stores object references as JSON-serialized strings
-in variable-length string (``StringDType``) datasets. Each element is a JSON string encoding a
-:py:class:`~hdmf_zarr.utils.ZarrReference` dict with ``source`` and ``path`` keys.
+Object references are created via :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` and resolved
+via :py:meth:`~hdmf_zarr.backend.ZarrIO.resolve_ref`.
 
 Storing object references in Attributes
 ---------------------------------------
@@ -314,11 +311,10 @@ The mappings of data types is as follows
     |  * "reference"           | dataset. See                       |                |
     |  * "object"              | :ref:`sec-zarr-storage-references` |                |
     +--------------------------+------------------------------------+----------------+
-    |  * compound dtype        | Compound data type. Stored in      |                |
-    |                          | ``_COMPOUND_DTYPE`` as a list of   |                |
-    |                          | dicts with ``"name"`` and          |                |
-    |                          | ``"dtype"`` keys (see example      |                |
-    |                          | below).                            |                |
+    |  * compound dtype        | Compound data type. Uses zarr v3's |                |
+    |                          | native ``structured`` data_type.   |                |
+    |                          | Reference fields marked with       |                |
+    |                          | ``_REFERENCE_FIELDS`` attribute.   |                |
     +--------------------------+------------------------------------+----------------+
     |  * "isodatetime"         | ASCII ISO8061 datetime string.     | variable       |
     |                          | For example                        |                |
@@ -327,33 +323,16 @@ The mappings of data types is as follows
 
 .. note::
 
-    In zarr v3, string and reference fields within compound dtypes are stored as fixed-length
-    Unicode strings (``FixedLengthUTF32``). The string length is dynamically sized to fit the
-    actual data, with a minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH`
-    characters to allow for appending rows with longer values. Reference fields are stored as
-    JSON-serialized strings within these fixed-length fields.
+    Compound data types use zarr v3's native ``structured`` data_type, which carries full field
+    information (names and types). No ``_COMPOUND_DTYPE`` attribute is needed.
 
-.. note::
+    String and reference fields within compound dtypes are stored as fixed-length Unicode strings
+    (``FixedLengthUTF32``). The string length is dynamically sized to fit the actual data, with a
+    minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH` characters.
+    Reference fields store plain target path strings (not JSON dicts).
 
-    For compound dtypes, the ``_COMPOUND_DTYPE`` attribute is stored as a list of dictionaries,
-    where each dictionary describes a field in the compound type. For example:
-
-    .. code-block:: json
-
-        "_COMPOUND_DTYPE": [
-            {
-                "dtype": "uint32",
-                "name": "x"
-            },
-            {
-                "dtype": "uint32",
-                "name": "y"
-            },
-            {
-                "dtype": "float32",
-                "name": "weight"
-            }
-        ]
+    If a compound dataset contains reference fields, the ``_REFERENCE_FIELDS`` attribute lists
+    which field names contain references. For example: ``_REFERENCE_FIELDS = ["electrode", "group"]``.
 
 .. note::
 

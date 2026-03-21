@@ -432,20 +432,15 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             for i in range(num_bazs):
                 baz_name = "baz%d" % i
                 expected_container = read_container.bazs[baz_name]
-                expected_value = {
-                    "source": ".",
-                    "path": "/bazs/" + baz_name,
-                }
-                # In zarr v3, references are stored as JSON strings (may be numpy StringDType scalars)
+                expected_path = "/bazs/" + baz_name
+                # References are stored as plain path strings
                 raw_ref = reader._file["baz_data"][i]
-                raw_ref = str(raw_ref) if not isinstance(raw_ref, (str, dict)) else raw_ref
-                if isinstance(raw_ref, str):
-                    raw_ref = json.loads(raw_ref)
-                self.assertDictEqual(raw_ref, expected_value)
+                raw_ref = str(raw_ref) if not isinstance(raw_ref, str) else raw_ref
+                self.assertEqual(raw_ref, expected_path)
                 # Also test using the low-level reference functions
-                zarr_ref = ZarrReference(**expected_value)
-                self.assertEqual(zarr_ref.source, expected_value["source"])
-                self.assertEqual(zarr_ref.path, expected_value["path"])
+                zarr_ref = ZarrReference(source=".", path=expected_path)
+                self.assertEqual(zarr_ref.source, ".")
+                self.assertEqual(zarr_ref.path, expected_path)
 
     def test_write_reference_compound(self):
         builder = self.createReferenceCompoundBuilder()
