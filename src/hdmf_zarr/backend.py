@@ -1852,10 +1852,17 @@ class ZarrIO(HDMFIO):
         dtype_attr = zarr_obj.attrs.get("_DTYPE", None)
         ref_fields = zarr_obj.attrs.get("_REFERENCE_FIELDS", None)
 
-        # Detect compound dtype from zarr v3 structured data_type
-        compound_dtype = None
-        if hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
-            # Reconstruct compound dtype descriptor from zarr structured dtype
+        # Backward compat: old _COMPOUND_DTYPE attribute takes priority when present,
+        # since it has explicit reference field markers (e.g., "object" for ref fields).
+        compound_dtype = zarr_obj.attrs.get("_COMPOUND_DTYPE", None)
+        if compound_dtype is not None:
+            warnings.warn(
+                "Found deprecated '_COMPOUND_DTYPE' attribute on dataset '%s'. "
+                "Use _REFERENCE_FIELDS with zarr v3 structured data_type instead." % str(name),
+                DeprecationWarning,
+            )
+        elif hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
+            # Reconstruct compound dtype descriptor from zarr v3 structured data_type
             compound_dtype = []
             for field_name in zarr_obj.dtype.names:
                 if ref_fields and field_name in ref_fields:
@@ -1863,16 +1870,6 @@ class ZarrIO(HDMFIO):
                 else:
                     field_dt = self.__serial_dtype__(zarr_obj.dtype[field_name])
                     compound_dtype.append({"name": field_name, "dtype": field_dt})
-
-        # Backward compat: old _COMPOUND_DTYPE attribute
-        old_compound_dtype = zarr_obj.attrs.get("_COMPOUND_DTYPE", None)
-        if old_compound_dtype is not None and compound_dtype is None:
-            compound_dtype = old_compound_dtype
-            warnings.warn(
-                "Found deprecated '_COMPOUND_DTYPE' attribute on dataset '%s'. "
-                "Zarr v3 structured data_type is used instead." % str(name),
-                DeprecationWarning,
-            )
 
         if compound_dtype is not None:
             zarr_dtype = compound_dtype
