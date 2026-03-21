@@ -188,6 +188,13 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     def dtype(self):
         return self.__dtype
 
+    @property
+    def shape(self):
+        # Don't expose raw zarr shape — compound table datasets should never
+        # be treated as scalars by hdmf's objectmapper (which unwraps data
+        # when shape == (1,) and data[0] is not np.void).
+        return None
+
     def __getitem__(self, arg):
         rows = copy(super().__getitem__(arg))
         if np.issubdtype(type(arg), np.integer):
