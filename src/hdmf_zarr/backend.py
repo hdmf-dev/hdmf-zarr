@@ -13,6 +13,7 @@ import logging
 # Zarr imports
 import zarr
 from zarr import Group, Array
+from zarr.abc.store import Store as _ZarrStoreABC
 from zarr.storage import LocalStore
 try:
     from zarr.storage import FsspecStore
@@ -78,9 +79,10 @@ Minimum fixed-length Unicode string size (in characters) for string and referenc
 dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
 """
 
-from zarr.abc.store import Store as _ZarrStoreABC
-
-SUPPORTED_ZARR_STORES = (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore, _ZarrStoreABC)
+SUPPORTED_ZARR_STORES = (
+    (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE
+    else (LocalStore, FsspecStore, _ZarrStoreABC)
+)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -1859,7 +1861,8 @@ class ZarrIO(HDMFIO):
                 if ref_fields and field_name in ref_fields:
                     compound_dtype.append({"name": field_name, "dtype": "object_reference"})
                 else:
-                    compound_dtype.append({"name": field_name, "dtype": self.__serial_dtype__(zarr_obj.dtype[field_name])})
+                    field_dt = self.__serial_dtype__(zarr_obj.dtype[field_name])
+                    compound_dtype.append({"name": field_name, "dtype": field_dt})
 
         # Backward compat: old _COMPOUND_DTYPE attribute
         old_compound_dtype = zarr_obj.attrs.get("_COMPOUND_DTYPE", None)
