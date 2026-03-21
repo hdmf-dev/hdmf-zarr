@@ -78,10 +78,19 @@ Minimum fixed-length Unicode string size (in characters) for string and referenc
 dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
 """
 
-SUPPORTED_ZARR_STORES = (LocalStore,) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore)
+from zarr.abc.store import Store as _ZarrStoreABC
+
+SUPPORTED_ZARR_STORES = (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore, _ZarrStoreABC)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
+
+
+def _unwrap_ref(val):
+    """Unwrap a _REFERENCE dict to a plain path string, or return as-is."""
+    if isinstance(val, dict) and "_REFERENCE" in val:
+        return val["_REFERENCE"]["path"]
+    return val
 
 
 class ZarrIO(HDMFIO):
@@ -345,7 +354,8 @@ class ZarrIO(HDMFIO):
             warnings.warn(msg)
             return {}
 
-        spec_group = f[f.attrs[SPEC_LOC_ATTR]]
+        spec_loc = _unwrap_ref(f.attrs[SPEC_LOC_ATTR])
+        spec_group = f[spec_loc]
         if namespaces is None:
             namespaces = list(spec_group.keys())
 
@@ -438,7 +448,7 @@ class ZarrIO(HDMFIO):
         ref = self.__file.attrs.get(SPEC_LOC_ATTR)
         spec_group = None
         if ref is not None:
-            spec_group = self.__file[ref]
+            spec_group = self.__file[_unwrap_ref(ref)]
         else:
             path = DEFAULT_SPEC_LOC_DIR  # do something to figure out where the specifications should go
             spec_group = self.__file.require_group(path)
@@ -927,34 +937,41 @@ class ZarrIO(HDMFIO):
                 zarr_ref = {"source": ".", "path": zarr_ref}
 
         # Extract the path as defined in the zarr_ref object
-        if zarr_ref.get("source", None) is None:
-            source_file = str(zarr_ref["path"])
-        else:
-            source_file = str(zarr_ref["source"])
-
-        if not self.is_remote():
-            if isinstance(self.source, str) and self.source.startswith(("s3://")):
-                source_file = self.source
-            else:
-                # Join with source_file to resolve the relative path; use abspath for consistent comparisons
-                source_file = os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
-        else:
-            # get rid of extra "/" and "./" in the path root and source_file
-            root_path = str(self.path).rstrip("/")
-            source_path = str(source_file).lstrip(".")
-            source_file = root_path + source_path
-
+        source = zarr_ref.get("source", None)
         object_path = zarr_ref.get("path", None)
+
         if object_path:
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = self.__open_file_consolidated(
-            store=source_file,
-            mode="r",
-            storage_options=self.__storage_options,
-        )
+        # For same-file references (source is "." or None) when using a non-path store,
+        # navigate within the already-open file instead of trying to open a new store.
+        is_same_file = source is None or source == "."
+        is_store_path = isinstance(self.path, SUPPORTED_ZARR_STORES) and not isinstance(self.path, LocalStore)
+        if is_same_file and is_store_path:
+            target_zarr_obj = self.__file
+        else:
+            if source is None:
+                source_file = str(zarr_ref["path"])
+            else:
+                source_file = str(source)
+
+            if not self.is_remote():
+                if isinstance(self.source, str) and self.source.startswith(("s3://")):
+                    source_file = self.source
+                else:
+                    source_file = os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
+            else:
+                root_path = str(self.path).rstrip("/")
+                source_path = str(source_file).lstrip(".")
+                source_file = root_path + source_path
+
+            target_zarr_obj = self.__open_file_consolidated(
+                store=source_file,
+                mode="r",
+                storage_options=self.__storage_options,
+            )
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -1703,7 +1720,7 @@ class ZarrIO(HDMFIO):
         ignore_groups = set()
         specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
         if specloc is not None:
-            ignore_groups.add(self.__file[specloc].name)
+            ignore_groups.add(self.__file[_unwrap_ref(specloc)].name)
         f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
         return f_builder
 
