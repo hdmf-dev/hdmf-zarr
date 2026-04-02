@@ -5,7 +5,7 @@ from .helpers.utils import check_s3fs_ffspec_installed
 HAVE_FSSPEC = check_s3fs_ffspec_installed()
 
 
-@unittest.skip("S3 test files are in zarr v2 format with object_codec which is not supported by zarr v3")
+# @unittest.skip("S3 test files are in zarr v2 format with object_codec which is not supported by zarr v3")
 class TestFSSpecStreaming(unittest.TestCase):
 
     def setUp(self):
@@ -50,7 +50,7 @@ class TestFSSpecStreaming(unittest.TestCase):
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_is_remote_without_consolidated(self):
         """Test that is_remote() returns True for remote HTTPS stores without consolidated metadata."""
-        with NWBZarrIO(self.https_s3_path, mode="-r") as read_io:
+        with NWBZarrIO(self.https_s3_path, mode="r-") as read_io:
             read_io.open()
             self.assertTrue(read_io.is_remote())
 

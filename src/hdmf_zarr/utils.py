@@ -387,12 +387,82 @@ class ZarrSpecReader(SpecReader):
         self.__cache = None
 
     def __read(self, path):
-        s = self.__group[path][0]
+        try:
+            s = self.__group[path][0]
+        except (ValueError, TypeError) as e:
+            # zarr v3 cannot read object-dtype (|O) arrays with json2/vlen-utf8
+            # codecs from zarr v2 files. Fall back to reading raw chunk data.
+            warn(
+                f"Could not read dataset '{path}' via zarr API ({e}). "
+                f"Falling back to raw chunk read for zarr v2 object-dtype array."
+            )
+            s = self.__read_v2_object_array(path)
         # In zarr v3, string arrays may return numpy StringDType scalars
         # Ensure we have a plain Python string for json.loads
         s = str(s) if not isinstance(s, str) else s
         d = json.loads(s)
         return d
+
+    def __read_v2_object_array(self, path):
+        """Read data from a zarr v2 object-dtype array that zarr v3 cannot parse.
+
+        Reads .zarray metadata and raw chunk bytes from the store (local or remote),
+        then uses numcodecs to decompress and decode the data.
+        """
+        from zarr.storage import LocalStore
+
+        store = self.__group.store
+        dataset_key = f"{self.__group.path}/{path}" if self.__group.path else path
+
+        if isinstance(store, LocalStore):
+            def _read_bytes(key):
+                full_path = os.path.join(str(store.root), key)
+                if not os.path.exists(full_path):
+                    return None
+                with open(full_path, "rb") as f:
+                    return f.read()
+        else:
+            from zarr.core.sync import sync as zarr_sync
+            from zarr.core.buffer import default_buffer_prototype
+
+            def _read_bytes(key):
+                async def _get():
+                    return await store.get(key, prototype=default_buffer_prototype())
+                buf = zarr_sync(_get())
+                return buf.to_bytes() if buf is not None else None
+
+        # Read .zarray metadata
+        zarray_bytes = _read_bytes(f"{dataset_key}/.zarray")
+        if zarray_bytes is None:
+            raise FileNotFoundError(f"No .zarray found for '{dataset_key}'")
+        zarray_meta = json.loads(zarray_bytes)
+
+        # Read raw chunk data (single chunk, index 0)
+        raw = _read_bytes(f"{dataset_key}/0")
+        if raw is None:
+            raise FileNotFoundError(f"No chunk data found for '{dataset_key}'")
+
+        # Decompress if a compressor was used
+        compressor_config = zarray_meta.get("compressor")
+        if compressor_config is not None:
+            import numcodecs
+            compressor = numcodecs.get_codec(compressor_config)
+            raw = compressor.decode(raw)
+
+        # Apply filters in reverse order (zarr v2 decoding convention)
+        filters = zarray_meta.get("filters") or []
+        if filters:
+            import numcodecs
+            for filt_config in reversed(filters):
+                filt = numcodecs.get_codec(filt_config)
+                raw = filt.decode(raw)
+
+        # Extract the first element from the decoded array
+        if isinstance(raw, np.ndarray):
+            return raw.flat[0]
+        if isinstance(raw, (list, tuple)):
+            return raw[0]
+        return raw
 
     def read_spec(self, spec_path):
         """Read a spec from the given path"""

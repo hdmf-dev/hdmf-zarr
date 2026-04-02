@@ -1,0 +1,54 @@
+name: Test zarr v2 backward compatibility
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+
+jobs:
+  test-v2-backward-compat:
+    name: zarr v2 → v3 backward compat
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # --- Step 1: generate a zarr v2 NWB file with old deps ---
+      - name: Create zarr v2 environment
+        run: |
+          python -m venv /tmp/zarr_v2_env
+          /tmp/zarr_v2_env/bin/pip install --upgrade pip
+          /tmp/zarr_v2_env/bin/pip install "hdmf-zarr<1.0" "zarr>=2.18,<3" pynwb
+
+      - name: Generate zarr v2 NWB test file
+        run: |
+          /tmp/zarr_v2_env/bin/python tests/unit/helpers/generate_v2_nwb_zarr.py \
+            tests/unit/helpers/v2_test_file.nwb.zarr \
+            > tests/unit/helpers/v2_expected.json
+          echo "--- generated file tree ---"
+          find tests/unit/helpers/v2_test_file.nwb.zarr -maxdepth 2 -type d | head -30
+          echo "--- expected metadata ---"
+          cat tests/unit/helpers/v2_expected.json
+
+      # --- Step 2: read the v2 file with current code + zarr v3 ---
+      - name: Install current hdmf-zarr + zarr v3
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[full]"
+          python -m pip install pytest
+          python -m pip list
+
+      - name: Run backward compatibility tests
+        run: |
+          pytest tests/unit/test_v2_backward_compat.py -v

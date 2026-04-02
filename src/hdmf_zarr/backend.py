@@ -92,7 +92,13 @@ class ZarrIO(HDMFIO):
             zarr.open(path, mode="r")
             return True
         except Exception:
-            return False
+            try:
+                # zarr v3 may fail to parse consolidated metadata from v2 files
+                # (e.g., invalid fill_value types). Fall back to non-consolidated open.
+                zarr.open(path, mode="r", use_consolidated=False)
+                return True
+            except Exception:
+                return False
 
     @staticmethod
     def generate_dataset_html(dataset):
@@ -310,7 +316,13 @@ class ZarrIO(HDMFIO):
 
         if path is not None:
             store = cls.__resolve_store(path, storage_options)
-            f = zarr.open(store, mode="r")
+            try:
+                f = zarr.open(store, mode="r")
+            except (TypeError, ValueError):
+                # zarr v3 may fail to parse consolidated metadata from v2 files
+                # (e.g., invalid fill_value types or unsupported object dtypes).
+                # Fall back to non-consolidated open.
+                f = zarr.open(store, mode="r", use_consolidated=False)
         else:
             f = file
         return cls.__load_namespaces(namespace_catalog, namespaces, f)
@@ -350,12 +362,29 @@ class ZarrIO(HDMFIO):
 
         readers = dict()
         for ns in namespaces:
-            ns_group = spec_group[ns]
-            latest_version = list(ns_group.keys())[-1]
-            latest_ns_group = ns_group[latest_version]
-            readers[ns] = ZarrSpecReader(latest_ns_group)
+            try:
+                ns_group = spec_group[ns]
+                latest_version = list(ns_group.keys())[-1]
+                latest_ns_group = ns_group[latest_version]
+                readers[ns] = ZarrSpecReader(latest_ns_group)
+            except Exception as e:
+                warnings.warn(
+                    f"Could not read cached namespace '{ns}' from "
+                    f"{cls.__get_store_path(f.store)}: {e}. Skipping."
+                )
+                continue
 
-        d = namespace_catalog.load_namespaces("namespace", reader=readers)
+        if not readers:
+            return {}
+
+        try:
+            d = namespace_catalog.load_namespaces("namespace", reader=readers)
+        except Exception as e:
+            warnings.warn(
+                f"Could not load cached namespaces from "
+                f"{cls.__get_store_path(f.store)}: {e}. Skipping."
+            )
+            d = {}
         return d
 
     @docval(
@@ -662,7 +691,12 @@ class ZarrIO(HDMFIO):
     def __open_file(self, store, mode, storage_options=None):
         """Open a zarr file without consolidated metadata."""
         store = self.__resolve_store(store, storage_options)
-        return zarr.open(store=store, mode=mode)
+        try:
+            return zarr.open(store=store, mode=mode)
+        except (TypeError, ValueError):
+            # zarr v3 may fail when it auto-detects consolidated metadata from v2 files
+            # containing unsupported dtypes. Fall back to non-consolidated open.
+            return zarr.open(store=store, mode=mode, use_consolidated=False)
 
     def __open_file_consolidated(self, store, mode, storage_options=None):
         """
@@ -691,10 +725,11 @@ class ZarrIO(HDMFIO):
                 store=open_store,
                 mode=mode,
             )
-        except Exception:  # Catches errors when consolidated metadata doesn't exist
+        except Exception:  # Catches errors when consolidated metadata doesn't exist or can't be parsed
             zarr_obj = zarr.open(
                 store=open_store,
                 mode=mode,
+                use_consolidated=False,
             )
 
         # Cache the result
@@ -903,8 +938,20 @@ class ZarrIO(HDMFIO):
             if isinstance(self.source, str) and self.source.startswith(("s3://")):
                 source_file = self.source
             else:
-                # Join with source_file to resolve the relative path; use abspath for consistent comparisons
-                source_file = os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
+                # Try resolving relative to the store itself first (current convention,
+                # where self-references use "."), then fall back to resolving from the
+                # parent directory (older hdmf-zarr convention).
+                abs_source = os.path.abspath(self.source)
+                resolved_from_store = os.path.abspath(os.path.normpath(os.path.join(abs_source, source_file)))
+                base_dir = os.path.dirname(abs_source)
+                resolved_from_parent = os.path.abspath(os.path.normpath(os.path.join(base_dir, source_file)))
+                if os.path.exists(resolved_from_store) and os.path.isdir(resolved_from_store):
+                    source_file = resolved_from_store
+                elif os.path.exists(resolved_from_parent) and os.path.isdir(resolved_from_parent):
+                    source_file = resolved_from_parent
+                else:
+                    # Neither resolution works; assume self-reference
+                    source_file = abs_source
         else:
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
@@ -1724,6 +1771,287 @@ class ZarrIO(HDMFIO):
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
 
+    @staticmethod
+    def __read_store_bytes(store, key):
+        """Read raw bytes from a zarr store (local or remote).
+
+        Returns bytes, or None if the key does not exist.
+        """
+        if isinstance(store, LocalStore):
+            full_path = os.path.join(str(store.root), key)
+            if not os.path.exists(full_path):
+                return None
+            with open(full_path, "rb") as f:
+                return f.read()
+        else:
+            # Remote store — use async get
+            from zarr.core.sync import sync as zarr_sync
+            from zarr.core.buffer import default_buffer_prototype
+
+            async def _get():
+                return await store.get(key, prototype=default_buffer_prototype())
+
+            buf = zarr_sync(_get())
+            if buf is None:
+                return None
+            return buf.to_bytes()
+
+    @staticmethod
+    def __store_key_exists(store, key):
+        """Check if a key exists in a zarr store (local or remote)."""
+        if isinstance(store, LocalStore):
+            return os.path.exists(os.path.join(str(store.root), key))
+        else:
+            from zarr.core.sync import sync as zarr_sync
+
+            async def _exists():
+                return await store.exists(key)
+
+            return zarr_sync(_exists())
+
+    @staticmethod
+    def __store_list_dir(store, prefix):
+        """List immediate children (dirs and files) under *prefix* in a zarr store.
+
+        Returns a sorted list of entry names.
+        """
+        if isinstance(store, LocalStore):
+            dir_path = os.path.join(str(store.root), prefix) if prefix else str(store.root)
+            try:
+                return sorted(os.listdir(dir_path))
+            except OSError:
+                return []
+        else:
+            from zarr.core.sync import sync as zarr_sync
+
+            async def _list():
+                result = []
+                async for item in store.list_dir(prefix):
+                    result.append(item)
+                return result
+
+            return sorted(zarr_sync(_list()))
+
+    def __read_v2_dataset_from_fs(self, store, group_path, name):
+        """Read a zarr v2 dataset directly from the store when zarr v3 cannot parse it.
+
+        Works for both local and remote (fsspec) stores.
+
+        Handles object-dtype arrays (``|O`` with ``pickle``/``json2``/``vlen-utf8`` codecs)
+        and arrays with incompatible fill_value types (e.g. datetime stored as vlen strings).
+
+        Returns a :class:`~hdmf.build.DatasetBuilder`.
+        """
+        dataset_key = f"{group_path}/{name}" if group_path else name
+
+        # Read .zarray metadata
+        zarray_bytes = self.__read_store_bytes(store, f"{dataset_key}/.zarray")
+        if zarray_bytes is None:
+            raise FileNotFoundError(f"No .zarray found for '{dataset_key}'")
+        zarray_meta = json.loads(zarray_bytes)
+
+        # Read .zattrs
+        zattrs_bytes = self.__read_store_bytes(store, f"{dataset_key}/.zattrs")
+        all_attrs = json.loads(zattrs_bytes) if zattrs_bytes is not None else {}
+
+        zarr_dtype = all_attrs.get("zarr_dtype")
+        if zarr_dtype is None:
+            zarr_dtype = zarray_meta.get("dtype", "")
+            warnings.warn(f"Inferred dtype from zarr v2 .zarray for '{name}': {zarr_dtype}")
+
+        # Filter reserved attributes
+        reserved = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
+        attrs = {k: v for k, v in all_attrs.items() if k not in reserved}
+
+        shape = tuple(zarray_meta["shape"])
+        chunks = tuple(zarray_meta["chunks"])
+        source = self.__get_store_path(store)
+
+        # Decode the data from raw chunks
+        data = self.__decode_v2_dataset(store, dataset_key, zarray_meta)
+
+        # Handle scalar datasets
+        if zarr_dtype == "scalar":
+            if isinstance(data, np.ndarray) and data.size > 0:
+                data = data.flat[0]
+            elif isinstance(data, (list, tuple)) and len(data) > 0:
+                data = data[0]
+
+        # Handle reference arrays
+        if isinstance(zarr_dtype, str) and self.__is_ref(zarr_dtype):
+            data = BuilderZarrReferenceDataset(data, self)
+        elif isinstance(zarr_dtype, list):
+            has_reference = any(dts.get("dtype") == "object" for dts in zarr_dtype)
+            if has_reference:
+                retrieved_dtypes = [d["dtype"] for d in zarr_dtype]
+                data = BuilderZarrTableDataset(data, self, retrieved_dtypes)
+        # Eagerly convert string/object data to lists for downstream compatibility
+        elif isinstance(data, np.ndarray) and data.dtype.kind in ("U", "S"):
+            data = list(data)
+        elif (
+            isinstance(data, np.ndarray)
+            and data.dtype == object
+            and data.size > 0
+            and isinstance(data.flat[0], str)
+        ):
+            data = list(data)
+
+        kwargs = {
+            "attributes": attrs,
+            "dtype": zarr_dtype,
+            "maxshape": shape,
+            "chunks": not (shape == chunks),
+            "source": source,
+            "data": data,
+        }
+
+        builder = DatasetBuilder(name, **kwargs)
+        # Set location to match what __read_dataset would produce
+        if group_path:
+            builder.location = "/" + group_path.replace("\\", "/") if not group_path.startswith("/") else group_path
+        else:
+            builder.location = "/"
+
+        self._written_builders.set_written(builder)
+        # Cache with the same key that __set_built / __get_built would use
+        full_path = os.path.join(source, group_path, name) if group_path else os.path.join(source, name)
+        self.__built.setdefault(full_path, builder)
+
+        return builder
+
+    def __decode_v2_dataset(self, store, dataset_key, zarray_meta):
+        """Decode all chunks of a zarr v2 dataset from a store (local or remote)."""
+        import numcodecs
+
+        shape = tuple(zarray_meta["shape"])
+        chunks = tuple(zarray_meta["chunks"])
+        dtype = np.dtype(zarray_meta.get("dtype", "f8"))
+        order = zarray_meta.get("order", "C")
+        dimension_separator = zarray_meta.get("dimension_separator", ".")
+
+        compressor_config = zarray_meta.get("compressor")
+        compressor = numcodecs.get_codec(compressor_config) if compressor_config else None
+
+        filters_config = zarray_meta.get("filters") or []
+        filters = [numcodecs.get_codec(fc) for fc in filters_config]
+
+        is_object = dtype == np.dtype("|O")
+        ndim = len(shape)
+        chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
+
+        if any(s == 0 for s in shape):
+            return np.empty(shape, dtype=object if is_object else dtype)
+
+        # --- single-chunk fast path (most common for metadata arrays) ---
+        total_chunks = 1
+        for g in chunk_grid:
+            total_chunks *= g
+
+        if total_chunks == 1:
+            chunk_name = dimension_separator.join("0" for _ in range(ndim))
+            chunk_store_key = f"{dataset_key}/{chunk_name}"
+            raw = self.__read_store_bytes(store, chunk_store_key)
+            if raw is not None:
+                data = self.__decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+                if chunks != shape:
+                    data = data[tuple(slice(0, s) for s in shape)]
+                return data
+            return np.full(shape, fill_value=None if is_object else 0, dtype=object if is_object else dtype)
+
+        # --- general multi-chunk path ---
+        result = np.empty(shape, dtype=object if is_object else dtype)
+        for idx in np.ndindex(*chunk_grid):
+            chunk_name = dimension_separator.join(str(i) for i in idx)
+            chunk_store_key = f"{dataset_key}/{chunk_name}"
+            raw = self.__read_store_bytes(store, chunk_store_key)
+            if raw is None:
+                continue
+            chunk_data = self.__decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+            slices = tuple(slice(i * c, min((i + 1) * c, s)) for i, c, s in zip(idx, chunks, shape))
+            chunk_slices = tuple(slice(0, sl.stop - sl.start) for sl in slices)
+            result[slices] = chunk_data[chunk_slices]
+        return result
+
+    @staticmethod
+    def __decode_v2_chunk(raw, compressor, filters, dtype, chunk_shape, order, is_object):
+        """Decode a single raw chunk of zarr v2 data."""
+        if compressor is not None:
+            raw = compressor.decode(raw)
+
+        if is_object:
+            # For object dtype the filters (pickle / json2 / vlen-utf8) produce the array
+            for filt in reversed(filters):
+                raw = filt.decode(raw)
+            if isinstance(raw, np.ndarray):
+                return raw
+            return np.array(raw, dtype=object)
+
+        # Regular (non-object) dtypes
+        if isinstance(raw, (bytes, bytearray)):
+            arr = np.frombuffer(raw, dtype=dtype).copy()
+        else:
+            arr = np.asarray(raw, dtype=dtype).copy()
+
+        for filt in reversed(filters):
+            decoded = filt.decode(arr)
+            if isinstance(decoded, (bytes, bytearray)):
+                arr = np.frombuffer(decoded, dtype=dtype).copy()
+            elif isinstance(decoded, np.ndarray):
+                arr = decoded
+            else:
+                arr = np.asarray(decoded, dtype=dtype)
+
+        return arr.reshape(chunk_shape, order=order)
+
+    def __iter_children(self, zarr_obj):
+        """Safely iterate over children of a zarr group, yielding (name, child) pairs.
+
+        *child* is normally a :class:`zarr.Group` or :class:`zarr.Array`.  When
+        zarr-python v3 cannot parse a zarr v2 array (e.g. ``|O`` dtype), the
+        method falls back to :meth:`__read_v2_dataset_from_fs` and yields a
+        :class:`~hdmf.build.DatasetBuilder` instead.
+
+        Works for both local and remote (fsspec) stores.
+        """
+        store = zarr_obj.store
+        group_prefix = zarr_obj.path or ""
+        entries = self.__store_list_dir(store, group_prefix)
+
+        for entry in entries:
+            # Skip hidden/metadata files
+            if entry.startswith("."):
+                continue
+            # For local stores, skip non-directory entries
+            if isinstance(store, LocalStore):
+                entry_path = os.path.join(str(store.root), group_prefix, entry) if group_prefix else os.path.join(str(store.root), entry)
+                if not os.path.isdir(entry_path):
+                    continue
+            try:
+                child = zarr_obj[entry]
+                yield entry, child
+            except Exception as e:
+                # Try reading as a zarr v2 dataset via the store
+                zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
+                if self.__store_key_exists(store, zarray_key):
+                    try:
+                        builder = self.__read_v2_dataset_from_fs(store, group_prefix, entry)
+                        warnings.warn(
+                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 "
+                            f"store fallback (zarr v3 error: {e})"
+                        )
+                        yield entry, builder
+                    except Exception as e2:
+                        warnings.warn(
+                            f"Skipping '{entry}' in '{zarr_obj.name}': "
+                            f"zarr v3 could not parse it ({e}) and "
+                            f"v2 store fallback also failed ({e2})"
+                        )
+                else:
+                    warnings.warn(
+                        f"Skipping '{entry}' in '{zarr_obj.name}': zarr v3 could not parse "
+                        f"its metadata (likely a zarr v2 object-dtype array): {e}"
+                    )
+
     def __read_group(self, zarr_obj, name=None, ignore_groups=set()):
         # NOTE: ignore_groups is a set of group names to skip when reading and only
         # used when reading the root group to skip the specification group
@@ -1743,17 +2071,19 @@ class ZarrIO(HDMFIO):
         ret = GroupBuilder(name=name, source=source, attributes=attributes)
         ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
 
-        # read sub groups
-        for sub_name, sub_group in zarr_obj.groups():
-            if sub_group.name in ignore_groups:
-                continue
-            sub_builder = self.__read_group(sub_group, sub_name)
-            ret.set_group(sub_builder)
-
-        # read sub datasets
-        for sub_name, sub_array in zarr_obj.arrays():
-            sub_builder = self.__read_dataset(sub_array, sub_name)
-            ret.set_dataset(sub_builder)
+        # read sub groups and datasets using safe iteration
+        for sub_name, child in self.__iter_children(zarr_obj):
+            if isinstance(child, DatasetBuilder):
+                # Already built by the v2 filesystem fallback in __iter_children
+                ret.set_dataset(child)
+            elif isinstance(child, Group):
+                if child.name in ignore_groups:
+                    continue
+                sub_builder = self.__read_group(child, sub_name)
+                ret.set_group(sub_builder)
+            elif isinstance(child, Array):
+                sub_builder = self.__read_dataset(child, sub_name)
+                ret.set_dataset(sub_builder)
 
         # read the links
         self.__read_links(zarr_obj=zarr_obj, parent=ret)
