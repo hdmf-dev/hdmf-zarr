@@ -2023,7 +2023,8 @@ class ZarrIO(HDMFIO):
                 continue
             # For local stores, skip non-directory entries
             if isinstance(store, LocalStore):
-                entry_path = os.path.join(str(store.root), group_prefix, entry) if group_prefix else os.path.join(str(store.root), entry)
+                entry_path = os.path.join(str(store.root), group_prefix, entry) \
+                    if group_prefix else os.path.join(str(store.root), entry)
                 if not os.path.isdir(entry_path):
                     continue
             try:

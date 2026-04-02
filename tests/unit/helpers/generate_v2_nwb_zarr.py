@@ -19,8 +19,8 @@ capture them without hard-coding values in two places.
 """
 
 import json
-import sys
 import os
+from argparse import ArgumentParser
 import numpy as np
 from datetime import datetime
 from dateutil.tz import tzlocal
@@ -30,10 +30,10 @@ from pynwb.ecephys import ElectricalSeries
 from hdmf_zarr import NWBZarrIO
 
 
-def main(output_path: str) -> None:
-    if os.path.exists(output_path):
+def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
+    if os.path.exists(nwb_output_path):
         import shutil
-        shutil.rmtree(output_path)
+        shutil.rmtree(nwb_output_path)
 
     session_start = datetime(2024, 3, 15, 10, 30, 0, tzinfo=tzlocal())
 
@@ -94,7 +94,7 @@ def main(output_path: str) -> None:
     nwbfile.add_acquisition(electrical_series)
 
     # Write
-    with NWBZarrIO(path=output_path, mode="w") as io:
+    with NWBZarrIO(path=nwb_output_path, mode="w") as io:
         io.write(nwbfile)
 
     # Emit metadata expectations as JSON
@@ -117,11 +117,21 @@ def main(output_path: str) -> None:
         "ephys_data_shape": [n_samples, n_electrodes],
         "ephys_name": "test_ephys",
     }
-    print(json.dumps(expectations))
+    with open(expectations_output_path, "w") as f:
+        json.dump(expectations, f)
 
 
+parser = ArgumentParser(description="Generate a zarr v2 NWB file for backward compatibility tests.")
+parser.add_argument(
+    "--nwb-output-path",
+    type=str,
+    help="Path to write the output NWB zarr file (e.g. /tmp/test_file.zarr)",
+)
+parser.add_argument(
+    "--expectations-output-path",
+    type=str,
+    help="Path to write the JSON file with metadata expectations (e.g. /tmp/expectations.json)",
+)
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python generate_v2_nwb_zarr.py <output_path>", file=sys.stderr)
-        sys.exit(1)
-    main(sys.argv[1])
+    args = parser.parse_args()
+    main(args.nwb_output_path, args.expectations_output_path)

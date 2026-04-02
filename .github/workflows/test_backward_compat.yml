@@ -34,8 +34,8 @@ jobs:
       - name: Generate zarr v2 NWB test file
         run: |
           /tmp/zarr_v2_env/bin/python tests/unit/helpers/generate_v2_nwb_zarr.py \
-            tests/unit/helpers/v2_test_file.nwb.zarr \
-            > tests/unit/helpers/v2_expected.json
+            --nwb-output-path tests/unit/helpers/v2_test_file.nwb.zarr \
+            --expectations-output-path tests/unit/helpers/v2_expected.json
           echo "--- generated file tree ---"
           find tests/unit/helpers/v2_test_file.nwb.zarr -maxdepth 2 -type d | head -30
           echo "--- expected metadata ---"
