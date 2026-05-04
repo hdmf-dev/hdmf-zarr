@@ -281,7 +281,11 @@ class MixinTestZarrToHDF5:
             write_io.write(container)
 
         with ZarrIO(write_path, manager=self.get_manager(), mode="r") as read_io:
-            with HDF5IO(export_path, mode="w") as export_io:
+            # Pass the manager to the destination HDF5IO so its namespace catalog is populated
+            # before write. HDF5IO's write path now consults the manager to determine whether a
+            # builder's data type matches an entry in the `expandable` list (default includes
+            # VectorData and ElementIdentifiers); without the manager the lookup raises KeyError.
+            with HDF5IO(export_path, manager=self.get_manager(), mode="w") as export_io:
                 export_io.export(src_io=read_io, write_args={"link_data": False})
 
         read_io = HDF5IO(export_path, manager=self.get_manager(), mode="r")
