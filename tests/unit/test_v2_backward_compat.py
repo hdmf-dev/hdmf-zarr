@@ -28,7 +28,7 @@ import warnings
 
 import numpy as np
 
-from hdmf_zarr import NWBZarrIO
+from hdmf_zarr import NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +50,7 @@ class TestV2BackwardCompat(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            cls.io = NWBZarrIO(_V2_FILE, mode="r")
+            cls.io = NWBZarrV2IO(_V2_FILE, mode="r")
             cls.nwbfile = cls.io.read()
 
     @classmethod
@@ -154,6 +154,25 @@ class TestV2BackwardCompat(unittest.TestCase):
         # timestamps could be lazy (zarr Array) or eagerly loaded
         ts = np.asarray(series.timestamps)
         self.assertEqual(len(ts), n_samples)
+
+
+@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
+class TestV2SnifferAndAutoDispatch(unittest.TestCase):
+    """The sniffer must identify v2 files, and NWBZarrIO.read_nwb must auto-dispatch."""
+
+    def test_sniffer_detects_v2(self):
+        self.assertTrue(is_zarr_v2_file(_V2_FILE))
+
+    def test_read_nwb_auto_dispatches_to_v2(self):
+        # Calling the v3 entry point on a v2 file should still succeed via the
+        # sniffer-based dispatch in NWBZarrIO.read_nwb.
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            nwbfile = NWBZarrIO.read_nwb(_V2_FILE)
+        self.assertIsNotNone(nwbfile)
+        with open(_V2_EXPECTATIONS, "r") as f:
+            expected = json.load(f)
+        self.assertEqual(nwbfile.identifier, expected["identifier"])
 
 
 if __name__ == "__main__":

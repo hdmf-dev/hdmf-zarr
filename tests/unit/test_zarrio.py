@@ -158,15 +158,15 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
     def test_get_store_path_shallow(self):
         self.create_zarr(consolidate_metadata=False)
         store = LocalStore(self.store_path)
-        path = ZarrIO._ZarrIO__get_store_path(store)
-        # In zarr v3, __get_store_path returns str(store) which is the LocalStore repr
+        path = ZarrIO._get_store_path(store)
+        # In zarr v3, _get_store_path returns str(store) which is the LocalStore repr
         self.assertIsInstance(path, str)
 
     def test_get_store_path_deep(self):
         self.create_zarr()
         zarr_obj = zarr.open_consolidated(self.store_path, mode="r")
         store = zarr_obj.store
-        path = ZarrIO._ZarrIO__get_store_path(store)
+        path = ZarrIO._get_store_path(store)
         self.assertIsInstance(path, str)
 
     def test_force_open_without_consolidated(self):
@@ -183,7 +183,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
     def test_force_open_without_consolidated_fails(self):
         """
-        Test that we indeed can't use '_ZarrIO__open_file_consolidated' function in r- read mode, which
+        Test that we indeed can't use '_open_file_consolidated' function in r- read mode, which
         is used to force read without consolidated metadata.
         """
         self.create_zarr(consolidate_metadata=True)
@@ -191,12 +191,12 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             # Check that using 'r-' fails
             msg = "Mode r- not allowed for reading with consolidated metadata"
             with self.assertRaisesWith(ValueError, msg):
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r-")
+                read_io._open_file_consolidated(store=self.store_path, mode="r-")
             # Check that using 'r' does not fail
             try:
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r")
+                read_io._open_file_consolidated(store=self.store_path, mode="r")
             except ValueError as e:
-                self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+                self.fail("ZarrIO._open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
     def test_is_remote_local_with_consolidated(self):
         """Test that is_remote() returns False for local stores with consolidated metadata."""

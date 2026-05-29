@@ -9,6 +9,30 @@ from hdmf.build import BuildManager, TypeMap
 from pynwb import get_manager, get_type_map
 
 
+def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces, storage_options):
+    """Resolve a BuildManager for NWB given the IO subclass and constructor args.
+
+    Centralises the namespace-loading + manager-selection logic that both
+    :class:`NWBZarrIO` and :class:`NWBZarrV2IO` share.
+    """
+    io_modes_that_create_file = ["w", "w-", "x"]
+    if mode in io_modes_that_create_file or manager is not None or extensions is not None:
+        load_namespaces = False
+
+    if load_namespaces:
+        tm = get_type_map()
+        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        return BuildManager(tm)
+
+    if manager is not None and extensions is not None:
+        raise ValueError("'manager' and 'extensions' cannot be specified together")
+    if extensions is not None:
+        return get_manager(extensions=extensions)
+    if manager is None:
+        return get_manager()
+    return manager
+
+
 class NWBZarrIO(ZarrIO):
     """
     IO backend for PyNWB for writing NWB files
@@ -37,22 +61,9 @@ class NWBZarrIO(ZarrIO):
         path, mode, manager, extensions, load_namespaces, storage_options = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-
-        io_modes_that_create_file = ["w", "w-", "x"]
-        if mode in io_modes_that_create_file or manager is not None or extensions is not None:
-            load_namespaces = False
-
-        if load_namespaces:
-            tm = get_type_map()
-            super().load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
-            manager = BuildManager(tm)
-        else:
-            if manager is not None and extensions is not None:
-                raise ValueError("'manager' and 'extensions' cannot be specified together")
-            elif extensions is not None:
-                manager = get_manager(extensions=extensions)
-            elif manager is None:
-                manager = get_manager()
+        manager = _build_nwb_manager(
+            type(self), path, mode, manager, extensions, load_namespaces, storage_options
+        )
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(
@@ -81,20 +92,21 @@ class NWBZarrIO(ZarrIO):
     )
     def read_nwb(**kwargs):
         """
-        Helper factory method for reading an NWB file and return the NWBFile object
+        Helper factory method for reading an NWB file and return the NWBFile object.
+
+        Sniffs the layout and automatically dispatches to :class:`NWBZarrV2IO` when
+        *path* points to a zarr v2 hierarchy.
         """
-        # Retrieve the filepath
         path = popargs("path", kwargs)
         if isinstance(path, Path):
             path = str(path)
-        # determine default storage options to use when opening a file from S3
         storage_options = None
         if isinstance(path, str) and path.startswith(("s3://")):
             storage_options = dict(anon=True)
 
-        # open the file with NWBZarrIO and rad the file
-        io = NWBZarrIO(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
-        nwbfile = io.read()
+        from .v2_backend import is_zarr_v2_file
+        from .nwb_v2 import NWBZarrV2IO
 
-        # return the NWBFile object
-        return nwbfile
+        io_cls = NWBZarrV2IO if is_zarr_v2_file(path, storage_options=storage_options) else NWBZarrIO
+        io = io_cls(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
+        return io.read()

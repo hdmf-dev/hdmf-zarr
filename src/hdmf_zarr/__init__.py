@@ -1,6 +1,8 @@
 from .backend import ZarrIO
 from .utils import ZarrDataIO
 from .nwb import NWBZarrIO
+from .v2_backend import ZarrV2IO, is_zarr_v2_file
+from .nwb_v2 import NWBZarrV2IO
 
 try:
     # see https://effigies.gitlab.io/posts/python-packaging-2023/
@@ -12,7 +14,7 @@ except ImportError:  # pragma: no cover
     __version__ = version("hdmf")
     del version
 
-__all__ = ["ZarrIO", "ZarrDataIO", "NWBZarrIO"]
+__all__ = ["ZarrIO", "ZarrDataIO", "NWBZarrIO", "ZarrV2IO", "NWBZarrV2IO", "is_zarr_v2_file"]
 
 # Duecredit definitions
 from ._due import due, BibTeX  # noqa: E402

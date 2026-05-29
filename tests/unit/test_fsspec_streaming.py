@@ -1,12 +1,14 @@
 import unittest
-from hdmf_zarr import NWBZarrIO
+from hdmf_zarr import NWBZarrIO, NWBZarrV2IO
 from .helpers.utils import check_s3fs_ffspec_installed
 
 HAVE_FSSPEC = check_s3fs_ffspec_installed()
 
 
-# @unittest.skip("S3 test files are in zarr v2 format with object_codec which is not supported by zarr v3")
 class TestFSSpecStreaming(unittest.TestCase):
+    """Stream remote NWB Zarr files. The current S3 test fixtures are zarr v2, so
+    these tests instantiate :class:`NWBZarrV2IO` directly; the convenience
+    :meth:`NWBZarrIO.read_nwb` auto-dispatcher is exercised separately below."""
 
     def setUp(self):
         # PLACEHOLDER test file from Allen Institute for Neural Dynamics
@@ -21,7 +23,7 @@ class TestFSSpecStreaming(unittest.TestCase):
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming(self):
-        with NWBZarrIO(self.s3_aind_path, mode="r", storage_options=dict(anon=True)) as io:
+        with NWBZarrV2IO(self.s3_aind_path, mode="r", storage_options=dict(anon=True)) as io:
             nwbfile = io.read()
 
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
@@ -36,21 +38,21 @@ class TestFSSpecStreaming(unittest.TestCase):
         The file is a Zarr file with consolidated metadata.
         In zarr v3, consolidated metadata is handled transparently.
         """
-        with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r") as read_io:
             read_io.open()
             self.assertIsNotNone(read_io._file)
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_is_remote_with_consolidated(self):
         """Test that is_remote() returns True for remote HTTPS stores with consolidated metadata."""
-        with NWBZarrIO(self.https_s3_path, mode="r") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r") as read_io:
             read_io.open()
             self.assertTrue(read_io.is_remote())
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_is_remote_without_consolidated(self):
         """Test that is_remote() returns True for remote HTTPS stores without consolidated metadata."""
-        with NWBZarrIO(self.https_s3_path, mode="r-") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r-") as read_io:
             read_io.open()
             self.assertTrue(read_io.is_remote())
 
