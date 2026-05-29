@@ -16,7 +16,7 @@ import zarr
 from zarr.storage import LocalStore
 
 from hdmf.build import DatasetBuilder
-from hdmf.utils import docval, popargs, get_docval
+from hdmf.utils import docval, get_docval
 
 from .backend import ZarrIO, SPEC_LOC_ATTR
 from .utils import ZarrSpecReader
