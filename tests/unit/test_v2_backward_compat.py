@@ -23,6 +23,8 @@ To run locally::
 
 import json
 import os
+import shutil
+import tempfile
 import unittest
 import warnings
 
@@ -173,6 +175,144 @@ class TestV2SnifferAndAutoDispatch(unittest.TestCase):
         with open(_V2_EXPECTATIONS, "r") as f:
             expected = json.load(f)
         self.assertEqual(nwbfile.identifier, expected["identifier"])
+
+
+@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
+class TestV2ExportToV3(unittest.TestCase):
+    """Export a zarr v2 NWB file to zarr v3 and verify it round-trips via the v3 reader."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(_V2_EXPECTATIONS, "r") as f:
+            cls.expected = json.load(f)
+
+        cls.tmpdir = tempfile.mkdtemp()
+        cls.v3_path = os.path.join(cls.tmpdir, "exported_v3.nwb.zarr")
+
+        # Convert the v2 file to a new zarr v3 file using the one-shot static helper.
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            NWBZarrV2IO.convert_to_v3(_V2_FILE, cls.v3_path)
+
+        # Read the exported file back with the v3 reader.
+        cls.io = NWBZarrIO(cls.v3_path, mode="r")
+        cls.nwbfile = cls.io.read()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.io.close()
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+
+    def test_exported_file_is_zarr_v3(self):
+        """The exported file must be a zarr v3 hierarchy, not v2."""
+        self.assertFalse(is_zarr_v2_file(self.v3_path))
+
+    def test_read_nwb_dispatches_to_v3(self):
+        """NWBZarrIO.read_nwb should read the exported file directly (no v2 dispatch)."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            nwbfile = NWBZarrIO.read_nwb(self.v3_path)
+        self.assertEqual(nwbfile.identifier, self.expected["identifier"])
+
+    # ---- scalar / string metadata ----
+
+    def test_identifier(self):
+        self.assertEqual(self.nwbfile.identifier, self.expected["identifier"])
+
+    def test_session_description(self):
+        self.assertEqual(self.nwbfile.session_description, self.expected["session_description"])
+
+    def test_session_id(self):
+        self.assertEqual(self.nwbfile.session_id, self.expected["session_id"])
+
+    def test_lab(self):
+        self.assertEqual(self.nwbfile.lab, self.expected["lab"])
+
+    def test_institution(self):
+        self.assertEqual(self.nwbfile.institution, self.expected["institution"])
+
+    def test_experiment_description(self):
+        self.assertEqual(self.nwbfile.experiment_description, self.expected["experiment_description"])
+
+    # ---- datetime fields ----
+
+    def test_session_start_time(self):
+        self.assertIsNotNone(self.nwbfile.session_start_time)
+
+    def test_timestamps_reference_time(self):
+        self.assertIsNotNone(self.nwbfile.timestamps_reference_time)
+
+    # ---- subject ----
+
+    def test_subject_id(self):
+        self.assertEqual(self.nwbfile.subject.subject_id, self.expected["subject_id"])
+
+    def test_subject_species(self):
+        self.assertEqual(self.nwbfile.subject.species, self.expected["subject_species"])
+
+    def test_subject_date_of_birth(self):
+        self.assertIsNotNone(self.nwbfile.subject.date_of_birth)
+
+    # ---- devices / electrode groups ----
+
+    def test_n_devices(self):
+        self.assertEqual(len(self.nwbfile.devices), self.expected["n_devices"])
+
+    def test_n_electrode_groups(self):
+        self.assertEqual(len(self.nwbfile.electrode_groups), self.expected["n_electrode_groups"])
+
+    # ---- electrodes table (object-dtype 'group' column) ----
+
+    def test_n_electrodes(self):
+        self.assertEqual(len(self.nwbfile.electrodes), self.expected["n_electrodes"])
+
+    def test_electrodes_columns(self):
+        col_names = self.nwbfile.electrodes.colnames
+        for expected_col in ("x", "y", "z", "location", "group", "filtering"):
+            self.assertIn(expected_col, col_names)
+
+    def test_electrodes_group_column(self):
+        groups = self.nwbfile.electrodes["group"]
+        self.assertEqual(len(groups), self.expected["n_electrodes"])
+
+    # ---- acquisition data ----
+
+    def test_ephys_exists(self):
+        self.assertIn(self.expected["ephys_name"], self.nwbfile.acquisition)
+
+    def test_ephys_data_shape(self):
+        series = self.nwbfile.acquisition[self.expected["ephys_name"]]
+        self.assertEqual(series.data.shape, tuple(self.expected["ephys_data_shape"]))
+
+    def test_ephys_data_dtype(self):
+        series = self.nwbfile.acquisition[self.expected["ephys_name"]]
+        self.assertTrue(np.issubdtype(series.data.dtype, np.floating))
+
+    def test_ephys_timestamps(self):
+        series = self.nwbfile.acquisition[self.expected["ephys_name"]]
+        n_samples = self.expected["ephys_data_shape"][0]
+        ts = np.asarray(series.timestamps)
+        self.assertEqual(len(ts), n_samples)
+
+    def test_ephys_data_values_match_v2(self):
+        """Exported data values must match the original v2 file exactly."""
+        with NWBZarrV2IO(_V2_FILE, mode="r") as v2_io:
+            v2_nwbfile = v2_io.read()
+            v2_data = np.asarray(v2_nwbfile.acquisition[self.expected["ephys_name"]].data)
+        v3_data = np.asarray(self.nwbfile.acquisition[self.expected["ephys_name"]].data)
+        np.testing.assert_array_equal(v3_data, v2_data)
+
+    def test_instance_export_to_v3(self):
+        """The instance method export_to_v3 should also produce a readable v3 file."""
+        dest = os.path.join(self.tmpdir, "instance_export_v3.nwb.zarr")
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            with NWBZarrV2IO(_V2_FILE, mode="r") as v2_io:
+                v2_io.export_to_v3(path=dest)
+        self.assertFalse(is_zarr_v2_file(dest))
+        with NWBZarrIO(dest, mode="r") as io:
+            nwbfile = io.read()
+            self.assertEqual(nwbfile.identifier, self.expected["identifier"])
 
 
 if __name__ == "__main__":

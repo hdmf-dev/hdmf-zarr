@@ -12,6 +12,8 @@ import logging
 # Zarr imports
 import zarr
 from zarr import Group, Array
+from zarr.abc.codec import Codec as ZarrV3Codec
+from zarr.registry import get_codec_class
 from zarr.storage import LocalStore
 try:
     from zarr.storage import FsspecStore
@@ -1133,6 +1135,39 @@ class ZarrIO(HDMFIO):
         return dset
 
     @staticmethod
+    def _to_v3_codecs(codecs):
+        """Convert a list of source codecs to zarr v3-compatible codecs.
+
+        zarr v3 arrays can only be created with zarr v3 codecs. A zarr v2 source
+        (read via :class:`~hdmf_zarr.v2_backend.ZarrV2IO`) exposes numcodecs codecs
+        (e.g. ``numcodecs.Blosc``). These are mapped to their ``numcodecs.zarr3``
+        wrappers via the zarr codec registry so the original compression/filters are
+        preserved on export. Codecs that are already zarr v3 codecs are kept as-is,
+        and codecs that cannot be mapped are dropped (with a warning) so that the
+        zarr v3 defaults apply.
+        """
+        converted = []
+        for codec in codecs:
+            if isinstance(codec, ZarrV3Codec):
+                converted.append(codec)
+                continue
+            get_config = getattr(codec, "get_config", None)
+            config = get_config() if callable(get_config) else None
+            codec_id = config.get("id") if config else None
+            if codec_id is None:
+                warnings.warn(f"Dropping incompatible codec {codec!r} during zarr v3 export.")
+                continue
+            try:
+                v3_cls = get_codec_class(f"numcodecs.{codec_id}")
+                converted.append(v3_cls(**{k: v for k, v in config.items() if k != "id"}))
+            except Exception:
+                warnings.warn(
+                    f"Could not map codec '{codec_id}' to a zarr v3 codec during export; "
+                    "falling back to zarr v3 defaults."
+                )
+        return converted
+
+    @staticmethod
     def _copy_array(source, dest_group, name):
         """
         Copy a zarr Array from source to dest_group with the given name.
@@ -1151,11 +1186,18 @@ class ZarrIO(HDMFIO):
             "dtype": source_dtype,
         }
 
-        # Copy compressors/codecs if available (zarr v3 uses 'compressors' plural)
+        # Copy compressors/codecs if available (zarr v3 uses 'compressors' plural).
+        # v2 sources expose numcodecs codecs (e.g. numcodecs.Blosc) which zarr v3
+        # rejects, so map them to their numcodecs.zarr3 wrappers (see _to_v3_codecs)
+        # to preserve the original compression/filters on v2 -> v3 export.
         if hasattr(source, 'compressors') and source.compressors:
-            kwargs['compressors'] = list(source.compressors)
+            compressors = ZarrIO._to_v3_codecs(source.compressors)
+            if compressors:
+                kwargs['compressors'] = compressors
         if hasattr(source, 'filters') and source.filters:
-            kwargs['filters'] = list(source.filters)
+            filters = ZarrIO._to_v3_codecs(source.filters)
+            if filters:
+                kwargs['filters'] = filters
         if hasattr(source, 'fill_value'):
             kwargs['fill_value'] = source.fill_value
 
