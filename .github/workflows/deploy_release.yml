@@ -27,7 +27,7 @@ jobs:
 
       - name: Run tox tests
         run: |
-          tox -e py313
+          tox -e py314
 
       - name: Build wheel and source distribution
         run: |
