@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## Upcoming
+## 0.13.0 (June 22, 2026)
 
 ### Added
 - Added `ZarrIO.generate_dataset_html` method to generate rich HTML representations of Zarr arrays for display in Jupyter notebooks. @rly [#306](https://github.com/hdmf-dev/hdmf-zarr/pull/306)
