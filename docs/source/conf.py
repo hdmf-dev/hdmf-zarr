@@ -42,7 +42,7 @@ autodoc_member_order = 'bysource'
 # -- Project information -----------------------------------------------------
 
 project = 'hdmf_zarr'
-copyright = '2017-2025, Oliver Ruebel'
+copyright = '2017-2026, Oliver Ruebel'
 author = 'Oliver Ruebel, Matthew Avaylon, Ryan Ly, Stephanie Prince'
 
 # The short X.Y version.

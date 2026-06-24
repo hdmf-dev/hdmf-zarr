@@ -22,7 +22,7 @@ from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanag
 
 import zarr
 import numpy as np
-from hdmf_zarr.backend import ZarrIO
+from hdmf_zarr.backend import ZarrIO, ROOT_NAME
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
@@ -211,6 +211,40 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         with ZarrIO(self.store_path, mode="r-") as read_io:
             read_io.open()
             self.assertFalse(read_io.is_remote())
+
+
+class TestResolveRef(ZarrStoreTestCase):
+    """
+    Tests for ``ZarrIO.resolve_ref``, focusing on the ``source == "."`` self-reference
+    short-circuit that reuses the already-open file instead of re-opening the store.
+    """
+
+    def test_resolve_self_reference_to_object(self):
+        """A self-reference to an object returns that object and its name."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": "/dataset_1"})
+            self.assertEqual(target_name, "dataset_1")
+            self.assertEqual(target_obj.name, "/dataset_1")
+            np.testing.assert_array_equal(target_obj[:], read_io._file["/dataset_1"][:])
+
+    def test_resolve_self_reference_to_root(self):
+        """A self-reference with no path returns the root group named ROOT_NAME."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": None})
+            self.assertEqual(target_name, ROOT_NAME)
+            self.assertIs(target_obj, read_io._file)
+
+    def test_resolve_self_reference_bad_path(self):
+        """A self-reference to a nonexistent path raises a descriptive ValueError."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            with self.assertRaisesRegex(ValueError, "Found bad link to object /does_not_exist"):
+                read_io.resolve_ref({"source": ".", "path": "/does_not_exist"})
 
 
 class TestOverwriteExistingFile(ZarrStoreTestCase):

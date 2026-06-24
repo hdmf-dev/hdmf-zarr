@@ -893,6 +893,21 @@ class ZarrIO(HDMFIO):
         if isinstance(zarr_ref, str):
             zarr_ref = json.loads(zarr_ref)
 
+        # Self-reference (`source == "."`): the target lives in this same store. Reuse
+        # the already-open file directly. Without this guard, the remote branch below
+        # would re-open the same URL via __open_file_consolidated, which fails over
+        # fsspec stores with PathNotFoundError on empty path keys.
+        if zarr_ref.get("source", None) == ".":
+            object_path = zarr_ref.get("path", None)
+            target_name = os.path.basename(object_path) if object_path else ROOT_NAME
+            target_zarr_obj = self.__file
+            if object_path is not None:
+                try:
+                    target_zarr_obj = target_zarr_obj[object_path]
+                except Exception:
+                    raise ValueError("Found bad link to object %s in file %s" % (object_path, self.source))
+            return target_name, target_zarr_obj
+
         # Extract the path as defined in the zarr_ref object
         if zarr_ref.get("source", None) is None:
             source_file = str(zarr_ref["path"])
