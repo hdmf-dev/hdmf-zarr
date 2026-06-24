@@ -88,8 +88,8 @@ class ZarrIO(HDMFIO):
         """
         # Get info from zarr array and generate html repr
         # Safeguard in case the function is called with a non-Zarr object
-        if hasattr(dataset, "info_items"): 
-            zarr_info_dict = {k: v for k, v in dataset.info_items()}
+        if isinstance(dataset, Array):
+            zarr_info_dict = dict(dataset.info_items())
             repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
         else:
             repr_html = generate_array_html_repr({}, dataset, "Array Read from ZarrIO (not a Zarr Array)")
