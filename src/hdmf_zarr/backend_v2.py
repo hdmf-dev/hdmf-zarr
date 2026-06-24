@@ -69,9 +69,10 @@ def _store_key_exists(store, key):
 def is_zarr_v2_file(path, storage_options=None):
     """Return ``True`` if *path* looks like a zarr v2 hierarchy.
 
-    Looks for ``.zgroup`` / ``.zarray`` (zarr v2 markers) rather than
-    ``zarr.json`` (zarr v3 marker). Works for local paths, opened Zarr stores,
-    and remote URLs (``s3://``, ``http(s)://``, ``gs://``).
+    Checks the zarr format reported by the opened hierarchy (zarr v2 sets
+    ``zarr_format=2`` in ``.zgroup``; zarr v3 uses ``zarr.json``).  Works for
+    local paths, opened Zarr stores, and remote URLs (``s3://``,
+    ``http(s)://``, ``gs://``).
     """
     if isinstance(path, (str, os.PathLike)) and not isinstance(path, LocalStore):
         path_str = str(path)
@@ -80,9 +81,16 @@ def is_zarr_v2_file(path, storage_options=None):
             return any(
                 os.path.exists(os.path.join(path_str, m)) for m in (".zgroup", ".zarray")
             )
-        if not FSSPECSTORE_AVAILABLE:
+        # For remote URLs use zarr.open so that it creates the appropriate store
+        # internally (FsspecStore via s3fs, https, gcs, …).  FsspecStore.from_url
+        # with an empty storage_options dict can behave differently from how zarr
+        # itself opens the URL, leading to false-negatives for HTTPS-accessed S3
+        # buckets (e.g. https://dandiarchive.s3.amazonaws.com/…).
+        try:
+            f = zarr.open(path_str, mode="r", storage_options=storage_options or {})
+            return f.metadata.zarr_format == 2
+        except Exception:
             return False
-        store = FsspecStore.from_url(path_str, storage_options=storage_options or {})
     else:
         store = path
     try:
