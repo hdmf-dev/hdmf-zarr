@@ -437,3 +437,12 @@ class TestGenerateDatasetHtml(TestCase):
         self.assertIn("Zarr Array", html)
         self.assertIn("float64", html)
         self.assertIn("(10, 10)", html)
+
+    def test_generate_dataset_html_non_zarr_object(self):
+        """Test that passing a non-Zarr object returns an empty info dict in HTML"""
+        non_zarr_array = np.float(5)  # Just a float, not a Zarr array
+        html = ZarrIO.generate_dataset_html(non_zarr_array)
+
+        # Verify that HTML is generated and contains expected content
+        self.assertIsInstance(html, str)
+        self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)

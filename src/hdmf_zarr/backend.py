@@ -86,10 +86,13 @@ class ZarrIO(HDMFIO):
         str
             HTML representation of the dataset
         """
-        # get info from zarr array and generate html repr
-        zarr_info_dict = {k: v for k, v in dataset.info_items()}
-        repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
-
+        # Get info from zarr array and generate html repr
+        # Safeguard in case the function is called with a non-Zarr object
+        if hasattr(dataset, "info_items"): 
+            zarr_info_dict = {k: v for k, v in dataset.info_items()}
+            repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
+        else:
+            repr_html = generate_array_html_repr({}, dataset, "Array Read from ZarrIO (not a Zarr Array)")
         return repr_html
 
     @docval(
