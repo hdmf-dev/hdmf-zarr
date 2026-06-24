@@ -153,3 +153,5 @@ zarr_test*.zarr
 
 # Generated backward compat test artifacts
 tests/unit/helpers/v2_expected.json
+# uv
+uv.lock

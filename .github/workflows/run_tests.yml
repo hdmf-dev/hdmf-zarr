@@ -34,7 +34,7 @@ jobs:
           # - { name: macos-python3.14-optional  , test-tox-env: py314-optional, python-ver: "3.14", os: macos-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # tags are required to determine the version
 
@@ -85,7 +85,7 @@ jobs:
           - { name: windows-gallery-python3.14-optional, test-tox-env: gallery-py314-optional, python-ver: "3.14", os: windows-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # tags are required to determine the version
 
@@ -122,12 +122,12 @@ jobs:
           - { name: conda-linux-python3.14-optional, test-tox-env: py314-optional, python-ver: "3.14", os: ubuntu-latest }
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Conda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-ver }}
