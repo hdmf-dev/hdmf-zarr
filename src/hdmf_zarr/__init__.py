@@ -1,7 +1,7 @@
 from .backend import ZarrIO
 from .utils import ZarrDataIO
 from .nwb import NWBZarrIO
-from .v2_backend import ZarrV2IO, is_zarr_v2_file
+from .backend_v2 import ZarrV2IO, is_zarr_v2_file
 from .nwb_v2 import NWBZarrV2IO
 
 try:

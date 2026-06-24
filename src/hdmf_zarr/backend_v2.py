@@ -1,4 +1,4 @@
-"""Read-only backend for NWB / HDMF Zarr files written with hdmf-zarr<1.0 + zarr<3.
+"""Read-only backend for NWB / HDMF ZarrV2 files written with hdmf-zarr<1.0 + zarr<3.
 
 Zarr-python v3 cannot fully parse some constructs produced by zarr v2 (object
 dtype arrays with ``pickle`` / ``json2`` / ``vlen-utf8`` codecs, fill_values
@@ -64,105 +64,6 @@ def _store_key_exists(store, key):
         return await store.exists(key)
 
     return zarr_sync(_exists())
-
-
-def _store_list_dir(store, prefix):
-    """List immediate children of *prefix* in a Zarr store, sorted by name."""
-    if isinstance(store, LocalStore):
-        dir_path = os.path.join(str(store.root), prefix) if prefix else str(store.root)
-        try:
-            return sorted(os.listdir(dir_path))
-        except OSError:
-            return []
-    from zarr.core.sync import sync as zarr_sync
-
-    async def _list():
-        result = []
-        async for item in store.list_dir(prefix):
-            result.append(item)
-        return result
-
-    return sorted(zarr_sync(_list()))
-
-
-def _decode_v2_chunk(raw, compressor, filters, dtype, chunk_shape, order, is_object):
-    """Decode a single raw chunk of zarr v2 data."""
-    if compressor is not None:
-        raw = compressor.decode(raw)
-
-    if is_object:
-        # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array
-        for filt in reversed(filters):
-            raw = filt.decode(raw)
-        if isinstance(raw, np.ndarray):
-            return raw
-        return np.array(raw, dtype=object)
-
-    if isinstance(raw, (bytes, bytearray)):
-        arr = np.frombuffer(raw, dtype=dtype).copy()
-    else:
-        arr = np.asarray(raw, dtype=dtype).copy()
-
-    for filt in reversed(filters):
-        decoded = filt.decode(arr)
-        if isinstance(decoded, (bytes, bytearray)):
-            arr = np.frombuffer(decoded, dtype=dtype).copy()
-        elif isinstance(decoded, np.ndarray):
-            arr = decoded
-        else:
-            arr = np.asarray(decoded, dtype=dtype)
-
-    return arr.reshape(chunk_shape, order=order)
-
-
-def _decode_v2_dataset(store, dataset_key, zarray_meta):
-    """Decode all chunks of a zarr v2 dataset from a store (local or remote)."""
-    import numcodecs
-
-    shape = tuple(zarray_meta["shape"])
-    chunks = tuple(zarray_meta["chunks"])
-    dtype = np.dtype(zarray_meta.get("dtype", "f8"))
-    order = zarray_meta.get("order", "C")
-    dimension_separator = zarray_meta.get("dimension_separator", ".")
-
-    compressor_config = zarray_meta.get("compressor")
-    compressor = numcodecs.get_codec(compressor_config) if compressor_config else None
-
-    filters_config = zarray_meta.get("filters") or []
-    filters = [numcodecs.get_codec(fc) for fc in filters_config]
-
-    is_object = dtype == np.dtype("|O")
-    ndim = len(shape)
-    chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
-
-    if any(s == 0 for s in shape):
-        return np.empty(shape, dtype=object if is_object else dtype)
-
-    total_chunks = 1
-    for g in chunk_grid:
-        total_chunks *= g
-
-    if total_chunks == 1:
-        chunk_name = dimension_separator.join("0" for _ in range(ndim))
-        raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
-        if raw is not None:
-            data = _decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
-            if chunks != shape:
-                data = data[tuple(slice(0, s) for s in shape)]
-            return data
-        return np.full(shape, fill_value=None if is_object else 0, dtype=object if is_object else dtype)
-
-    result = np.empty(shape, dtype=object if is_object else dtype)
-    for idx in np.ndindex(*chunk_grid):
-        chunk_name = dimension_separator.join(str(i) for i in idx)
-        raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
-        if raw is None:
-            continue
-        chunk_data = _decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
-        slices = tuple(slice(i * c, min((i + 1) * c, s)) for i, c, s in zip(idx, chunks, shape))
-        chunk_slices = tuple(slice(0, sl.stop - sl.start) for sl in slices)
-        result[slices] = chunk_data[chunk_slices]
-    return result
 
 
 def is_zarr_v2_file(path, storage_options=None):
@@ -346,7 +247,11 @@ class ZarrV2IO(ZarrIO):
     # ----- reference resolution -----
 
     def _resolve_ref_source(self, source_file):
-        """Resolve v2-style refs which may be relative to either the store or its parent."""
+        """Resolve v2-style refs which may be relative to either the store or its parent.
+
+        Only called for local files — see :meth:`ZarrIO._resolve_ref_source` for the
+        guard that prevents this from being invoked on remote (S3 / fsspec) stores.
+        """
         abs_source = os.path.abspath(self.source)
         resolved_from_store = os.path.abspath(os.path.normpath(os.path.join(abs_source, source_file)))
         if os.path.isdir(resolved_from_store):
@@ -357,12 +262,156 @@ class ZarrV2IO(ZarrIO):
             return resolved_from_parent
         return abs_source
 
+    # ----- private store helpers -----
+
+    @staticmethod
+    def _store_list_dir(store, prefix):
+        """List immediate children of *prefix* in a Zarr store, sorted by name."""
+        if isinstance(store, LocalStore):
+            dir_path = os.path.join(str(store.root), prefix) if prefix else str(store.root)
+            try:
+                return sorted(os.listdir(dir_path))
+            except OSError:
+                return []
+        from zarr.core.sync import sync as zarr_sync
+
+        async def _list():
+            result = []
+            async for item in store.list_dir(prefix):
+                result.append(item)
+            return result
+
+        return sorted(zarr_sync(_list()))
+
+    @staticmethod
+    def _decode_v2_chunk(raw, compressor, filters, dtype, chunk_shape, order, is_object):
+        """Decode a single raw chunk of zarr v2 data.
+
+        Parameters
+        ----------
+        raw : bytes or bytearray
+            The raw bytes read from the store for this chunk.
+        compressor : numcodecs codec or None
+            The top-level compressor (e.g. Blosc, Zstd) to decompress *raw* first.
+            ``None`` if no compressor was configured.
+        filters : list of numcodecs codecs
+            Ordered list of filters applied *after* compression (e.g. Delta, vlen-utf8).
+            Applied in reverse order during decode.
+        dtype : numpy.dtype
+            The element dtype declared in ``.zarray``.
+        chunk_shape : tuple of int
+            Expected shape of this chunk after decoding.
+        order : {'C', 'F'}
+            Memory layout order from ``.zarray``.
+        is_object : bool
+            ``True`` when ``dtype == '|O'`` — object arrays are decoded via filters
+            only (pickle / json2 / vlen-utf8) and not reinterpreted as a raw buffer.
+
+        Returns
+        -------
+        numpy.ndarray
+            Decoded chunk with shape *chunk_shape* (or a flat object array for
+            ``is_object=True``).
+        """
+        if compressor is not None:
+            raw = compressor.decode(raw)
+
+        if is_object:
+            # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array
+            for filt in reversed(filters):
+                raw = filt.decode(raw)
+            if isinstance(raw, np.ndarray):
+                return raw
+            return np.array(raw, dtype=object)
+
+        if isinstance(raw, (bytes, bytearray)):
+            arr = np.frombuffer(raw, dtype=dtype).copy()
+        else:
+            arr = np.asarray(raw, dtype=dtype).copy()
+
+        for filt in reversed(filters):
+            decoded = filt.decode(arr)
+            if isinstance(decoded, (bytes, bytearray)):
+                arr = np.frombuffer(decoded, dtype=dtype).copy()
+            elif isinstance(decoded, np.ndarray):
+                arr = decoded
+            else:
+                arr = np.asarray(decoded, dtype=dtype)
+
+        return arr.reshape(chunk_shape, order=order)
+
+    @staticmethod
+    def _decode_v2_dataset(store, dataset_key, zarray_meta):
+        """Decode all chunks of a zarr v2 dataset from a store (local or remote).
+
+        Parameters
+        ----------
+        store :
+            The zarr store (``LocalStore`` or ``FsspecStore``) backing the file.
+        dataset_key : str
+            Path within the store to the dataset directory (e.g. ``"group/array"``).
+        zarray_meta : dict
+            Parsed contents of the ``.zarray`` metadata file for this dataset.
+
+        Returns
+        -------
+        numpy.ndarray
+            The full dataset as an in-memory array with the shape declared in
+            *zarray_meta*.  Object-dtype arrays are returned as ``dtype=object``.
+        """
+        import numcodecs
+
+        shape = tuple(zarray_meta["shape"])
+        chunks = tuple(zarray_meta["chunks"])
+        dtype = np.dtype(zarray_meta.get("dtype", "f8"))
+        order = zarray_meta.get("order", "C")
+        dimension_separator = zarray_meta.get("dimension_separator", ".")
+
+        compressor_config = zarray_meta.get("compressor")
+        compressor = numcodecs.get_codec(compressor_config) if compressor_config else None
+
+        filters_config = zarray_meta.get("filters") or []
+        filters = [numcodecs.get_codec(fc) for fc in filters_config]
+
+        is_object = dtype == np.dtype("|O")
+        ndim = len(shape)
+        chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
+
+        if any(s == 0 for s in shape):
+            return np.empty(shape, dtype=object if is_object else dtype)
+
+        total_chunks = 1
+        for g in chunk_grid:
+            total_chunks *= g
+
+        if total_chunks == 1:
+            chunk_name = dimension_separator.join("0" for _ in range(ndim))
+            raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
+            if raw is not None:
+                data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+                if chunks != shape:
+                    data = data[tuple(slice(0, s) for s in shape)]
+                return data
+            return np.full(shape, fill_value=None if is_object else 0, dtype=object if is_object else dtype)
+
+        result = np.empty(shape, dtype=object if is_object else dtype)
+        for idx in np.ndindex(*chunk_grid):
+            chunk_name = dimension_separator.join(str(i) for i in idx)
+            raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
+            if raw is None:
+                continue
+            chunk_data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+            slices = tuple(slice(i * c, min((i + 1) * c, s)) for i, c, s in zip(idx, chunks, shape))
+            chunk_slices = tuple(slice(0, sl.stop - sl.start) for sl in slices)
+            result[slices] = chunk_data[chunk_slices]
+        return result
+
     # ----- group iteration with v2 chunk fallback -----
 
     def _iter_children(self, zarr_obj):
         store = zarr_obj.store
         group_prefix = zarr_obj.path or ""
-        entries = _store_list_dir(store, group_prefix)
+        entries = self._store_list_dir(store, group_prefix)
 
         for entry in entries:
             if entry.startswith("."):
@@ -403,7 +452,37 @@ class ZarrV2IO(ZarrIO):
                     )
 
     def _read_v2_dataset(self, store, group_path, name):
-        """Read a zarr v2 dataset from raw chunks, returning a DatasetBuilder."""
+        """Read a zarr v2 dataset by decoding raw chunks, returning a DatasetBuilder.
+
+        Zarr-python v3 raises when trying to open certain zarr v2 arrays — most
+        commonly those with an object dtype stored via ``pickle``, ``json2``, or
+        ``vlen-utf8`` filters, or with a fill-value incompatible with the encoded
+        dtype.  When ``zarr_obj[entry]`` fails in :meth:`_iter_children` for such
+        an entry, this method is called as a fallback: it reads the raw ``.zarray``
+        and ``.zattrs`` metadata directly from the store and decodes every chunk
+        manually via :meth:`_decode_v2_dataset`.
+
+        The result is a :class:`~hdmf.build.DatasetBuilder` rather than a
+        ``zarr.Array`` because the data has already been decoded in-memory; there
+        is no zarr object to pass to ``__read_dataset``.  Groups are never handled
+        here because zarr-python v3 can always open zarr v2 groups (``.zgroup`` is
+        still understood by zarr v3).
+
+        Parameters
+        ----------
+        store :
+            The zarr store backing the file (local or remote).
+        group_path : str
+            Path within the store of the parent group (empty string for root).
+        name : str
+            Name of the dataset within *group_path*.
+
+        Returns
+        -------
+        DatasetBuilder
+            A fully populated builder whose ``data`` field holds the decoded
+            in-memory array.
+        """
         dataset_key = f"{group_path}/{name}" if group_path else name
 
         zarray_bytes = _read_store_bytes(store, f"{dataset_key}/.zarray")
@@ -426,7 +505,7 @@ class ZarrV2IO(ZarrIO):
         chunks = tuple(zarray_meta["chunks"])
         source = self._get_store_path(store)
 
-        data = _decode_v2_dataset(store, dataset_key, zarray_meta)
+        data = self._decode_v2_dataset(store, dataset_key, zarray_meta)
 
         if zarr_dtype == "scalar":
             if isinstance(data, np.ndarray) and data.size > 0:

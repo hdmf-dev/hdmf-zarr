@@ -1,7 +1,7 @@
 """Read-only NWB IO backend for NWB Zarr files written with hdmf-zarr<1.0 + zarr<3.
 
 :class:`NWBZarrV2IO` is the V2 counterpart of :class:`~hdmf_zarr.NWBZarrIO`.
-It uses :class:`~hdmf_zarr.v2_backend.ZarrV2IO` under the hood, which knows
+It uses :class:`~hdmf_zarr.backend_v2.ZarrV2IO` under the hood, which knows
 how to navigate zarr v2 stores with zarr-python v3.
 """
 
@@ -12,7 +12,7 @@ from hdmf.utils import docval, popargs, get_docval
 
 from .backend import SUPPORTED_ZARR_STORES
 from .nwb import NWBZarrIO, _build_nwb_manager
-from .v2_backend import ZarrV2IO
+from .backend_v2 import ZarrV2IO
 
 
 class NWBZarrV2IO(ZarrV2IO):

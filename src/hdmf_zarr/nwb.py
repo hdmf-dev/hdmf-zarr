@@ -104,7 +104,7 @@ class NWBZarrIO(ZarrIO):
         if isinstance(path, str) and path.startswith(("s3://")):
             storage_options = dict(anon=True)
 
-        from .v2_backend import is_zarr_v2_file
+        from .backend_v2 import is_zarr_v2_file
         from .nwb_v2 import NWBZarrV2IO
 
         io_cls = NWBZarrV2IO if is_zarr_v2_file(path, storage_options=storage_options) else NWBZarrIO

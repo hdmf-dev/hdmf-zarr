@@ -1154,7 +1154,7 @@ class ZarrIO(HDMFIO):
         """Convert a list of source codecs to zarr v3-compatible codecs.
 
         zarr v3 arrays can only be created with zarr v3 codecs. A zarr v2 source
-        (read via :class:`~hdmf_zarr.v2_backend.ZarrV2IO`) exposes numcodecs codecs
+        (read via :class:`~hdmf_zarr.backend_v2.ZarrV2IO`) exposes numcodecs codecs
         (e.g. ``numcodecs.Blosc``). These are mapped to their ``numcodecs.zarr3``
         wrappers via the zarr codec registry so the original compression/filters are
         preserved on export. Codecs that are already zarr v3 codecs are kept as-is,
@@ -1803,6 +1803,13 @@ class ZarrIO(HDMFIO):
         Hook for subclasses to alter the resolution policy. The default resolves
         *source_file* relative to ``self.source``: this matches what the current
         hdmf-zarr writer produces (self-references stored as ``"."``).
+
+        This method is only called for **local** files. Remote files (any store
+        backed by :class:`~zarr.storage.FsspecStore`, including S3 / GCS / HTTP)
+        are handled by the ``is_remote()`` branch in the reference-reading path and
+        never reach this method. S3 URLs that are opened without ``storage_options``
+        are likewise caught by the ``self.source.startswith("s3://")`` guard before
+        this method is invoked.
         """
         return os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
 
@@ -1839,7 +1846,10 @@ class ZarrIO(HDMFIO):
 
         for sub_name, child in self._iter_children(zarr_obj):
             if isinstance(child, DatasetBuilder):
-                # Subclasses may yield pre-built dataset builders (e.g. v2 fallback)
+                # ZarrV2IO._iter_children yields pre-built DatasetBuilders for
+                # arrays that zarr-python v3 cannot parse (e.g. object-dtype arrays
+                # with v2-only codecs such as pickle/json2/vlen-utf8). Groups are
+                # never pre-built because zarr v3 can always open v2 groups.
                 ret.set_dataset(child)
             elif isinstance(child, Group):
                 if child.name in ignore_groups:
