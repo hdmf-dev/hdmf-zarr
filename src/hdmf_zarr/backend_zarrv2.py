@@ -90,7 +90,18 @@ def is_zarr_v2_file(path, storage_options=None):
             f = zarr.open(path_str, mode="r", storage_options=storage_options or {})
             return f.metadata.zarr_format == 2
         except Exception:
-            return False
+            # zarr v3 may fail to parse the consolidated metadata of a v2 file
+            # (e.g. an object-dtype array with an int fill_value), raising before
+            # it can report the format. Retry without consolidated metadata so the
+            # root .zgroup is read directly — these are exactly the v2 files that
+            # ZarrV2IO exists to handle, so a parse failure must not be a v2 miss.
+            try:
+                f = zarr.open(
+                    path_str, mode="r", storage_options=storage_options or {}, use_consolidated=False
+                )
+                return f.metadata.zarr_format == 2
+            except Exception:
+                return False
     else:
         store = path
     try:
