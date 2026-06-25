@@ -300,7 +300,38 @@ class ZarrV2IO(ZarrIO):
                 result.append(item)
             return result
 
-        return sorted(zarr_sync(_list()))
+        entries = sorted(zarr_sync(_list()))
+        if entries:
+            return entries
+        # Remote stores backed by plain HTTP cannot list directories, so
+        # ``list_dir`` returns nothing even when the group has children. Fall
+        # back to the consolidated ``.zmetadata`` (always present for the v2
+        # files this backend targets), which records every member's key.
+        return ZarrV2IO._list_dir_from_consolidated(store, prefix)
+
+    @staticmethod
+    def _list_dir_from_consolidated(store, prefix):
+        """List immediate children of *prefix* using the consolidated ``.zmetadata``.
+
+        Returns an empty list if no consolidated metadata is available.
+        """
+        zmeta_bytes = _read_store_bytes(store, ".zmetadata")
+        if zmeta_bytes is None:
+            return []
+        metadata = json.loads(zmeta_bytes).get("metadata", {})
+        prefix = prefix.strip("/")
+        children = set()
+        for key in metadata:
+            if prefix:
+                if not key.startswith(prefix + "/"):
+                    continue
+                rel = key[len(prefix) + 1:]
+            else:
+                rel = key
+            first_segment = rel.split("/", 1)[0]
+            if first_segment and not first_segment.startswith("."):
+                children.add(first_segment)
+        return sorted(children)
 
     @staticmethod
     def _decode_v2_chunk(raw, compressor, filters, dtype, chunk_shape, order, is_object):

@@ -42,6 +42,18 @@ from pathlib import Path
 if not hasattr(Array, "__len__"):
     Array.__len__ = lambda self: self.shape[0]
 
+# zarr v3 Array does not implement __iter__, so it is not recognized as a
+# collections.abc.Iterable. hdmf/pynwb type-check some fields against Iterable
+# (e.g. ImageSeries.dimension), which rejects a lazy zarr Array even though it
+# supports __getitem__. Add __iter__ to keep the array lazy while satisfying the
+# Iterable interface, matching zarr v2 / numpy behavior.
+if not hasattr(Array, "__iter__"):
+    def _zarr_array_iter(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    Array.__iter__ = _zarr_array_iter
+
 # zarr v3 Array scalar indexing returns 0-d ndarrays instead of numpy scalars;
 # patch to match zarr v2 / numpy behavior expected by hdmf type checks
 _zarr_array_original_getitem = Array.__getitem__
