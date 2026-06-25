@@ -295,31 +295,26 @@ class ZarrV2IO(ZarrIO):
     def _decode_v2_chunk(raw, compressor, filters, dtype, chunk_shape, order, is_object):
         """Decode a single raw chunk of zarr v2 data.
 
-        Parameters
-        ----------
-        raw : bytes or bytearray
-            The raw bytes read from the store for this chunk.
-        compressor : numcodecs codec or None
-            The top-level compressor (e.g. Blosc, Zstd) to decompress *raw* first.
+        :param raw: The raw bytes read from the store for this chunk.
+        :type raw: bytes or bytearray
+        :param compressor: The top-level compressor (e.g. Blosc, Zstd) to decompress *raw* first.
             ``None`` if no compressor was configured.
-        filters : list of numcodecs codecs
-            Ordered list of filters applied *after* compression (e.g. Delta, vlen-utf8).
+        :type compressor: numcodecs codec or None
+        :param filters: Ordered list of filters applied *after* compression (e.g. Delta, vlen-utf8).
             Applied in reverse order during decode.
-        dtype : numpy.dtype
-            The element dtype declared in ``.zarray``.
-        chunk_shape : tuple of int
-            Expected shape of this chunk after decoding.
-        order : {'C', 'F'}
-            Memory layout order from ``.zarray``.
-        is_object : bool
-            ``True`` when ``dtype == '|O'`` — object arrays are decoded via filters
+        :type filters: list of numcodecs codecs
+        :param dtype: The element dtype declared in ``.zarray``.
+        :type dtype: numpy.dtype
+        :param chunk_shape: Expected shape of this chunk after decoding.
+        :type chunk_shape: tuple of int
+        :param order: Memory layout order from ``.zarray`` (``'C'`` or ``'F'``).
+        :type order: str
+        :param is_object: ``True`` when ``dtype == '|O'`` — object arrays are decoded via filters
             only (pickle / json2 / vlen-utf8) and not reinterpreted as a raw buffer.
-
-        Returns
-        -------
-        numpy.ndarray
-            Decoded chunk with shape *chunk_shape* (or a flat object array for
+        :type is_object: bool
+        :returns: Decoded chunk with shape *chunk_shape* (or a flat object array for
             ``is_object=True``).
+        :rtype: numpy.ndarray
         """
         if compressor is not None:
             raw = compressor.decode(raw)
@@ -352,20 +347,14 @@ class ZarrV2IO(ZarrIO):
     def _decode_v2_dataset(store, dataset_key, zarray_meta):
         """Decode all chunks of a zarr v2 dataset from a store (local or remote).
 
-        Parameters
-        ----------
-        store :
-            The zarr store (``LocalStore`` or ``FsspecStore``) backing the file.
-        dataset_key : str
-            Path within the store to the dataset directory (e.g. ``"group/array"``).
-        zarray_meta : dict
-            Parsed contents of the ``.zarray`` metadata file for this dataset.
-
-        Returns
-        -------
-        numpy.ndarray
-            The full dataset as an in-memory array with the shape declared in
+        :param store: The zarr store (``LocalStore`` or ``FsspecStore``) backing the file.
+        :param dataset_key: Path within the store to the dataset directory (e.g. ``"group/array"``).
+        :type dataset_key: str
+        :param zarray_meta: Parsed contents of the ``.zarray`` metadata file for this dataset.
+        :type zarray_meta: dict
+        :returns: The full dataset as an in-memory array with the shape declared in
             *zarray_meta*.  Object-dtype arrays are returned as ``dtype=object``.
+        :rtype: numpy.ndarray
         """
         import numcodecs
 
@@ -476,20 +465,14 @@ class ZarrV2IO(ZarrIO):
         here because zarr-python v3 can always open zarr v2 groups (``.zgroup`` is
         still understood by zarr v3).
 
-        Parameters
-        ----------
-        store :
-            The zarr store backing the file (local or remote).
-        group_path : str
-            Path within the store of the parent group (empty string for root).
-        name : str
-            Name of the dataset within *group_path*.
-
-        Returns
-        -------
-        DatasetBuilder
-            A fully populated builder whose ``data`` field holds the decoded
+        :param store: The zarr store backing the file (local or remote).
+        :param group_path: Path within the store of the parent group (empty string for root).
+        :type group_path: str
+        :param name: Name of the dataset within *group_path*.
+        :type name: str
+        :returns: A fully populated builder whose ``data`` field holds the decoded
             in-memory array.
+        :rtype: DatasetBuilder
         """
         dataset_key = f"{group_path}/{name}" if group_path else name
 

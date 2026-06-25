@@ -105,15 +105,10 @@ class ZarrIO(HDMFIO):
         and formats it as an HTML table for display in Jupyter notebooks and other
         HTML-based interfaces.
 
-        Parameters
-        ----------
-        dataset : zarr.Array
-            The Zarr array for which to generate an HTML representation
-
-        Returns
-        -------
-        str
-            HTML representation of the dataset
+        :param dataset: The Zarr array for which to generate an HTML representation
+        :type dataset: zarr.Array
+        :returns: HTML representation of the dataset
+        :rtype: str
         """
         # In zarr v3, .info is a property that returns an object, not info_items()
         # Build a dict from the info string representation
