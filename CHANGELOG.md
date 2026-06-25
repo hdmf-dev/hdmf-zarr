@@ -1,5 +1,11 @@
 # HDMF-ZARR Changelog
 
+## Upcoming Release (TBD)
+
+### Fixed
+- Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
+
+
 ## 0.13.0 (June 22, 2026)
 
 ### Added
