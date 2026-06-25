@@ -12,7 +12,7 @@ from hdmf.utils import docval, popargs, get_docval
 
 from .backend import SUPPORTED_ZARR_STORES
 from .nwb import NWBZarrIO, _build_nwb_manager
-from .backend_v2 import ZarrV2IO
+from .backend_zarrv2 import ZarrV2IO
 
 
 class NWBZarrV2IO(ZarrV2IO):

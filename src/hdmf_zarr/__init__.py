@@ -1,8 +1,8 @@
 from .backend import ZarrIO
 from .utils import ZarrDataIO
 from .nwb import NWBZarrIO
-from .backend_v2 import ZarrV2IO, is_zarr_v2_file
-from .nwb_v2 import NWBZarrV2IO
+from .backend_zarrv2 import ZarrV2IO, is_zarr_v2_file
+from .nwb_zarrv2 import NWBZarrV2IO
 
 try:
     # see https://effigies.gitlab.io/posts/python-packaging-2023/
