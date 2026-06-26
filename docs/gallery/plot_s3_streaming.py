@@ -31,23 +31,33 @@ Or install the dependencies separately:
 # Streaming from a Public S3 Bucket
 # ----------------------------------
 #
-# To read an NWB Zarr file from a public S3 bucket, you can provide the S3 URL
-# to :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. For HTTPS URLs (``https://``), no
-# additional configuration is needed. For ``s3://`` protocol URLs, you need to
-# specify ``storage_options=dict(anon=True)`` to enable anonymous access.
+# To read an NWB Zarr file from a public S3 bucket, you provide the S3 URL to the
+# appropriate IO class. Files written with current hdmf-zarr use Zarr v3 and are
+# read with :py:class:`~hdmf_zarr.nwb.NWBZarrIO`, while older files (such as those
+# already on the DANDI Archive) use Zarr v2 and must be read with the read-only
+# :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO`. You can detect which format a file
+# uses with :py:func:`~hdmf_zarr.backend_zarrv2.is_zarr_v2_file` and pick the right
+# class accordingly.
+#
+# For HTTPS URLs (``https://``), no additional configuration is needed. For
+# ``s3://`` protocol URLs, you need to specify ``storage_options=dict(anon=True)``
+# to enable anonymous access.
 #
 # Here we demonstrate reading from a public dataset in the DANDI Archive using
-# an HTTPS URL:
+# an HTTPS URL. Since this file predates Zarr v3, it is a Zarr v2 file:
 
-from hdmf_zarr import NWBZarrIO
+from hdmf_zarr import NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
 
 # Public S3 URL from DANDI Archive (DANDISET 000719)
 # Path: sub-R6_ses-20200206T210000_behavior+ophys_DirectoryStore_rechunked.nwb.zarr
 s3_url = "https://dandiarchive.s3.amazonaws.com/zarr/c8c6b848-fbc6-4f58-85ff-e3f2618ee983/"
 
+# Pick the IO class based on the Zarr format of the file
+io_class = NWBZarrV2IO if is_zarr_v2_file(s3_url) else NWBZarrIO
+
 # Open the file from S3
 try:
-    with NWBZarrIO(s3_url, mode="r") as io:
+    with io_class(s3_url, mode="r") as io:
         nwbfile = io.read()
         print(f"Session Description: {nwbfile.session_description}")
         print(f"Identifier: {nwbfile.identifier}")
@@ -150,12 +160,14 @@ except Exception as e:
 # Using the Convenience Method
 # ----------------------------
 #
-# :py:class:`~hdmf_zarr.nwb.NWBZarrIO` provides a convenience static method
-# :py:meth:`~hdmf_zarr.nwb.NWBZarrIO.read_nwb` for quick read access:
+# Both :py:class:`~hdmf_zarr.nwb.NWBZarrIO` and
+# :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO` provide a convenience static method
+# ``read_nwb`` for quick read access. Each reads its own Zarr format, so use the
+# class that matches the file (here, a Zarr v2 file):
 
 # Read file directly using the convenience static method
 try:
-    nwbfile = NWBZarrIO.read_nwb(s3_url)
+    nwbfile = io_class.read_nwb(s3_url)
     print(f"Session Start Time: {nwbfile.session_start_time}")
 except Exception as e:
     print(f"Note: Could not access S3 file (network access may be required): {e}")

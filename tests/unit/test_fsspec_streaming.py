@@ -1,5 +1,5 @@
 import unittest
-from hdmf_zarr import NWBZarrIO, NWBZarrV2IO
+from hdmf_zarr import NWBZarrV2IO
 from .helpers.utils import check_s3fs_ffspec_installed
 
 HAVE_FSSPEC = check_s3fs_ffspec_installed()
@@ -7,8 +7,7 @@ HAVE_FSSPEC = check_s3fs_ffspec_installed()
 
 class TestFSSpecStreaming(unittest.TestCase):
     """Stream remote NWB Zarr files. The current S3 test fixtures are zarr v2, so
-    these tests instantiate :class:`NWBZarrV2IO` directly; the convenience
-    :meth:`NWBZarrIO.read_nwb` auto-dispatcher is exercised separately below."""
+    these tests instantiate :class:`NWBZarrV2IO` directly"""
 
     def setUp(self):
         # PLACEHOLDER test file from Allen Institute for Neural Dynamics
@@ -62,7 +61,7 @@ class TestFSSpecStreaming(unittest.TestCase):
         Test reading from s3 using the convenience function NWBZarrIO.read_nwb
         """
         # Test with a s3:// URL
-        nwbfile = NWBZarrIO.read_nwb(self.s3_aind_path)
+        nwbfile = NWBZarrV2IO.read_nwb(self.s3_aind_path)
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
         self.assertEqual(nwbfile.institution, "AIND")
 
@@ -80,7 +79,7 @@ class TestFSSpecStreaming(unittest.TestCase):
         """
         # DANDI 000719 file used in this repo's S3 streaming tutorial (PR #330).
         url = "https://dandiarchive.s3.amazonaws.com/zarr/c8c6b848-fbc6-4f58-85ff-e3f2618ee983/"
-        nwbfile = NWBZarrIO.read_nwb(url)
+        nwbfile = NWBZarrV2IO.read_nwb(url)
         self.assertEqual(nwbfile.identifier, "7208f856-f527-479f-973d-e6e72326a8ea")
         self.assertIsNotNone(nwbfile.subject)
         self.assertEqual(nwbfile.subject.subject_id, "R6")

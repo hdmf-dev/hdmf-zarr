@@ -191,8 +191,8 @@ class TestV2ExportToV3(unittest.TestCase):
         """The exported file must be a zarr v3 hierarchy, not v2."""
         self.assertFalse(is_zarr_v2_file(self.v3_path))
 
-    def test_read_nwb_dispatches_to_v3(self):
-        """NWBZarrIO.read_nwb should read the exported file directly (no v2 dispatch)."""
+    def test_read_nwb_from_to_v3(self):
+        """NWBZarrIO.read_nwb should read the exported zarrv3 file directly."""
         with warnings.catch_warnings():
             warnings.simplefilter("always")
             nwbfile = NWBZarrIO.read_nwb(self.v3_path)

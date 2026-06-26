@@ -11,7 +11,7 @@
 ### Added
 - Added `ZarrIO.generate_dataset_html` method to generate rich HTML representations of Zarr arrays for display in Jupyter notebooks. @rly [#306](https://github.com/hdmf-dev/hdmf-zarr/pull/306)
 - Added S3 streaming tutorial with consolidated metadata guidance. @rly @oruebel [#308](https://github.com/hdmf-dev/hdmf-zarr/pull/308) [#330](https://github.com/hdmf-dev/hdmf-zarr/pull/330)
-- Added `NWBZarrV2IO.export_to_v3` and the one-shot `NWBZarrV2IO.convert_to_v3` static helper to convert NWB Zarr v2 files to Zarr v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+- Added read-only `ZarrV2IO` and `NWBZarrV2IO` backends for reading legacy Zarr v2 files, with `NWBZarrV2IO.export_to_v3` and the one-shot `NWBZarrV2IO.convert_to_v3` static helper to convert NWB Zarr v2 files to Zarr v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 
 ### Fixed
 - Fixed zarr array `.info` property to display compression data ("No. bytes stored" and "Storage ratio") when using consolidated metadata stores by patching `ConsolidatedMetadataStore.getsize()` to query the underlying chunk store. @rly [#305](https://github.com/hdmf-dev/hdmf-zarr/pull/305)

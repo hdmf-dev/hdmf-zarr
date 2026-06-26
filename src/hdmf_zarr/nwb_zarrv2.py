@@ -18,8 +18,7 @@ from .backend_zarrv2 import ZarrV2IO
 class NWBZarrV2IO(ZarrV2IO):
     """Read-only NWB IO for zarr-v2 files, opened via :class:`ZarrV2IO`.
 
-    Use this class — or rely on :meth:`NWBZarrIO.read_nwb` auto-dispatching to
-    it — when reading NWB files written by older hdmf-zarr versions.
+    Use this class when reading NWB files written by older hdmf-zarr versions.
     """
 
     @docval(
