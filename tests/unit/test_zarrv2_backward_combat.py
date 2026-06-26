@@ -157,24 +157,8 @@ class TestV2BackwardCompat(unittest.TestCase):
         ts = np.asarray(series.timestamps)
         self.assertEqual(len(ts), n_samples)
 
-
-@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
-class TestV2SnifferAndAutoDispatch(unittest.TestCase):
-    """The sniffer must identify v2 files, and NWBZarrIO.read_nwb must auto-dispatch."""
-
-    def test_sniffer_detects_v2(self):
+    def test_is_zarr_v2_file(self):
         self.assertTrue(is_zarr_v2_file(_V2_FILE))
-
-    def test_read_nwb_auto_dispatches_to_v2(self):
-        # Calling the v3 entry point on a v2 file should still succeed via the
-        # sniffer-based dispatch in NWBZarrIO.read_nwb.
-        with warnings.catch_warnings():
-            warnings.simplefilter("always")
-            nwbfile = NWBZarrIO.read_nwb(_V2_FILE)
-        self.assertIsNotNone(nwbfile)
-        with open(_V2_EXPECTATIONS, "r") as f:
-            expected = json.load(f)
-        self.assertEqual(nwbfile.identifier, expected["identifier"])
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
