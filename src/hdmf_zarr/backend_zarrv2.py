@@ -168,6 +168,21 @@ class ZarrV2IO(ZarrIO):
     * Resolves reference ``source`` paths against the parent directory (old
       hdmf-zarr convention) in addition to the store itself.
     * Uses :class:`ZarrV2SpecReader` for cached namespaces.
+
+    .. note::
+
+        When zarr v3 cannot parse a v2 array (e.g. object-dtype arrays stored
+        via ``pickle`` / ``json2`` / ``vlen-utf8`` filters, or fill_values
+        incompatible with the encoded dtype), this backend falls back to
+        decoding the raw chunks directly (see :meth:`_read_v2_dataset` /
+        :meth:`_decode_v2_dataset`). Unlike the normal zarr-backed read path,
+        this fallback **eagerly loads the entire dataset into memory** at read
+        time rather than reading it lazily on access. For the small,
+        object-dtype arrays this path typically handles (specs, references,
+        compound/vlen columns) this is not a concern, but it could matter for
+        large datasets that zarr v3 fails to parse. Lazy decoding could be added
+        in a follow-up if it becomes a performance issue
+        (see https://github.com/hdmf-dev/hdmf-zarr/issues).
     """
 
     @docval(*get_docval(ZarrIO.__init__))
