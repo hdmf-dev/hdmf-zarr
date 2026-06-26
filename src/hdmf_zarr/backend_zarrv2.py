@@ -470,7 +470,7 @@ class ZarrV2IO(ZarrIO):
         ask zarr-python v3 to open every child, which raises for zarr v2 arrays
         that v3 cannot parse (most commonly object-dtype arrays stored with
         v2-only codecs such as ``pickle``, ``json2``, or ``vlen-utf8``). A single
-        unparseable child would otherwise abort iteration over the whole group.
+        unparsable child would otherwise abort iteration over the whole group.
 
         Instead, this implementation walks the store keys directly and opens each
         child individually so that a failure on one entry does not prevent the
