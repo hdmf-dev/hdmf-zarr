@@ -192,7 +192,7 @@ class TestV2ExportToV3(unittest.TestCase):
         # Convert the v2 file to a new zarr v3 file using the one-shot static helper.
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            NWBZarrV2IO.convert_to_v3(_V2_FILE, cls.v3_path)
+            NWBZarrV2IO.convert_to_v3(source_path=_V2_FILE, dest_path=cls.v3_path)
 
         # Read the exported file back with the v3 reader.
         cls.io = NWBZarrIO(cls.v3_path, mode="r")

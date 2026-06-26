@@ -93,20 +93,19 @@ class NWBZarrIO(ZarrIO):
     def read_nwb(**kwargs):
         """
         Helper factory method for reading an NWB file and return the NWBFile object.
-
-        Sniffs the layout and automatically dispatches to :class:`NWBZarrV2IO` when
-        *path* points to a zarr v2 hierarchy.
         """
+        # Retrieve the filepath
         path = popargs("path", kwargs)
         if isinstance(path, Path):
             path = str(path)
+        # determine default storage options to use when opening a file from S3
         storage_options = None
         if isinstance(path, str) and path.startswith(("s3://")):
             storage_options = dict(anon=True)
 
-        from .backend_zarrv2 import is_zarr_v2_file
-        from .nwb_zarrv2 import NWBZarrV2IO
+        # open the file with NWBZarrIO and rad the file
+        io = NWBZarrIO(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
+        nwbfile = io.read()
 
-        io_cls = NWBZarrV2IO if is_zarr_v2_file(path, storage_options=storage_options) else NWBZarrIO
-        io = io_cls(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
-        return io.read()
+        # return the NWBFile object
+        return nwbfile

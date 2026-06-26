@@ -463,13 +463,49 @@ class ZarrV2IO(ZarrIO):
     # ----- group iteration with v2 chunk fallback -----
 
     def _iter_children(self, zarr_obj):
+        """Yield ``(name, child)`` pairs for the children of *zarr_obj*.
+
+        This overrides :meth:`ZarrIO._iter_children`. The base implementation
+        relies on ``zarr_obj.groups()`` / ``zarr_obj.arrays()``, but those calls
+        ask zarr-python v3 to open every child, which raises for zarr v2 arrays
+        that v3 cannot parse (most commonly object-dtype arrays stored with
+        v2-only codecs such as ``pickle``, ``json2``, or ``vlen-utf8``). A single
+        unparseable child would otherwise abort iteration over the whole group.
+
+        Instead, this implementation walks the store keys directly and opens each
+        child individually so that a failure on one entry does not prevent the
+        others from being read:
+
+        * If zarr v3 opens the child successfully, the ``zarr.Group`` /
+          ``zarr.Array`` is yielded as usual.
+        * If zarr v3 fails but the entry has a ``.zarray`` (i.e. it is an array,
+          not a group), fall back to :meth:`_read_v2_dataset`, which decodes the
+          raw chunks manually. That method returns a pre-built
+          :class:`~hdmf.build.DatasetBuilder` rather than a ``zarr.Array`` because
+          the data has already been decoded in-memory and there is no zarr object
+          to hand to ``__read_dataset``. ``__read_group`` detects the builder type
+          and adds it directly (see :meth:`ZarrIO._iter_children` and
+          ``__read_group``). Groups never need this fallback because zarr v3 can
+          always open zarr v2 groups.
+        * If both paths fail, the entry is skipped with a warning rather than
+          raising, so the rest of the file remains readable.
+
+        :param zarr_obj: The zarr group whose children should be iterated.
+        :returns: Generator of ``(name, child)`` where *child* is a
+            ``zarr.Group``, ``zarr.Array``, or ``DatasetBuilder``.
+        """
         store = zarr_obj.store
         group_prefix = zarr_obj.path or ""
+        # List the raw keys under this group rather than calling zarr's
+        # groups()/arrays(), which would eagerly open (and choke on) v2 arrays.
         entries = self._store_list_dir(store, group_prefix)
 
         for entry in entries:
+            # Skip zarr metadata keys (.zgroup, .zarray, .zattrs, ...).
             if entry.startswith("."):
                 continue
+            # On a local store, listing also surfaces chunk files and other
+            # non-child paths; only directories correspond to child groups/arrays.
             if isinstance(store, LocalStore):
                 entry_full = (
                     os.path.join(str(store.root), group_prefix, entry)
@@ -479,14 +515,18 @@ class ZarrV2IO(ZarrIO):
                 if not os.path.isdir(entry_full):
                     continue
             try:
+                # Happy path: let zarr v3 open the child group/array.
                 child = zarr_obj[entry]
                 yield entry, child
             except Exception as e:
+                # zarr v3 could not open the child. If it is an array (has a
+                # .zarray), attempt the manual v2 decode fallback.
                 zarray_key = (
                     f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
                 )
                 if _store_key_exists(store, zarray_key):
                     try:
+                        # Returns a DatasetBuilder with the data already decoded.
                         builder = self._read_v2_dataset(store, group_prefix, entry)
                         warnings.warn(
                             f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store "
@@ -494,12 +534,15 @@ class ZarrV2IO(ZarrIO):
                         )
                         yield entry, builder
                     except Exception as e2:
+                        # Neither zarr v3 nor the manual fallback could read it;
+                        # skip so the rest of the group still loads.
                         warnings.warn(
                             f"Skipping '{entry}' in '{zarr_obj.name}': "
                             f"zarr v3 could not parse it ({e}) and v2 store fallback "
                             f"also failed ({e2})"
                         )
                 else:
+                    # No .zarray: nothing to fall back to, so skip this entry.
                     warnings.warn(
                         f"Skipping '{entry}' in '{zarr_obj.name}': zarr v3 could not "
                         f"parse its metadata (likely a zarr v2 object-dtype array): {e}"
