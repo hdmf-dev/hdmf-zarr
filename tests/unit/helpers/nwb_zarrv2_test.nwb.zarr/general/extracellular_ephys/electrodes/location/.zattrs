@@ -5,6 +5,6 @@
     "description": "Location of the electrode (channel).",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "e9262928-4ddb-42d5-b913-0502b53c01fb",
+    "object_id": "3802774c-7de0-4277-9e3d-7c01f3913866",
     "zarr_dtype": "str"
 }

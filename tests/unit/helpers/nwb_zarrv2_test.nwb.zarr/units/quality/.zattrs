@@ -5,6 +5,6 @@
     "description": "unit quality label",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "a102ac34-3db5-4a02-9296-b6da83685617",
+    "object_id": "a1a07c99-789d-4ea4-9d72-9ae7c77ab6ac",
     "zarr_dtype": "str"
 }

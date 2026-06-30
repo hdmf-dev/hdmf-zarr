@@ -5,6 +5,6 @@
     "description": "Name of the ElectrodeGroup.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "7c154610-602b-474a-81ad-66fa5c2272aa",
+    "object_id": "103cce39-e1b6-41e9-9a57-e660a9122fe5",
     "zarr_dtype": "str"
 }

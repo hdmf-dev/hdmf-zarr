@@ -5,6 +5,6 @@
     "description": "Impedance of the channel, in ohms.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "18ab8126-4fb7-4276-884a-5dab577e6df4",
+    "object_id": "f54ba7ca-46f1-423b-bd88-ac530eb855f9",
     "zarr_dtype": "float64"
 }

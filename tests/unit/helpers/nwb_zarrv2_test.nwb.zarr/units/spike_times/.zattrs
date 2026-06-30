@@ -5,6 +5,6 @@
     "description": "the spike times for each unit in seconds",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "57e15994-95f5-458f-857a-33866e49754e",
+    "object_id": "b24b96c9-d989-4404-9389-c006344c5aa1",
     "zarr_dtype": "float64"
 }

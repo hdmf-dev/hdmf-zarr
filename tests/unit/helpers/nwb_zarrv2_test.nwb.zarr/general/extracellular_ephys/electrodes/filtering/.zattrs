@@ -5,6 +5,6 @@
     "description": "Description of hardware filtering.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "ba881192-f71b-436e-8912-67e408ac79aa",
+    "object_id": "3bff97fd-d18b-4d55-a4cc-19c3b2831049",
     "zarr_dtype": "str"
 }

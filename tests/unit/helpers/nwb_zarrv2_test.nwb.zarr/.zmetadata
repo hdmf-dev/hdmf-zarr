@@ -5,7 +5,7 @@
             "namespace": "core",
             "neurodata_type": "NWBFile",
             "nwb_version": "2.9.0",
-            "object_id": "546fc092-9565-400f-b55c-c3894d651201"
+            "object_id": "aab60372-9835-4caf-8c58-f72bbfcf0848"
         },
         ".zgroup": {
             "zarr_format": 2
@@ -18,7 +18,7 @@
             "description": "Test ephys data",
             "namespace": "core",
             "neurodata_type": "ElectricalSeries",
-            "object_id": "ee73d714-f55a-4325-be59-a66f543bb0cb"
+            "object_id": "453ab251-82ab-413e-8648-4f06858d79f7"
         },
         "acquisition/test_ephys/.zgroup": {
             "zarr_format": 2
@@ -79,13 +79,13 @@
             "description": "all electrodes",
             "namespace": "hdmf-common",
             "neurodata_type": "DynamicTableRegion",
-            "object_id": "d311335d-9e56-4e64-9b89-17706ebb6a0a",
+            "object_id": "9f306005-f934-4e98-ade4-4e965abab772",
             "table": {
                 "value": {
-                    "object_id": "9411216e-e483-4861-b74b-4ebe73843441",
+                    "object_id": "8d471b47-3ad4-4e5a-8337-6db8309657de",
                     "path": "/general/extracellular_ephys/electrodes",
                     "source": ".",
-                    "source_object_id": "546fc092-9565-400f-b55c-c3894d651201"
+                    "source_object_id": "aab60372-9835-4caf-8c58-f72bbfcf0848"
                 },
                 "zarr_dtype": "object"
             },
@@ -157,7 +157,7 @@
             "manufacturer": "ACME",
             "namespace": "core",
             "neurodata_type": "Device",
-            "object_id": "1ed6b182-6b90-481c-9139-b58354cf8186"
+            "object_id": "ea12197d-f9e6-4f25-8a8a-fb1f13c24ed4"
         },
         "general/devices/probe_A/.zgroup": {
             "zarr_format": 2
@@ -233,7 +233,7 @@
             "description": "metadata about extracellular electrodes",
             "namespace": "core",
             "neurodata_type": "ElectrodesTable",
-            "object_id": "9411216e-e483-4861-b74b-4ebe73843441"
+            "object_id": "8d471b47-3ad4-4e5a-8337-6db8309657de"
         },
         "general/extracellular_ephys/electrodes/.zgroup": {
             "zarr_format": 2
@@ -269,7 +269,7 @@
             "description": "Description of hardware filtering.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "ba881192-f71b-436e-8912-67e408ac79aa",
+            "object_id": "3bff97fd-d18b-4d55-a4cc-19c3b2831049",
             "zarr_dtype": "str"
         },
         "general/extracellular_ephys/electrodes/group/.zarray": {
@@ -304,7 +304,7 @@
             "description": "Reference to the ElectrodeGroup.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "dc29f789-06b8-4eb3-b9fc-939f51d80a7c",
+            "object_id": "91e234de-fde2-4ca2-9b5f-36e5307a04a0",
             "zarr_dtype": "object"
         },
         "general/extracellular_ephys/electrodes/group_name/.zarray": {
@@ -338,7 +338,7 @@
             "description": "Name of the ElectrodeGroup.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "7c154610-602b-474a-81ad-66fa5c2272aa",
+            "object_id": "103cce39-e1b6-41e9-9a57-e660a9122fe5",
             "zarr_dtype": "str"
         },
         "general/extracellular_ephys/electrodes/id/.zarray": {
@@ -367,7 +367,7 @@
             ],
             "namespace": "hdmf-common",
             "neurodata_type": "ElementIdentifiers",
-            "object_id": "849395cb-dfdd-47ac-b841-09981aa584c3",
+            "object_id": "a04f4512-f7ba-4a57-8e49-ae777b1b3acc",
             "zarr_dtype": "int64"
         },
         "general/extracellular_ephys/electrodes/imp/.zarray": {
@@ -397,7 +397,7 @@
             "description": "Impedance of the channel, in ohms.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "18ab8126-4fb7-4276-884a-5dab577e6df4",
+            "object_id": "f54ba7ca-46f1-423b-bd88-ac530eb855f9",
             "zarr_dtype": "float64"
         },
         "general/extracellular_ephys/electrodes/location/.zarray": {
@@ -431,7 +431,7 @@
             "description": "Location of the electrode (channel).",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "e9262928-4ddb-42d5-b913-0502b53c01fb",
+            "object_id": "3802774c-7de0-4277-9e3d-7c01f3913866",
             "zarr_dtype": "str"
         },
         "general/extracellular_ephys/electrodes/x/.zarray": {
@@ -461,7 +461,7 @@
             "description": "x coordinate of the channel location in the brain.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "ca949cef-40f6-40e3-9e09-0e9b74223d3a",
+            "object_id": "8c4f0ffb-abcb-4b00-9df0-7c15dea6c569",
             "zarr_dtype": "float64"
         },
         "general/extracellular_ephys/electrodes/y/.zarray": {
@@ -491,7 +491,7 @@
             "description": "y coordinate of the channel location in the brain.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "7fa5ba3f-f17b-4d2b-91ed-aa9dc31e80a1",
+            "object_id": "1f68cc1b-6d0b-4b01-970d-47e17fedd127",
             "zarr_dtype": "float64"
         },
         "general/extracellular_ephys/electrodes/z/.zarray": {
@@ -521,7 +521,7 @@
             "description": "z coordinate of the channel location in the brain.",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "700f3f5e-1f31-47d5-8ec0-57ca7530dafc",
+            "object_id": "7e7ebfc1-3ee2-466d-b104-5f4793cf2d9b",
             "zarr_dtype": "float64"
         },
         "general/extracellular_ephys/shank0/.zattrs": {
@@ -529,7 +529,7 @@
             "location": "brain area X",
             "namespace": "core",
             "neurodata_type": "ElectrodeGroup",
-            "object_id": "964a76fd-47ad-4c79-89cb-32721de4a5e3",
+            "object_id": "d2ca0982-3687-4789-b956-e6ab4ec60bf3",
             "zarr_link": [
                 {
                     "name": "device",
@@ -625,7 +625,7 @@
         "general/subject/.zattrs": {
             "namespace": "core",
             "neurodata_type": "Subject",
-            "object_id": "b0a54ad7-c1d1-456b-ba42-949541b9a967"
+            "object_id": "393b1985-fce7-47e6-b39c-53450df98944"
         },
         "general/subject/.zgroup": {
             "zarr_format": 2
@@ -1602,7 +1602,7 @@
             "description": "Autogenerated by NWBFile",
             "namespace": "core",
             "neurodata_type": "Units",
-            "object_id": "8109a04d-f3b6-4d3f-b388-09007d3c848b"
+            "object_id": "766c37a1-95e7-4ec8-b894-6cc6a76f6b65"
         },
         "units/.zgroup": {
             "zarr_format": 2
@@ -1633,7 +1633,7 @@
             ],
             "namespace": "hdmf-common",
             "neurodata_type": "ElementIdentifiers",
-            "object_id": "e36bbf9b-dea1-47a8-824a-c557a10ab13d",
+            "object_id": "2575baa7-00dc-4f5b-b309-f7a907545cfb",
             "zarr_dtype": "int64"
         },
         "units/quality/.zarray": {
@@ -1667,7 +1667,7 @@
             "description": "unit quality label",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "a102ac34-3db5-4a02-9296-b6da83685617",
+            "object_id": "a1a07c99-789d-4ea4-9d72-9ae7c77ab6ac",
             "zarr_dtype": "str"
         },
         "units/spike_times/.zarray": {
@@ -1697,7 +1697,7 @@
             "description": "the spike times for each unit in seconds",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorData",
-            "object_id": "57e15994-95f5-458f-857a-33866e49754e",
+            "object_id": "b24b96c9-d989-4404-9389-c006344c5aa1",
             "zarr_dtype": "float64"
         },
         "units/spike_times_index/.zarray": {
@@ -1727,13 +1727,13 @@
             "description": "Index for VectorData 'spike_times'",
             "namespace": "hdmf-common",
             "neurodata_type": "VectorIndex",
-            "object_id": "11df791b-2cbd-4f55-8bd6-e0520386ff69",
+            "object_id": "9636a06a-a318-48a0-b0ea-96f5d52f2fe1",
             "target": {
                 "value": {
                     "object_id": null,
                     "path": "/units/spike_times",
                     "source": ".",
-                    "source_object_id": "546fc092-9565-400f-b55c-c3894d651201"
+                    "source_object_id": "aab60372-9835-4caf-8c58-f72bbfcf0848"
                 },
                 "zarr_dtype": "object"
             },

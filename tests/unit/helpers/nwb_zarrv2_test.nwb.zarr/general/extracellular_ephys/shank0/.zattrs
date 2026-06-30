@@ -3,7 +3,7 @@
     "location": "brain area X",
     "namespace": "core",
     "neurodata_type": "ElectrodeGroup",
-    "object_id": "964a76fd-47ad-4c79-89cb-32721de4a5e3",
+    "object_id": "d2ca0982-3687-4789-b956-e6ab4ec60bf3",
     "zarr_link": [
         {
             "name": "device",

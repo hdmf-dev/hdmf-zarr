@@ -4,6 +4,6 @@
     ],
     "namespace": "hdmf-common",
     "neurodata_type": "ElementIdentifiers",
-    "object_id": "e36bbf9b-dea1-47a8-824a-c557a10ab13d",
+    "object_id": "2575baa7-00dc-4f5b-b309-f7a907545cfb",
     "zarr_dtype": "int64"
 }

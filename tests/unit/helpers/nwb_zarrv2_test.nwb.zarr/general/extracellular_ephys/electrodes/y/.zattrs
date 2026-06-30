@@ -5,6 +5,6 @@
     "description": "y coordinate of the channel location in the brain.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "7fa5ba3f-f17b-4d2b-91ed-aa9dc31e80a1",
+    "object_id": "1f68cc1b-6d0b-4b01-970d-47e17fedd127",
     "zarr_dtype": "float64"
 }
