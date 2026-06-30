@@ -151,7 +151,5 @@ _version.py
 zarr_test*.zarr
 *.nwb.zarr
 
-# Generated backward compat test artifacts
-tests/unit/helpers/v2_expected.json
 # uv
 uv.lock

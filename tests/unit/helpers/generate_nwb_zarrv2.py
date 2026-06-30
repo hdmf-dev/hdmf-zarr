@@ -12,6 +12,7 @@ data types most affected by the zarr v2 → v3 migration:
 * Electrode groups, devices (object references)
 * TimeSeries with numerical data
 * Subject metadata with date_of_birth
+* Units table with ragged spike_times (VectorIndex / object-dtype)
 
 The file is written to the path given as the first CLI argument.
 Metadata expectations are printed as JSON to stdout so the test can
@@ -68,7 +69,7 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
         device=device,
     )
 
-    n_electrodes = 8
+    n_electrodes = 4
     for i in range(n_electrodes):
         nwbfile.add_electrode(
             x=float(i), y=0.0, z=0.0,
@@ -83,15 +84,29 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
         region=list(range(n_electrodes)),
         description="all electrodes",
     )
-    n_samples = 100
+    n_samples = 10
+    ephys_data = np.random.randn(n_samples, n_electrodes).astype(np.float64)
+    ephys_timestamps = np.linspace(0, 1, n_samples)
     electrical_series = ElectricalSeries(
         name="test_ephys",
-        data=np.random.randn(n_samples, n_electrodes).astype(np.float64),
+        data=ephys_data,
         electrodes=electrode_table_region,
-        timestamps=np.linspace(0, 1, n_samples),
+        timestamps=ephys_timestamps,
         description="Test ephys data",
     )
     nwbfile.add_acquisition(electrical_series)
+
+    # Units table (ragged spike_times — VectorIndex with object-dtype chunks)
+    n_units = 3
+    nwbfile.add_unit_column(name="quality", description="unit quality label")
+    spike_times_per_unit = [
+        np.array([0.1, 0.25, 0.4]),
+        np.array([0.05, 0.3, 0.55, 0.8]),
+        np.array([0.2, 0.6]),
+    ]
+    quality_labels = ["good", "fair", "good"]
+    for spikes, quality in zip(spike_times_per_unit, quality_labels):
+        nwbfile.add_unit(spike_times=spikes, quality=quality)
 
     # Write
     with NWBZarrIO(path=nwb_output_path, mode="w") as io:
@@ -114,8 +129,17 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
         "n_electrode_groups": 1,
         "device_name": "probe_A",
         "electrode_group_name": "shank0",
+        "session_start_time_year": session_start.year,
+        "session_start_time_month": session_start.month,
+        "session_start_time_day": session_start.day,
         "ephys_data_shape": [n_samples, n_electrodes],
+        "ephys_data": ephys_data.tolist(),
+        "ephys_timestamps": ephys_timestamps.tolist(),
         "ephys_name": "test_ephys",
+        "n_units": n_units,
+        "unit_quality_labels": quality_labels,
+        "unit_spike_counts": [len(s) for s in spike_times_per_unit],
+        "unit_spike_times": [s.tolist() for s in spike_times_per_unit],
     }
     with open(expectations_output_path, "w") as f:
         json.dump(expectations, f)

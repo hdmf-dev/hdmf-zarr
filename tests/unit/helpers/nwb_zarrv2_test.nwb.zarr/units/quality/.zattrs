@@ -1,0 +1,10 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "dim0"
+    ],
+    "description": "unit quality label",
+    "namespace": "hdmf-common",
+    "neurodata_type": "VectorData",
+    "object_id": "a102ac34-3db5-4a02-9296-b6da83685617",
+    "zarr_dtype": "str"
+}

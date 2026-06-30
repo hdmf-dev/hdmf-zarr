@@ -35,13 +35,13 @@ from hdmf_zarr import NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _HELPERS = os.path.join(_HERE, "helpers")
-_V2_FILE = os.path.join(_HELPERS, "v2_test_file.nwb.zarr")
-_V2_EXPECTATIONS = os.path.join(_HELPERS, "v2_expected.json")
+_V2_FILE = os.path.join(_HELPERS, "nwb_zarrv2_test.nwb.zarr")
+_V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
 
 
-@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
+@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
 class TestV2BackwardCompat(unittest.TestCase):
     """Read a zarr v2 NWB file and verify metadata and data integrity."""
 
@@ -82,7 +82,11 @@ class TestV2BackwardCompat(unittest.TestCase):
     # ---- datetime fields (fill_value=0 issue) ----
 
     def test_session_start_time(self):
-        self.assertIsNotNone(self.nwbfile.session_start_time)
+        t = self.nwbfile.session_start_time
+        self.assertIsNotNone(t)
+        self.assertEqual(t.year, self.expected["session_start_time_year"])
+        self.assertEqual(t.month, self.expected["session_start_time_month"])
+        self.assertEqual(t.day, self.expected["session_start_time_day"])
 
     def test_timestamps_reference_time(self):
         self.assertIsNotNone(self.nwbfile.timestamps_reference_time)
@@ -146,16 +150,34 @@ class TestV2BackwardCompat(unittest.TestCase):
         expected_shape = tuple(self.expected["ephys_data_shape"])
         self.assertEqual(series.data.shape, expected_shape)
 
-    def test_ephys_data_dtype(self):
+    def test_ephys_data_values(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        self.assertTrue(np.issubdtype(series.data.dtype, np.floating))
+        np.testing.assert_array_almost_equal(
+            np.asarray(series.data), np.array(self.expected["ephys_data"])
+        )
 
     def test_ephys_timestamps(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        n_samples = self.expected["ephys_data_shape"][0]
-        # timestamps could be lazy (zarr Array) or eagerly loaded
-        ts = np.asarray(series.timestamps)
-        self.assertEqual(len(ts), n_samples)
+        np.testing.assert_array_almost_equal(
+            np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"])
+        )
+
+    # ---- units table (ragged spike_times — VectorIndex / object-dtype) ----
+
+    def test_units_exists(self):
+        self.assertIsNotNone(self.nwbfile.units)
+
+    def test_n_units(self):
+        self.assertEqual(len(self.nwbfile.units), self.expected["n_units"])
+
+    def test_units_spike_times(self):
+        for i, expected_spikes in enumerate(self.expected["unit_spike_times"]):
+            spikes = self.nwbfile.units["spike_times"][i]
+            np.testing.assert_array_almost_equal(np.asarray(spikes), np.array(expected_spikes))
+
+    def test_units_quality_column(self):
+        labels = list(self.nwbfile.units["quality"][:])
+        self.assertEqual(labels, self.expected["unit_quality_labels"])
 
     def test_is_zarr_v2_file(self):
         self.assertTrue(is_zarr_v2_file(_V2_FILE))
@@ -221,7 +243,11 @@ class TestV2ExportToV3(unittest.TestCase):
     # ---- datetime fields ----
 
     def test_session_start_time(self):
-        self.assertIsNotNone(self.nwbfile.session_start_time)
+        t = self.nwbfile.session_start_time
+        self.assertIsNotNone(t)
+        self.assertEqual(t.year, self.expected["session_start_time_year"])
+        self.assertEqual(t.month, self.expected["session_start_time_month"])
+        self.assertEqual(t.day, self.expected["session_start_time_day"])
 
     def test_timestamps_reference_time(self):
         self.assertIsNotNone(self.nwbfile.timestamps_reference_time)
@@ -264,19 +290,17 @@ class TestV2ExportToV3(unittest.TestCase):
     def test_ephys_exists(self):
         self.assertIn(self.expected["ephys_name"], self.nwbfile.acquisition)
 
-    def test_ephys_data_shape(self):
+    def test_ephys_data_values(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        self.assertEqual(series.data.shape, tuple(self.expected["ephys_data_shape"]))
-
-    def test_ephys_data_dtype(self):
-        series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        self.assertTrue(np.issubdtype(series.data.dtype, np.floating))
+        np.testing.assert_array_almost_equal(
+            np.asarray(series.data), np.array(self.expected["ephys_data"])
+        )
 
     def test_ephys_timestamps(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        n_samples = self.expected["ephys_data_shape"][0]
-        ts = np.asarray(series.timestamps)
-        self.assertEqual(len(ts), n_samples)
+        np.testing.assert_array_almost_equal(
+            np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"])
+        )
 
     def test_ephys_data_values_match_v2(self):
         """Exported data values must match the original v2 file exactly."""
@@ -285,6 +309,23 @@ class TestV2ExportToV3(unittest.TestCase):
             v2_data = np.asarray(v2_nwbfile.acquisition[self.expected["ephys_name"]].data)
         v3_data = np.asarray(self.nwbfile.acquisition[self.expected["ephys_name"]].data)
         np.testing.assert_array_equal(v3_data, v2_data)
+
+    # ---- units table ----
+
+    def test_units_exists(self):
+        self.assertIsNotNone(self.nwbfile.units)
+
+    def test_n_units(self):
+        self.assertEqual(len(self.nwbfile.units), self.expected["n_units"])
+
+    def test_units_spike_times(self):
+        for i, expected_spikes in enumerate(self.expected["unit_spike_times"]):
+            spikes = self.nwbfile.units["spike_times"][i]
+            np.testing.assert_array_almost_equal(np.asarray(spikes), np.array(expected_spikes))
+
+    def test_units_quality_column(self):
+        labels = list(self.nwbfile.units["quality"][:])
+        self.assertEqual(labels, self.expected["unit_quality_labels"])
 
     def test_instance_export_to_v3(self):
         """The instance method export_to_v3 should also produce a readable v3 file."""
