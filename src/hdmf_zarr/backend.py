@@ -1041,7 +1041,11 @@ class ZarrIO(HDMFIO):
             str_path = str(self.path)
         else:
             str_path = self.path
-        rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.abspath(str_path))
+        try:
+            rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.abspath(str_path))
+        except ValueError:
+            # On Windows, relpath raises ValueError when paths span different drives.
+            rel_source = os.path.abspath(ref_link_source)
 
         # Return the ZarrReference object
         ref = ZarrReference(
@@ -1307,7 +1311,11 @@ class ZarrIO(HDMFIO):
             str_path = self.path
             if not isinstance(str_path, str):  # a store
                 str_path = str(self.path)
-            rel_data_filename = os.path.relpath(os.path.abspath(data_filename), os.path.abspath(str_path))
+            try:
+                rel_data_filename = os.path.relpath(os.path.abspath(data_filename), os.path.abspath(str_path))
+            except ValueError:
+                # On Windows, relpath raises ValueError when paths span different drives.
+                rel_data_filename = os.path.abspath(data_filename)
             if link_data:
                 if export_source is None:  # not exporting
                     self.__add_link__(parent, rel_data_filename, data.name, name)
