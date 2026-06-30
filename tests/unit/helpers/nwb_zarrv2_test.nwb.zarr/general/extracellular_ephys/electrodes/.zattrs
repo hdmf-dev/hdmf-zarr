@@ -10,7 +10,7 @@
         "filtering"
     ],
     "description": "metadata about extracellular electrodes",
-    "namespace": "core",
-    "neurodata_type": "ElectrodesTable",
-    "object_id": "8d471b47-3ad4-4e5a-8337-6db8309657de"
+    "namespace": "hdmf-common",
+    "neurodata_type": "DynamicTable",
+    "object_id": "588a3669-d3a4-442c-ac7c-2d1430947027"
 }

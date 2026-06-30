@@ -2,9 +2,9 @@
     "_ARRAY_DIMENSIONS": [
         "dim0"
     ],
-    "description": "Reference to the ElectrodeGroup.",
+    "description": "a reference to the ElectrodeGroup this electrode is a part of",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "91e234de-fde2-4ca2-9b5f-36e5307a04a0",
+    "object_id": "591eeabf-a0d0-4b25-a313-9ca0eba1b93b",
     "zarr_dtype": "object"
 }

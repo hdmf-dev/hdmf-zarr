@@ -2,9 +2,9 @@
     "_ARRAY_DIMENSIONS": [
         "dim0"
     ],
-    "description": "Description of hardware filtering.",
+    "description": "description of hardware filtering, including the filter name and frequency cutoffs",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "3bff97fd-d18b-4d55-a4cc-19c3b2831049",
+    "object_id": "135d93ae-68c8-46a0-a688-1f821706abf1",
     "zarr_dtype": "str"
 }

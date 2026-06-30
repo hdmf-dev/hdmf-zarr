@@ -5,13 +5,13 @@
     "description": "Index for VectorData 'spike_times'",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorIndex",
-    "object_id": "9636a06a-a318-48a0-b0ea-96f5d52f2fe1",
+    "object_id": "aeb426bc-5f01-4cbd-94ec-715c4f5ff2b4",
     "target": {
         "value": {
             "object_id": null,
             "path": "/units/spike_times",
             "source": ".",
-            "source_object_id": "aab60372-9835-4caf-8c58-f72bbfcf0848"
+            "source_object_id": "cd7369dd-582d-4872-8eaa-8bd9226094ef"
         },
         "zarr_dtype": "object"
     },
