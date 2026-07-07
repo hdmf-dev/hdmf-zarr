@@ -457,3 +457,72 @@ class TestZarrStringDataset(TestCase):
         self.assertEqual(wrapper[1, 1], "d")
         self.assertEqual(wrapper[0, 1], "b")
         self.assertEqual(np.asarray(wrapper).shape, (2, 2))
+
+
+class TestPathNormalization(TestCase):
+    """Local paths are made absolute, but protocol URLs must be left untouched."""
+
+    def _init_path(self, path, storage_options=None):
+        """Construct a ZarrIO with open() stubbed out and return the normalized path."""
+        from unittest.mock import patch
+
+        with patch.object(ZarrIO, "open", lambda self: None):
+            io = ZarrIO(path, mode="r", storage_options=storage_options)
+        return io.path
+
+    def test_local_paths_made_absolute(self):
+        for path in ["relative/local.zarr", "./x.zarr", "/abs/local.zarr"]:
+            self.assertEqual(self._init_path(path), os.path.abspath(path))
+
+    def test_protocol_urls_unchanged(self):
+        """Non-s3 fsspec protocols must not be rewritten into a local absolute path."""
+        for path in [
+            "s3://bucket/f.zarr",
+            "gcs://bucket/f.zarr",
+            "gs://bucket/f.zarr",
+            "abfs://container/f.zarr",
+            "az://container/f.zarr",
+            "http://host/f.zarr",
+            "https://host/f.zarr",
+            "simplecache::s3://bucket/f.zarr",
+        ]:
+            self.assertEqual(
+                self._init_path(path, storage_options={"anon": True}),
+                path,
+                f"protocol URL {path!r} was corrupted",
+            )
+
+
+class TestCopyArray(TestCase):
+    """Tests for ZarrIO._copy_array, used when copying arrays during export."""
+
+    @staticmethod
+    def _dest_group():
+        return zarr.open_group(zarr.storage.MemoryStore(), mode="w")
+
+    def test_copy_multichunk_numeric(self):
+        """Data spanning multiple chunks is copied correctly (chunk-wise)."""
+        source = zarr.create_array(
+            zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4"
+        )
+        source[:] = np.arange(20).reshape(5, 4)
+        source.attrs["zarr_dtype"] = "int32"
+        dest = ZarrIO._copy_array(source, self._dest_group(), "x")
+        np.testing.assert_array_equal(dest[:], source[:])
+        self.assertEqual(dest.chunks, source.chunks)
+        self.assertEqual(dest.attrs["zarr_dtype"], "int32")
+
+    def test_copy_object_becomes_stringdtype(self):
+        source = zarr.create_array(
+            zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType()
+        )
+        source[:] = np.array(["aa", "bb", "cc"], dtype=np.dtypes.StringDType())
+        dest = ZarrIO._copy_array(source, self._dest_group(), "y")
+        self.assertEqual(list(dest[:]), ["aa", "bb", "cc"])
+
+    def test_copy_scalar(self):
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(), dtype="f8")
+        source[...] = 3.14
+        dest = ZarrIO._copy_array(source, self._dest_group(), "z")
+        self.assertEqual(dest[()], 3.14)
+        self.assertEqual(dest.shape, ())

@@ -1,6 +1,7 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 
 # Python imports
+import itertools
 import json
 import os
 import shutil
@@ -180,8 +181,10 @@ class ZarrIO(HDMFIO):
         self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
             path = str(path)
-        # Convert local paths to absolute for consistent path resolution
-        if isinstance(path, str) and not path.startswith(("s3://", "http://", "https://")):
+        # Convert local paths to absolute for consistent path resolution. Leave protocol
+        # URLs (e.g. s3://, gcs://, gs://, abfs://, az://, http(s)://, or chained fsspec
+        # protocols like simplecache::s3://) untouched so their URLs are not corrupted.
+        if isinstance(path, str) and "://" not in path:
             path = os.path.abspath(path)
         # FsspecStore is read-only; enforce read mode for remote paths
         if storage_options is not None and mode != "r":
@@ -1163,7 +1166,17 @@ class ZarrIO(HDMFIO):
             kwargs['fill_value'] = source.fill_value
 
         dest = dest_group.create_array(**kwargs)
-        dest[:] = source[:]
+
+        # Copy the data one chunk region at a time so that peak memory is bounded to a
+        # single chunk rather than decompressing the entire (possibly multi-GB) array into
+        # a single in-memory ndarray, which would risk OOM when exporting large datasets.
+        chunks = dest.chunks
+        chunk_ranges = [range(0, dim, max(cs, 1)) for dim, cs in zip(source.shape, chunks)]
+        for start in itertools.product(*chunk_ranges):
+            region = tuple(
+                slice(s, min(s + cs, dim)) for s, cs, dim in zip(start, chunks, source.shape)
+            )
+            dest[region] = source[region]
 
         # Copy attributes
         for k, v in source.attrs.items():
