@@ -155,7 +155,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            if t == DatasetBuilder.OBJECT_REF_TYPE:
+            if t in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference"):
                 self.__refgetters[i] = self._get_ref
             elif t is str:
                 self.__refgetters[i] = self._get_utf
@@ -167,8 +167,8 @@ class AbstractZarrTableDataset(DatasetOfReferences):
                 tmp.append("object")
             elif np.issubdtype(sub, np.str_):
                 # In zarr v3, string fields in compound dtypes use fixed-length Unicode
-                # Check if this field holds JSON-serialized references
-                tmp.append("object" if types[i] == DatasetBuilder.OBJECT_REF_TYPE else "utf")
+                # Check if this field holds references (plain path strings)
+                tmp.append("object" if types[i] in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference") else "utf")
             elif sub.metadata:
                 if "vlen" in sub.metadata:
                     t = sub.metadata["vlen"]
@@ -187,6 +187,13 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     @property
     def dtype(self):
         return self.__dtype
+
+    @property
+    def shape(self):
+        # Don't expose raw zarr shape — compound table datasets should never
+        # be treated as scalars by hdmf's objectmapper (which unwraps data
+        # when shape == (1,) and data[0] is not np.void).
+        return None
 
     def __getitem__(self, arg):
         rows = copy(super().__getitem__(arg))

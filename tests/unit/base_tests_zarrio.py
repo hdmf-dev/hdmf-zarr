@@ -414,7 +414,6 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer.close()
 
     def test_write_references_roundtrip(self):
-        import json
         # Setup a file container with references
         num_bazs = 1
         bazs = []  # set up dataset of references
@@ -431,24 +430,16 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             read_container = reader.read()
             for i in range(num_bazs):
                 baz_name = "baz%d" % i
-                expected_container = read_container.bazs[baz_name]
-                expected_value = {
-                    "source": ".",
-                    "path": "/bazs/" + baz_name,
-                    "object_id": expected_container.object_id,
-                    "source_object_id": read_container.object_id,
-                }
-                # In zarr v3, references are stored as JSON strings (may be numpy StringDType scalars)
+                self.assertIn(baz_name, read_container.bazs)
+                expected_path = "/bazs/" + baz_name
+                # References are stored as plain path strings
                 raw_ref = reader._file["baz_data"][i]
-                raw_ref = str(raw_ref) if not isinstance(raw_ref, (str, dict)) else raw_ref
-                if isinstance(raw_ref, str):
-                    raw_ref = json.loads(raw_ref)
-                self.assertDictEqual(raw_ref, expected_value)
+                raw_ref = str(raw_ref) if not isinstance(raw_ref, str) else raw_ref
+                self.assertEqual(raw_ref, expected_path)
                 # Also test using the low-level reference functions
-                zarr_ref = ZarrReference(**expected_value)
-                # Check the ZarrReference first
-                self.assertEqual(zarr_ref.object_id, expected_value["object_id"])
-                self.assertEqual(zarr_ref.source_object_id, expected_value["source_object_id"])
+                zarr_ref = ZarrReference(source=".", path=expected_path)
+                self.assertEqual(zarr_ref.source, ".")
+                self.assertEqual(zarr_ref.path, expected_path)
 
     def test_write_reference_compound(self):
         builder = self.createReferenceCompoundBuilder()
@@ -733,18 +724,12 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         attr = {"attr1": dataset_1}
-        with self.assertWarnsWith(
-            UserWarning, "Could not determine source_object_id for builder with path: /dataset_1"
-        ):
-            tempIO.write_attributes(obj=tempIO._file, attributes=attr)
+        tempIO.write_attributes(obj=tempIO._file, attributes=attr)
         expected_value = {
             "attr1": {
-                "zarr_dtype": "object",
-                "value": {
+                "_REFERENCE": {
                     "source": ".",
                     "path": "/dataset_1",
-                    "object_id": None,
-                    "source_object_id": None,
                 },
             }
         }
@@ -758,18 +743,12 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         attr = {"attr1": ref1}
-        with self.assertWarnsWith(
-            UserWarning, "Could not determine source_object_id for builder with path: /dataset_1"
-        ):
-            tempIO.write_attributes(obj=tempIO._file, attributes=attr)
+        tempIO.write_attributes(obj=tempIO._file, attributes=attr)
         expected_value = {
             "attr1": {
-                "zarr_dtype": "object",
-                "value": {
+                "_REFERENCE": {
                     "source": ".",
                     "path": "/dataset_1",
-                    "source_object_id": None,
-                    "object_id": None,
                 },
             }
         }
@@ -997,8 +976,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             "path": "/test_dataset",
             "source": ".",
         }
-        self.assertEqual(len(tempf.attrs["zarr_link"]), 1)
-        self.assertDictEqual(tempf.attrs["zarr_link"][0], expected_link)
+        self.assertEqual(len(tempf.attrs["_LINKS"]), 1)
+        self.assertDictEqual(tempf.attrs["_LINKS"][0], expected_link)
         tempIO.close()
 
     def test_copy_zarr_dataset_input(self):
@@ -1038,8 +1017,8 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             "path": "/test_dataset",
             "source": ".",
         }
-        self.assertEqual(len(tempf.attrs["zarr_link"]), 1)
-        self.assertDictEqual(tempf.attrs["zarr_link"][0], expected_link)
+        self.assertEqual(len(tempf.attrs["_LINKS"]), 1)
+        self.assertDictEqual(tempf.attrs["_LINKS"][0], expected_link)
         tempIO.close()
 
     def test_copy_dataset_zarrdataio_input(self):
@@ -1423,13 +1402,10 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
 
             # check the raw zarr attribute reference
             expected_attr_reference = {
-                "value": {
-                    "object_id": foo1.object_id,
+                "_REFERENCE": {
                     "path": "/buckets/bucket1/foo_holder/foo1",
                     "source": ".",
-                    "source_object_id": foofile.object_id,
                 },
-                "zarr_dtype": "object",
             }
             self.assertEqual(read_io._file.attrs["foo_ref_attr"], expected_attr_reference)
 

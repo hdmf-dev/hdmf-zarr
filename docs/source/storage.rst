@@ -84,7 +84,7 @@ Datasets
     ============================  ======================================================================================================================
     name                          Name of the dataset in Zarr
     doc                           Zarr attribute ``doc`` on the Zarr dataset
-    dtype                         Data type of the Zarr dataset (see `dtype mappings`_ table) and stored in the ``zarr_dtype`` reserved attribute
+    dtype                         Data type of the Zarr dataset (see `dtype mappings`_ table) and stored in reserved attributes
     shape                         Shape of the Zarr dataset if the shape is fixed, otherwise shape defines the maxshape
     dims                          Not mapped
     attributes                    Zarr attributes on the Zarr dataset
@@ -125,7 +125,8 @@ Attributes
     Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes
     must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types
     (e.g., numpy arrays) to JSON serializable types as much as possible, but not all possible types may
-    be supported.
+    be supported. Float ``NaN``, ``Infinity``, and ``-Infinity`` values, which are not valid JSON, are
+    encoded as the strings ``"NaN"``, ``"Infinity"``, and ``"-Infinity"`` respectively.
 
 .. _sec-zarr-storage-attributes-reserved:
 
@@ -140,11 +141,17 @@ added on any Group or Dataset in the file.
     ============================  ======================================================================================
     Reserved Attribute Name       Usage
     ============================  ======================================================================================
-    zarr_link                     Attribute used to store links. See :ref:`sec-zarr-storage-links` for details.
-    zarr_dtype                    Attribute used to specify the data type of a dataset. This is used to implement the
-                                  storage of object references as part of datasets.
-                                  See :ref:`sec-zarr-storage-references`
+    ``_LINKS``                    Attribute on Groups used to store links. See :ref:`sec-zarr-storage-links`.
+    ``_DTYPE``                    Attribute on Datasets used to specify the data type. Set to
+                                  ``"object_reference"`` for reference datasets. See :ref:`sec-zarr-storage-references`.
+    ``_REFERENCE_FIELDS``         Attribute on compound Datasets listing field names that contain object references.
+    ``_SCALAR``                   Boolean attribute on Datasets (``true``) indicating the dataset holds a scalar value.
     ============================  ======================================================================================
+
+.. note::
+
+    For backward compatibility, the old attribute names ``zarr_link`` and ``zarr_dtype`` are still
+    recognized on read with a deprecation warning.
 
 In addition, the following reserved attributes are added to the root Group of the file only:
 
@@ -163,7 +170,7 @@ Links
 
 Similar to soft links in a file system, a link is an object in a Group that links to another Group or Dataset,
 either within the same Zarr file or another external Zarr file. Links and reference are not natively supported by
-Zarr but are implemented in :py:class:`~hdmf_zarr.backend.ZarrIO` in an OS independent fashion using the ``zarr_link``
+Zarr but are implemented in :py:class:`~hdmf_zarr.backend.ZarrIO` in an OS independent fashion using the ``_LINKS``
 reserved attribute (see :py:attr:`~hdmf_zarr.backend.ZarrIO.__reserve_attribute`) to store a list of dicts serialized
 as JSON. Each dict (i.e., element) in the list defines a link, with each dict containing the following keys:
 
@@ -173,24 +180,16 @@ as JSON. Each dict (i.e., element) in the list defines a link, with each dict co
   links that point to object in another Zarr file, the value of source will be the path to
   the other Zarr file relative to the root path of the Zarr file containing the link.
 * ``path`` : Path to the linked object within the Zarr file identified by the ``source`` key
-* ``object_id``: Object id of the reference object. May be None in case the referenced object
-  does not have an assigned object_id (e.g., in the case we reference a dataset with a fixed
-  name but without and assigned ``data_type`` (or ``neurodata_type`` in the case of NWB).
-* ``source_object_id``: Object id of the source Zarr file indicated by the ``source`` key.
-  The ``source`` should always have an ``object_id`` (at least if the ``source`` file is
-  a valid HDMF formatted file).
 
 For example:
 
 .. code-block:: json
 
-    "zarr_link": [
+    "_LINKS": [
         {
             "name": "device",
             "source": ".",
-            "path": "/general/devices/array",
-            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa",
-            "source_object_id": "6224bb89-578a-4839-b31c-83f11009292c"
+            "path": "/general/devices/array"
         }
     ]
 
@@ -217,7 +216,7 @@ For example:
 
     In :py:class:`~hdmf_zarr.backend.ZarrIO`, links are written by the
     :py:meth:`~hdmf_zarr.backend.ZarrIO.__write_link__` function, which also uses the helper functions
-    i) :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` to construct py:meth:`~hdmf_zarr.utils.ZarrRefernce`
+    i) :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` to construct py:meth:`~hdmf_zarr.utils.ZarrReference`
     and ii) :py:meth:`~hdmf_zarr.backend.ZarrIO.__add_link__` to add a link to the Zarr file.
     :py:meth:`~hdmf_zarr.backend.ZarrIO.__read_links` then parses links and also uses the
     :py:meth:`~hdmf_zarr.backend.ZarrIO.__resolve_ref` helper function to resolve the paths stored in links.
@@ -235,46 +234,34 @@ of multi-dimensional arrays (i.e., the data type of the array is a reference typ
 Storing object references in Datasets
 -------------------------------------
 
-To identify that a dataset contains object reference, the reserved attribute ``zarr_dtype`` is set to
-``'object'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In this way, we can unambiguously
-if a dataset stores references that need to be resolved.
+To identify that a dataset contains object references, the reserved attribute ``_DTYPE`` is set to
+``'object_reference'`` (see also :ref:`sec-zarr-storage-attributes-reserved`). In this way, we can
+unambiguously determine if a dataset stores references that need to be resolved.
 
-Similar to Links, object references are defined via dicts, which are stored as elements of
-the Dataset. In contrast to links, individual object reference do not have a ``name`` but are identified
-by their location (i.e., index) in the dataset. As such, object references only have the ``source`` with
-the relative path to the target Zarr file, and the ``path`` identifying the object within the source
-Zarr file. The individual object references are defined in the
-:py:class:`~hdmf_zarr.backend.ZarrIO` as py:class:`~hdmf_zarr.utils.ZarrReference` object created via
-the :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` helper function.
+Each element of a reference dataset is stored as a **plain target path string** (e.g.,
+``"/general/extracellular_ephys/electrodes"``) in a variable-length string (``StringDType``) array.
+Since ``_DTYPE = "object_reference"`` already marks the dataset as containing references, there is no
+need to wrap each value in a dict. The ``source`` defaults to ``"."`` (same file). For future
+cross-file references, the format can be extended to store dicts instead of plain strings.
 
-In zarr v3, :py:class:`~hdmf_zarr.backend.ZarrIO` stores object references as JSON-serialized strings
-in variable-length string (``StringDType``) datasets. Each element is a JSON string encoding a
-py:class:`~hdmf_zarr.utils.ZarrReference` dict.
+Object references are created via :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` and resolved
+via :py:meth:`~hdmf_zarr.backend.ZarrIO.resolve_ref`.
 
 Storing object references in Attributes
 ---------------------------------------
 
-Object references are stored in a attributes as dicts with the following keys:
-
-* ``zarr_dtype`` : Indicating the data type for the attribute. For object references
-  ``zarr_dtype`` is set to ``"object"``
-* ``value``: The value of the object references, i.e., here the py:class:`~hdmf_zarr.utils.ZarrReference`
-  dictionary with the ``source``, ``path``, ``object_id``, and ``source_object_id`` keys defining
-  the object reference, with the definition of the keys being the same as
-  for :ref:`sec-zarr-storage-links`.
+Object references are stored in attributes as dicts with a ``_REFERENCE`` wrapper key containing a dict
+with ``source`` and ``path`` keys:
 
 For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be defined as follows:
 
 .. code-block:: json
 
     "table": {
-        "value": {
+        "_REFERENCE": {
             "path": "/general/extracellular_ephys/electrodes",
-            "source": ".",
-            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa",
-            "source_object_id": "6224bb89-578a-4839-b31c-83f11009292c"
-        },
-        "zarr_dtype": "object"
+            "source": "."
+        }
     }
 
 
@@ -324,10 +311,10 @@ The mappings of data types is as follows
     |  * "reference"           | dataset. See                       |                |
     |  * "object"              | :ref:`sec-zarr-storage-references` |                |
     +--------------------------+------------------------------------+----------------+
-    |  * compound dtype        | Compound data type. Stored in      |                |
-    |                          | ``zarr_dtype`` as a list of dicts  |                |
-    |                          | with ``"name"`` and ``"dtype"``    |                |
-    |                          | keys (see example below).          |                |
+    |  * compound dtype        | Compound data type. Uses zarr v3's |                |
+    |                          | native ``structured`` data_type.   |                |
+    |                          | Reference fields marked with       |                |
+    |                          | ``_REFERENCE_FIELDS`` attribute.   |                |
     +--------------------------+------------------------------------+----------------+
     |  * "isodatetime"         | ASCII ISO8061 datetime string.     | variable       |
     |                          | For example                        |                |
@@ -336,33 +323,22 @@ The mappings of data types is as follows
 
 .. note::
 
-    In zarr v3, string and reference fields within compound dtypes are stored as fixed-length
-    Unicode strings (``FixedLengthUTF32``). The string length is dynamically sized to fit the
-    actual data, with a minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH`
-    characters to allow for appending rows with longer values. Reference fields are stored as
-    JSON-serialized strings within these fixed-length fields.
+    Compound data types use zarr v3's native ``structured`` data_type, which carries full field
+    information (names and types). No ``_COMPOUND_DTYPE`` attribute is needed.
+
+    String and reference fields within compound dtypes are stored as fixed-length Unicode strings
+    (``FixedLengthUTF32``). The string length is dynamically sized to fit the actual data, with a
+    minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH` characters.
+    Reference fields store plain target path strings (not JSON dicts).
+
+    If a compound dataset contains reference fields, the ``_REFERENCE_FIELDS`` attribute lists
+    which field names contain references. For example: ``_REFERENCE_FIELDS = ["electrode", "group"]``.
 
 .. note::
 
-    For compound dtypes, the ``zarr_dtype`` attribute is stored as a list of dictionaries,
-    where each dictionary describes a field in the compound type. For example:
-
-    .. code-block:: json
-
-        "zarr_dtype": [
-            {
-                "dtype": "uint32",
-                "name": "x"
-            },
-            {
-                "dtype": "uint32",
-                "name": "y"
-            },
-            {
-                "dtype": "float32",
-                "name": "weight"
-            }
-        ]
+    Scalar datasets are marked with the ``_SCALAR = true`` attribute. The dataset has shape ``(1,)``
+    and the dtype matches the original data type (numeric scalars preserve their native dtype;
+    strings use ``StringDType``).
 
 
 .. _sec-zarr-caching-specifications:

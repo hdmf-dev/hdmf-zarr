@@ -3,6 +3,7 @@
 # Python imports
 import itertools
 import json
+import math
 import os
 import shutil
 import warnings
@@ -13,6 +14,7 @@ import logging
 # Zarr imports
 import zarr
 from zarr import Group, Array
+from zarr.abc.store import Store as _ZarrStoreABC
 from zarr.storage import LocalStore
 try:
     from zarr.storage import FsspecStore
@@ -78,10 +80,20 @@ Minimum fixed-length Unicode string size (in characters) for string and referenc
 dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
 """
 
-SUPPORTED_ZARR_STORES = (LocalStore,) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore)
+SUPPORTED_ZARR_STORES = (
+    (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE
+    else (LocalStore, FsspecStore, _ZarrStoreABC)
+)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
+
+
+def _unwrap_ref(val):
+    """Unwrap a _REFERENCE dict to a plain path string, or return as-is."""
+    if isinstance(val, dict) and "_REFERENCE" in val:
+        return val["_REFERENCE"]["path"]
+    return val
 
 
 class ZarrIO(HDMFIO):
@@ -351,7 +363,8 @@ class ZarrIO(HDMFIO):
             warnings.warn(msg)
             return {}
 
-        spec_group = f[f.attrs[SPEC_LOC_ATTR]]
+        spec_loc = _unwrap_ref(f.attrs[SPEC_LOC_ATTR])
+        spec_group = f[spec_loc]
         if namespaces is None:
             namespaces = list(spec_group.keys())
 
@@ -444,7 +457,7 @@ class ZarrIO(HDMFIO):
         ref = self.__file.attrs.get(SPEC_LOC_ATTR)
         spec_group = None
         if ref is not None:
-            spec_group = self.__file[ref]
+            spec_group = self.__file[_unwrap_ref(ref)]
         else:
             path = DEFAULT_SPEC_LOC_DIR  # do something to figure out where the specifications should go
             spec_group = self.__file.require_group(path)
@@ -817,13 +830,12 @@ class ZarrIO(HDMFIO):
             # Case 2: References
             elif isinstance(value, (Builder, ReferenceBuilder)):
                 refs = self._create_ref(value, ref_link_source=self.path)
-                # Convert ZarrReference to plain dict for JSON serialization.
-                # ZarrReference's __init__ uses docval which prevents reconstruction
-                # by zarr's attribute serialization (dataclasses._asdict_inner).
-                tmp = {"zarr_dtype": "object", "value": dict(refs)}
+                tmp = {"_REFERENCE": dict(refs)}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
             else:
+                # Encode NaN/Inf floats as strings (JSON doesn't support them)
+                value = self._encode_nan_inf(value)
                 # Attempt to write the attribute
                 try:
                     obj.attrs[key] = value
@@ -841,6 +853,33 @@ class ZarrIO(HDMFIO):
                     except:  # noqa: E722
                         msg = str(e) + "key=" + key + " type=" + str(type(value)) + "  data=" + str(value)
                         raise TypeError(msg) from e
+
+    @staticmethod
+    def _encode_nan_inf(value):
+        """Encode NaN/Inf float values as strings for JSON-safe attribute storage."""
+        if isinstance(value, float):
+            if math.isnan(value):
+                return "NaN"
+            elif math.isinf(value):
+                return "Infinity" if value > 0 else "-Infinity"
+        elif isinstance(value, (np.floating,)):
+            if np.isnan(value):
+                return "NaN"
+            elif np.isinf(value):
+                return "Infinity" if value > 0 else "-Infinity"
+        return value
+
+    @staticmethod
+    def _decode_nan_inf(value):
+        """Decode NaN/Inf string representations back to float values."""
+        if isinstance(value, str):
+            if value == "NaN":
+                return float("nan")
+            elif value == "Infinity":
+                return float("inf")
+            elif value == "-Infinity":
+                return float("-inf")
+        return value
 
     def __get_path(self, builder):
         """Get the path to the builder.
@@ -879,7 +918,7 @@ class ZarrIO(HDMFIO):
         elif isinstance(dtype, np.dtype):
             return False
         else:
-            return dtype == DatasetBuilder.OBJECT_REF_TYPE
+            return dtype in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference")
 
     def resolve_ref(self, zarr_ref):
         """
@@ -892,13 +931,19 @@ class ZarrIO(HDMFIO):
         :return: 1) name of the target object
                  2) the target zarr object within the target file
         """
-        # In zarr v3, references may be stored as JSON strings or numpy StringDType scalars
+        # In zarr v3, references may be stored as plain path strings, JSON strings,
+        # or numpy StringDType scalars
         if isinstance(zarr_ref, np.ndarray):
             if zarr_ref.ndim != 0:
                 raise ValueError(f"Expected scalar np.ndarray for zarr_ref, got shape {zarr_ref.shape}")
             zarr_ref = zarr_ref[()]
         if isinstance(zarr_ref, str):
-            zarr_ref = json.loads(zarr_ref)
+            # Try JSON first (backward compat), fall back to plain path string
+            try:
+                zarr_ref = json.loads(zarr_ref)
+            except json.JSONDecodeError:
+                # Plain path string — treat as same-file reference
+                zarr_ref = {"source": ".", "path": zarr_ref}
 
         # Self-reference (`source == "."`): the target lives in this same store. Reuse
         # the already-open file directly. Without this guard, the remote branch below
@@ -916,34 +961,41 @@ class ZarrIO(HDMFIO):
             return target_name, target_zarr_obj
 
         # Extract the path as defined in the zarr_ref object
-        if zarr_ref.get("source", None) is None:
-            source_file = str(zarr_ref["path"])
-        else:
-            source_file = str(zarr_ref["source"])
-
-        if not self.is_remote():
-            if isinstance(self.source, str) and self.source.startswith(("s3://")):
-                source_file = self.source
-            else:
-                # Join with source_file to resolve the relative path; use abspath for consistent comparisons
-                source_file = os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
-        else:
-            # get rid of extra "/" and "./" in the path root and source_file
-            root_path = str(self.path).rstrip("/")
-            source_path = str(source_file).lstrip(".")
-            source_file = root_path + source_path
-
+        source = zarr_ref.get("source", None)
         object_path = zarr_ref.get("path", None)
+
         if object_path:
             target_name = os.path.basename(object_path)
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = self.__open_file_consolidated(
-            store=source_file,
-            mode="r",
-            storage_options=self.__storage_options,
-        )
+        # For same-file references (source is "." or None) when using a non-path store,
+        # navigate within the already-open file instead of trying to open a new store.
+        is_same_file = source is None or source == "."
+        is_store_path = isinstance(self.path, SUPPORTED_ZARR_STORES) and not isinstance(self.path, LocalStore)
+        if is_same_file and is_store_path:
+            target_zarr_obj = self.__file
+        else:
+            if source is None:
+                source_file = str(zarr_ref["path"])
+            else:
+                source_file = str(source)
+
+            if not self.is_remote():
+                if isinstance(self.source, str) and self.source.startswith(("s3://")):
+                    source_file = self.source
+                else:
+                    source_file = os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
+            else:
+                root_path = str(self.path).rstrip("/")
+                source_path = str(source_file).lstrip(".")
+                source_file = root_path + source_path
+
+            target_zarr_obj = self.__open_file_consolidated(
+                store=source_file,
+                mode="r",
+                storage_options=self.__storage_options,
+            )
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -954,7 +1006,8 @@ class ZarrIO(HDMFIO):
 
     def _create_ref(self, ref_object, ref_link_source=None):
         """
-        Create a ZarrReference object that points to the given container
+        Create a ZarrReference object that points to the given container.
+        Only stores ``source`` and ``path`` — the minimal info needed to resolve a reference.
 
         :param ref_object: the object to be referenced
         :type ref_object: Builder, Container, ReferenceBuilder
@@ -969,24 +1022,6 @@ class ZarrIO(HDMFIO):
             builder = ref_object.builder
 
         path = self.__get_path(builder)  # This is the internal path in the store to the item.
-
-        # get the object id if available
-        object_id = builder.get("object_id", None)
-        # determine the object_id of the source by following the parents of the builder until we find the root
-        # the root builder should be the same as the source file containing the reference
-        curr = builder
-        while curr is not None and curr.name != ROOT_NAME:
-            curr = curr.parent
-
-        if curr:
-            source_object_id = curr.get("object_id", None)
-        # We did not find ROOT_NAME as a parent. This should only happen if we have an invalid
-        # file as a source, e.g., if during testing we use an arbitrary builder. We check this
-        # anyways to avoid potential errors just in case
-        else:
-            source_object_id = None
-            warn_msg = "Could not determine source_object_id for builder with path: %s" % path
-            warnings.warn(warn_msg)
 
         # by checking os.isdir makes sure we have a valid link path to a dir for Zarr. For conversion
         # between backends a user should always use export which takes care of creating a clean set of builders.
@@ -1025,8 +1060,6 @@ class ZarrIO(HDMFIO):
         ref = ZarrReference(
             source=rel_source,
             path=path,
-            object_id=object_id,
-            source_object_id=source_object_id,
         )
         return ref
 
@@ -1041,13 +1074,13 @@ class ZarrIO(HDMFIO):
         :param link_name: Name of the link
         :type link_name: str
         """
-        if "zarr_link" not in parent.attrs:
-            parent.attrs["zarr_link"] = []
-        zarr_link = list(parent.attrs["zarr_link"])
+        if "_LINKS" not in parent.attrs:
+            parent.attrs["_LINKS"] = []
+        links = list(parent.attrs["_LINKS"])
         if not isinstance(target_source, str):  # a store
             target_source = self.__get_store_path(target_source)
-        zarr_link.append({"source": target_source, "path": target_path, "name": link_name})
-        parent.attrs["zarr_link"] = zarr_link
+        links.append({"source": target_source, "path": target_path, "name": link_name})
+        parent.attrs["_LINKS"] = links
 
     @docval(
         {"name": "parent", "type": Group, "doc": "the parent Zarr object"},
@@ -1133,7 +1166,7 @@ class ZarrIO(HDMFIO):
                 io_settings["dtype"] = cls.__dtypes.get(io_settings["dtype"])
         try:
             dset = parent.create_array(name, **io_settings)
-            dset.attrs["zarr_dtype"] = np.dtype(io_settings["dtype"]).str
+            dset.attrs["_DTYPE"] = np.dtype(io_settings["dtype"]).str
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
@@ -1285,16 +1318,16 @@ class ZarrIO(HDMFIO):
             if len(data) > 0 and isinstance(data[0], Container):
                 ref_data = [self._create_ref(data[i], ref_link_source=self.path) for i in range(len(data))]
                 shape = (len(data),)
-                type_str = "object"
-                # Serialize references as JSON strings
-                json_refs = [json.dumps(dict(r)) for r in ref_data]
+                type_str = "object_reference"
+                # Store references as plain path strings
+                json_refs = [r["path"] for r in ref_data]
                 dset = parent.require_array(
                     name,
                     shape=shape,
                     dtype=np.dtypes.StringDType(),
                     **options["io_settings"],
                 )
-                dset.attrs["zarr_dtype"] = type_str
+                dset.attrs["_DTYPE"] = type_str
                 for i, jr in enumerate(json_refs):
                     dset[i] = jr
                 self._written_builders.set_written(builder)  # record that the builder has been written
@@ -1315,7 +1348,7 @@ class ZarrIO(HDMFIO):
             for i, dts in enumerate(options["dtype"]):
                 if self.__is_ref(dts["dtype"]):
                     refs.append(i)
-                    type_str.append({"name": dts["name"], "dtype": "object"})
+                    type_str.append({"name": dts["name"], "dtype": "object_reference"})
                 else:
                     i = [
                         dts,
@@ -1362,16 +1395,22 @@ class ZarrIO(HDMFIO):
                 str_fields = {}  # field_name -> list of string values
                 for field in options["dtype"]:
                     field_name = field["name"]
+                    is_ref_field = (
+                        field["dtype"] == "object" or isinstance(field["dtype"], dict)
+                    )
                     is_str_field = (
                         field["dtype"] is str
-                        or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime", "object")
-                        or isinstance(field["dtype"], dict)
+                        or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime")
+                        or is_ref_field
                     )
                     if is_str_field:
                         str_vals = []
                         for idx in range(len(arr)):
                             val = arr[field_name][idx]
-                            if isinstance(val, dict):
+                            if is_ref_field and isinstance(val, dict):
+                                # Store reference as plain path string
+                                str_vals.append(val.get("path", ""))
+                            elif isinstance(val, dict):
                                 str_vals.append(json.dumps(val))
                             else:
                                 str_vals.append(str(val) if val is not None else "")
@@ -1405,7 +1444,13 @@ class ZarrIO(HDMFIO):
                     dtype=dtype_v3,
                     **options["io_settings"],
                 )
-                dset.attrs["zarr_dtype"] = type_str
+                # Mark which fields contain references
+                ref_field_names = [
+                    dts["name"] for dts in type_str
+                    if isinstance(dts, dict) and dts.get("dtype") == "object_reference"
+                ]
+                if ref_field_names:
+                    dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
                 dset[...] = new_arr
             else:
                 # write a compound datatype
@@ -1416,14 +1461,14 @@ class ZarrIO(HDMFIO):
             # We only support external links.
             if isinstance(data, ReferenceBuilder):
                 shape = (1,)
-                type_str = "object"
+                type_str = "object_reference"
                 refs = self._create_ref(data, ref_link_source=self.path)
             else:
                 shape = (len(data),)
-                type_str = "object"
+                type_str = "object_reference"
                 refs = [self._create_ref(item, ref_link_source=self.path) for item in data]
 
-            # Serialize references as JSON strings
+            # Store references as plain path strings
             dset = parent.require_array(
                 name,
                 shape=shape,
@@ -1431,13 +1476,12 @@ class ZarrIO(HDMFIO):
                 **options["io_settings"],
             )
             self._written_builders.set_written(builder)  # record that the builder has been written
-            dset.attrs["zarr_dtype"] = type_str
+            dset.attrs["_DTYPE"] = type_str
             if hasattr(refs, "__len__") and not isinstance(refs, dict):
-                json_refs = [json.dumps(dict(r)) for r in refs]
-                for i, jr in enumerate(json_refs):
-                    dset[i] = jr
+                for i, r in enumerate(refs):
+                    dset[i] = r["path"]
             else:
-                dset[0] = json.dumps(dict(refs))
+                dset[0] = refs["path"]
         # write a 'regular' dataset without DatasetIO info
         else:
             if isinstance(data, (str, bytes)):
@@ -1545,7 +1589,11 @@ class ZarrIO(HDMFIO):
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
 
-    __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
+    __reserve_attribute = (
+        "_DTYPE", "_SCALAR", "_LINKS", "_REFERENCE_FIELDS",
+        "zarr_dtype", "zarr_link",  # backward compat with old convention
+        SPEC_LOC_ATTR,
+    )
 
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
@@ -1635,7 +1683,10 @@ class ZarrIO(HDMFIO):
         # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
         zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
         dset = parent.require_array(name, shape=data_shape, dtype=zarr_dtype, **io_settings)
-        dset.attrs["zarr_dtype"] = type_str
+        # Zarr v3's structured data_type carries compound field info natively,
+        # so no _COMPOUND_DTYPE attribute is needed. Only set _DTYPE for non-compound types.
+        if not isinstance(type_str, list):
+            dset.attrs["_DTYPE"] = type_str
 
         # Write the data to file
         if dtype == str:  # noqa: E721
@@ -1693,8 +1744,7 @@ class ZarrIO(HDMFIO):
         if isinstance(data, (bytes, np.bytes_)):
             data = data.decode("utf-8")
         dset[:] = data
-        type_str = "scalar"
-        dset.attrs["zarr_dtype"] = type_str
+        dset.attrs["_SCALAR"] = True
         return dset
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
@@ -1703,7 +1753,7 @@ class ZarrIO(HDMFIO):
         ignore_groups = set()
         specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
         if specloc is not None:
-            ignore_groups.add(self.__file[specloc].name)
+            ignore_groups.add(self.__file[_unwrap_ref(specloc)].name)
         f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
         return f_builder
 
@@ -1798,9 +1848,18 @@ class ZarrIO(HDMFIO):
         """
         Read the links associated with a zarr group
         """
-        # read links
-        if "zarr_link" in zarr_obj.attrs:
+        # read links — check new attribute name first, then fall back to old name
+        if "_LINKS" in zarr_obj.attrs:
+            links = zarr_obj.attrs["_LINKS"]
+        elif "zarr_link" in zarr_obj.attrs:
             links = zarr_obj.attrs["zarr_link"]
+            warnings.warn(
+                "Found deprecated 'zarr_link' attribute. Use '_LINKS' instead.",
+                DeprecationWarning,
+            )
+        else:
+            links = None
+        if links is not None:
             for link in links:
                 link_name = link["name"]
                 target_name, target_zarr_obj = self.resolve_ref(link)
@@ -1819,15 +1878,51 @@ class ZarrIO(HDMFIO):
         if ret is not None:
             return ret
 
-        if "zarr_dtype" in zarr_obj.attrs:
+        # Resolve dtype from new unified convention attributes, with backward compat for old names
+        is_scalar = zarr_obj.attrs.get("_SCALAR", False)
+        dtype_attr = zarr_obj.attrs.get("_DTYPE", None)
+        ref_fields = zarr_obj.attrs.get("_REFERENCE_FIELDS", None)
+
+        if zarr_obj.attrs.get("_COMPOUND_DTYPE", None) is not None:
+            raise ValueError(
+                "_COMPOUND_DTYPE attribute is no longer supported on dataset '%s'. "
+                "Use zarr v3 structured data_type with _REFERENCE_FIELDS instead." % str(name)
+            )
+
+        compound_dtype = None
+        if hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
+            # Reconstruct compound dtype descriptor from zarr v3 structured data_type
+            compound_dtype = []
+            for field_name in zarr_obj.dtype.names:
+                if ref_fields and field_name in ref_fields:
+                    compound_dtype.append({"name": field_name, "dtype": "object_reference"})
+                else:
+                    field_dt = self.__serial_dtype__(zarr_obj.dtype[field_name])
+                    compound_dtype.append({"name": field_name, "dtype": field_dt})
+
+        if compound_dtype is not None:
+            zarr_dtype = compound_dtype
+        elif dtype_attr is not None:
+            # Map "object_reference" to hdmf's "object" for compatibility
+            zarr_dtype = "object" if dtype_attr == "object_reference" else dtype_attr
+        elif is_scalar:
+            zarr_dtype = "scalar"
+        elif "zarr_dtype" in zarr_obj.attrs:
+            # Backward compat: old convention stored everything in zarr_dtype
             zarr_dtype = zarr_obj.attrs["zarr_dtype"]
-        elif hasattr(zarr_obj, "dtype"):  # Fallback for invalid files that are missing zarr_type
+            warnings.warn(
+                "Found deprecated 'zarr_dtype' attribute on dataset '%s'. "
+                "Use '_DTYPE' or '_SCALAR' instead." % str(name),
+                DeprecationWarning,
+            )
+        elif hasattr(zarr_obj, "dtype"):  # Fallback for invalid files
             zarr_dtype = zarr_obj.dtype
             warnings.warn(
-                "Inferred dtype from zarr type. Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj)
+                "Inferred dtype from zarr type. Dataset missing dtype attributes: "
+                + str(name) + "   " + str(zarr_obj)
             )
         else:
-            raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
+            raise ValueError("Dataset missing dtype attributes: " + str(name) + "   " + str(zarr_obj))
 
         source = self.__get_store_path(zarr_obj.store)
 
@@ -1851,7 +1946,7 @@ class ZarrIO(HDMFIO):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):
-                if dts["dtype"] == "object":  # check items for object reference
+                if dts["dtype"] in ("object", "object_reference"):
                     has_reference = True
                     break
             retrieved_dtypes = [dtype_dict["dtype"] for dtype_dict in dtype]
@@ -1883,7 +1978,21 @@ class ZarrIO(HDMFIO):
         for k in zarr_obj.attrs.keys():
             if k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
-                if isinstance(v, dict) and "zarr_dtype" in v:
+                # New convention: references wrapped with _REFERENCE key
+                if isinstance(v, dict) and "_REFERENCE" in v:
+                    ref_data = v["_REFERENCE"]
+                    target_name, target_zarr_obj = self.resolve_ref(ref_data)
+                    if isinstance(target_zarr_obj, Group):
+                        ret[k] = self.__read_group(target_zarr_obj, target_name)
+                    else:
+                        ret[k] = self.__read_dataset(target_zarr_obj, target_name)
+                # Backward compat: old convention with zarr_dtype wrapper
+                elif isinstance(v, dict) and "zarr_dtype" in v:
+                    warnings.warn(
+                        "Found deprecated 'zarr_dtype' reference format in attribute '%s'. "
+                        "Use '_REFERENCE' wrapper instead." % k,
+                        DeprecationWarning,
+                    )
                     if v["zarr_dtype"] == "object":
                         target_name, target_zarr_obj = self.resolve_ref(v["value"])
                         if isinstance(target_zarr_obj, Group):
@@ -1893,5 +2002,6 @@ class ZarrIO(HDMFIO):
                     else:
                         raise NotImplementedError("Unsupported zarr_dtype for attribute " + str(v))
                 else:
-                    ret[k] = v
+                    # Decode NaN/Inf string representations back to float
+                    ret[k] = self._decode_nan_inf(v)
         return ret
