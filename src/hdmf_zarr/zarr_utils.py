@@ -43,6 +43,42 @@ class ZarrDataset(HDMFDataset):
         return self.dataset.shape
 
 
+class ZarrStringDataset(ZarrDataset):
+    """
+    Lazy wrapper for Zarr arrays whose dtype is ``numpy.dtypes.StringDType``.
+
+    In zarr-python v3, variable-length string datasets are stored with numpy's
+    ``StringDType``. Neither h5py nor HDMF's generic dtype inference handle that
+    dtype directly, so on read we wrap the array in this class instead of
+    materializing it (e.g. ``list(zarr_obj[:])``). Materializing would pull an
+    entire (potentially millions-of-entries) column into memory on open and, for
+    multidimensional arrays, would collapse to a list of row arrays that no longer
+    supports ``data[i, j]`` indexing or exposes ``shape``/``dtype``.
+
+    Accessed elements are decoded to native Python ``str`` on demand so that other
+    backends (e.g. ``HDF5IO``) can consume them while chunked/lazy access is
+    preserved. ``dtype`` is reported as object so HDMF infers a ``utf8`` (variable
+    length string) type when re-building the dataset.
+    """
+
+    @property
+    def dtype(self):
+        return np.dtype(object)
+
+    def __getitem__(self, arg):
+        value = self.dataset[arg]
+        if isinstance(value, np.ndarray):
+            # Convert StringDType -> object array of native Python str, preserving shape
+            return value.astype(object)
+        # Single element access returns a scalar Python str
+        return str(value)
+
+    def __array__(self, dtype=None):
+        # Support np.asarray(...) used by consumers such as h5py during export
+        arr = self.dataset[:].astype(object)
+        return arr.astype(dtype) if dtype is not None else arr
+
+
 class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
     """
     An extension of the base ReferenceResolver class to add more abstract methods for

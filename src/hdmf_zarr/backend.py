@@ -21,7 +21,7 @@ except ImportError:
 
 # HDMF-ZARR imports
 from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
-from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset, ZarrStringDataset
 
 # HDMF imports
 from hdmf.backends.io import HDMFIO
@@ -1847,10 +1847,11 @@ class ZarrIO(HDMFIO):
         elif self.__is_ref(dtype):
             # Array of references
             data = BuilderZarrReferenceDataset(data, self)
-        # Eagerly load StringDType arrays so other backends (e.g. HDF5IO) can handle them.
+        # Wrap StringDType arrays in a lazy decoder so other backends (e.g. HDF5IO) can
+        # handle them without materializing the whole dataset on open.
         # Must be after reference checks since references are also stored as StringDType.
         elif isinstance(zarr_obj.dtype, np.dtypes.StringDType) and dtype != "scalar":
-            data = list(zarr_obj[:])
+            data = ZarrStringDataset(zarr_obj, self)
 
         kwargs["data"] = data
         if name is None:

@@ -411,3 +411,49 @@ class TestGenerateDatasetHtml(TestCase):
         # Verify that HTML is generated and contains expected content
         self.assertIsInstance(html, str)
         self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)
+
+
+class TestZarrStringDataset(TestCase):
+    """Tests for the lazy StringDType wrapper used when reading string datasets."""
+
+    def _make_dataset(self, shape, values):
+        from hdmf_zarr.zarr_utils import ZarrStringDataset
+
+        store = zarr.storage.MemoryStore()
+        z = zarr.create_array(store, shape=shape, dtype=np.dtypes.StringDType())
+        z[:] = np.array(values, dtype=np.dtypes.StringDType())
+        # io is only stored on the wrapper; bypass ZarrIO.__init__ for the unit test
+        io = object.__new__(ZarrIO)
+        return ZarrStringDataset(z, io)
+
+    def test_lazy_no_materialization_on_open(self):
+        """Wrapping a dataset must not read the underlying array."""
+        reads = []
+        orig = zarr.Array.__getitem__
+        zarr.Array.__getitem__ = lambda self, key: (reads.append(key) or orig(self, key))
+        try:
+            wrapper = self._make_dataset((3,), ["alpha", "beta", "gamma"])
+            self.assertEqual(reads, [])  # nothing read just by wrapping
+            self.assertEqual(wrapper[0], "alpha")  # single-element access reads one element
+            self.assertEqual(reads, [0])
+        finally:
+            zarr.Array.__getitem__ = orig
+
+    def test_shape_dtype_len_preserved(self):
+        wrapper = self._make_dataset((2, 2), [["a", "b"], ["c", "d"]])
+        self.assertEqual(wrapper.shape, (2, 2))
+        self.assertEqual(wrapper.dtype, np.dtype(object))
+        self.assertEqual(len(wrapper), 2)
+
+    def test_scalar_and_slice_decoding(self):
+        wrapper = self._make_dataset((3,), ["alpha", "beta", "gamma"])
+        self.assertEqual(wrapper[0], "alpha")
+        self.assertIsInstance(wrapper[0], str)
+        self.assertEqual(list(wrapper[:]), ["alpha", "beta", "gamma"])
+
+    def test_multidimensional_indexing(self):
+        """A 2-D string dataset must support data[i, j] indexing."""
+        wrapper = self._make_dataset((2, 2), [["a", "b"], ["c", "d"]])
+        self.assertEqual(wrapper[1, 1], "d")
+        self.assertEqual(wrapper[0, 1], "b")
+        self.assertEqual(np.asarray(wrapper).shape, (2, 2))
