@@ -413,50 +413,48 @@ class TestGenerateDatasetHtml(TestCase):
         self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)
 
 
-class TestZarrStringDataset(TestCase):
-    """Tests for the lazy StringDType wrapper used when reading string datasets."""
+class TestStringDatasetRead(TestCase):
+    """
+    On read, StringDType (zarr v3 variable-length string) datasets are decoded to a numpy
+    object array of native Python str. This preserves shape/dtype and N-D ``data[i, j]``
+    indexing (unlike ``list(zarr_obj[:])``) and yields a type that HDMF's dtype machinery
+    recognizes on re-write (unlike numpy's StringDType, whose kind "T" is not understood).
+    """
 
-    def _make_dataset(self, shape, values):
-        from hdmf_zarr.zarr_utils import ZarrStringDataset
+    def setUp(self):
+        self.paths = []
 
-        store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=shape, dtype=np.dtypes.StringDType())
-        z[:] = np.array(values, dtype=np.dtypes.StringDType())
-        # io is only stored on the wrapper; bypass ZarrIO.__init__ for the unit test
-        io = object.__new__(ZarrIO)
-        return ZarrStringDataset(z, io)
+    def tearDown(self):
+        for path in self.paths:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
 
-    def test_lazy_no_materialization_on_open(self):
-        """Wrapping a dataset must not read the underlying array."""
-        reads = []
-        orig = zarr.Array.__getitem__
-        zarr.Array.__getitem__ = lambda self, key: (reads.append(key) or orig(self, key))
-        try:
-            wrapper = self._make_dataset((3,), ["alpha", "beta", "gamma"])
-            self.assertEqual(reads, [])  # nothing read just by wrapping
-            self.assertEqual(wrapper[0], "alpha")  # single-element access reads one element
-            self.assertEqual(reads, [0])
-        finally:
-            zarr.Array.__getitem__ = orig
+    def _roundtrip(self, data):
+        from hdmf.common import DynamicTable, VectorData, get_manager
 
-    def test_shape_dtype_len_preserved(self):
-        wrapper = self._make_dataset((2, 2), [["a", "b"], ["c", "d"]])
-        self.assertEqual(wrapper.shape, (2, 2))
-        self.assertEqual(wrapper.dtype, np.dtype(object))
-        self.assertEqual(len(wrapper), 2)
+        path = f"test_stringdata_{len(self.paths)}.zarr"
+        self.paths.append(path)
+        col = VectorData(name="text", description="d", data=data)
+        table = DynamicTable(name="tbl", description="d", columns=[col])
+        with ZarrIO(path, manager=get_manager(), mode="w") as io:
+            io.write(table)
+        read_io = ZarrIO(path, manager=get_manager(), mode="r")
+        self.addCleanup(read_io.close)
+        return read_io.read()["text"].data
 
-    def test_scalar_and_slice_decoding(self):
-        wrapper = self._make_dataset((3,), ["alpha", "beta", "gamma"])
-        self.assertEqual(wrapper[0], "alpha")
-        self.assertIsInstance(wrapper[0], str)
-        self.assertEqual(list(wrapper[:]), ["alpha", "beta", "gamma"])
+    def test_1d_decoded_to_object_str(self):
+        data = self._roundtrip(["alpha", "beta", "gamma"])
+        self.assertEqual(data.dtype, np.dtype(object))
+        self.assertEqual(data.shape, (3,))
+        self.assertIsInstance(data[0], str)
+        self.assertEqual(list(data[:]), ["alpha", "beta", "gamma"])
 
-    def test_multidimensional_indexing(self):
-        """A 2-D string dataset must support data[i, j] indexing."""
-        wrapper = self._make_dataset((2, 2), [["a", "b"], ["c", "d"]])
-        self.assertEqual(wrapper[1, 1], "d")
-        self.assertEqual(wrapper[0, 1], "b")
-        self.assertEqual(np.asarray(wrapper).shape, (2, 2))
+    def test_2d_supports_multidimensional_indexing(self):
+        """A 2-D string dataset must support data[i, j] indexing (regression: list(...) did not)."""
+        data = self._roundtrip([["a", "b"], ["c", "d"]])
+        self.assertEqual(data.shape, (2, 2))
+        self.assertEqual(data[1, 1], "d")
+        self.assertEqual(data[0, 1], "b")
 
 
 class TestPathNormalization(TestCase):
