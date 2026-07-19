@@ -42,6 +42,15 @@ class NWBZarrIO(ZarrIO):
     of the NWB format.
     """
 
+    _zarr_v2_backend_name = "NWBZarrV2IO"
+
+    @classmethod
+    def _zarr_v2_read_error_message(cls, source):
+        """Extend the base v2 read-error message with the NWB convert helper."""
+        return super()._zarr_v2_read_error_message(source) + (
+            " Or convert it to Zarr v3 with NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
+        )
+
     @docval(
         *get_docval(ZarrIO.__init__),
         {
@@ -61,9 +70,7 @@ class NWBZarrIO(ZarrIO):
         path, mode, manager, extensions, load_namespaces, storage_options = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-        manager = _build_nwb_manager(
-            type(self), path, mode, manager, extensions, load_namespaces, storage_options
-        )
+        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(

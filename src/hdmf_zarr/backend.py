@@ -106,6 +106,10 @@ class ZarrIO(HDMFIO):
     #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
     _reads_zarr_v2 = False
 
+    #: Name of the read-only Zarr v2 backend recommended when this v3 backend is pointed at a
+    #: Zarr v2 file. NWB-layer subclasses override it so the hint names their own class.
+    _zarr_v2_backend_name = "ZarrV2IO"
+
     @staticmethod
     def can_read(path):
         try:
@@ -285,7 +289,7 @@ class ZarrIO(HDMFIO):
                     and self.mode in ("r", "r-")
                     and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
                 ):
-                    raise ValueError(self._zarr_v2_read_error_message(self.source, type(self).__name__)) from e
+                    raise ValueError(self._zarr_v2_read_error_message(self.source)) from e
                 raise
 
     def close(self):
@@ -346,7 +350,7 @@ class ZarrIO(HDMFIO):
                 # Opening a Zarr v2 file with the Zarr v3 backend fails here with a
                 # cryptic error. Point the user at the Zarr v2 backend instead.
                 if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
-                    raise ValueError(cls._zarr_v2_read_error_message(path, cls.__name__)) from e
+                    raise ValueError(cls._zarr_v2_read_error_message(path)) from e
                 raise
         else:
             f = file
@@ -1809,14 +1813,12 @@ class ZarrIO(HDMFIO):
                 raise ValueError(self._zarr_v2_read_error_message(self.source, type(self).__name__)) from e
             raise
 
-    @staticmethod
-    def _zarr_v2_read_error_message(source, io_cls_name):
+    @classmethod
+    def _zarr_v2_read_error_message(cls, source):
         """Build the error shown when a Zarr v2 file is opened with the Zarr v3 backend."""
         return (
-            f"Failed to read '{source}' with {io_cls_name}, which reads Zarr v3 files, but this "
-            "path is a Zarr v2 file. Open it read-only with the Zarr v2 backend (NWBZarrV2IO for "
-            "NWB files, or ZarrV2IO), or convert it to Zarr v3 with "
-            "NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
+            f"Failed to read '{source}' with {cls.__name__}, which reads Zarr v3 files, but this "
+            f"path is a Zarr v2 file. Open it read-only with {cls._zarr_v2_backend_name}."
         )
 
     @classmethod

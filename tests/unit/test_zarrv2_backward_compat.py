@@ -29,7 +29,7 @@ import warnings
 
 import numpy as np
 
-from hdmf_zarr import NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
+from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -204,6 +204,18 @@ class TestV2ReadWithV3Backend(unittest.TestCase):
                 with NWBZarrIO(_V2_FILE, mode="r", load_namespaces=False) as io:
                     io.read()
         self._assert_helpful_v2_error(cm)
+
+    def test_plain_zarrio_message_stays_in_hdmf_layer(self):
+        """The base ZarrIO must point at ZarrV2IO and not reference the NWB-layer classes."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(ValueError) as cm:
+                ZarrIO(_V2_FILE, mode="r")
+        msg = str(cm.exception)
+        self.assertIn("Zarr v2 file", msg)
+        self.assertIn("ZarrV2IO", msg)
+        self.assertNotIn("NWBZarrV2IO", msg)
+        self.assertNotIn("NWBZarrIO", msg)
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
