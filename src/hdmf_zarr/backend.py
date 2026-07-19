@@ -15,8 +15,10 @@ from zarr import Group, Array
 from zarr.abc.codec import Codec as ZarrV3Codec
 from zarr.registry import get_codec_class
 from zarr.storage import LocalStore
+
 try:
     from zarr.storage import FsspecStore
+
     FSSPECSTORE_AVAILABLE = True
 except ImportError:
     FSSPECSTORE_AVAILABLE = False
@@ -48,6 +50,7 @@ if not hasattr(Array, "__len__"):
 # supports __getitem__. Add __iter__ to keep the array lazy while satisfying the
 # Iterable interface, matching zarr v2 / numpy behavior.
 if not hasattr(Array, "__iter__"):
+
     def _zarr_array_iter(self):
         for i in range(len(self)):
             yield self[i]
@@ -98,6 +101,10 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 
 
 class ZarrIO(HDMFIO):
+
+    #: Whether this backend reads Zarr v2 files. False for the Zarr v3 ``ZarrIO``;
+    #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
+    _reads_zarr_v2 = False
 
     @staticmethod
     def can_read(path):
@@ -230,7 +237,6 @@ class ZarrIO(HDMFIO):
         """The absolute path to the Zarr file"""
         return os.path.abspath(self.source)
 
-
     @property
     def mode(self):
         """
@@ -255,21 +261,32 @@ class ZarrIO(HDMFIO):
 
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
-            if self.mode != "r":
-                # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
-                # use the regular mode r when r- is specified
-                mode_to_use = self.mode if self.mode != "r-" else "r"
-                self.__file = self._open_file(
-                    store=self.path,
-                    mode=mode_to_use,
-                    storage_options=self.__storage_options,
-                )
-            else:
-                self.__file = self._open_file_consolidated(
-                    store=self.path,
-                    mode=self.mode,
-                    storage_options=self.__storage_options,
-                )
+            try:
+                if self.mode != "r":
+                    # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
+                    # use the regular mode r when r- is specified
+                    mode_to_use = self.mode if self.mode != "r-" else "r"
+                    self.__file = self._open_file(
+                        store=self.path,
+                        mode=mode_to_use,
+                        storage_options=self.__storage_options,
+                    )
+                else:
+                    self.__file = self._open_file_consolidated(
+                        store=self.path,
+                        mode=self.mode,
+                        storage_options=self.__storage_options,
+                    )
+            except Exception as e:
+                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a cryptic
+                # error. Point the user at the Zarr v2 backend instead.
+                if (
+                    not self._reads_zarr_v2
+                    and self.mode in ("r", "r-")
+                    and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
+                ):
+                    raise ValueError(self._zarr_v2_read_error_message(self.source, type(self).__name__)) from e
+                raise
 
     def close(self):
         """Close the Zarr file"""
@@ -323,7 +340,14 @@ class ZarrIO(HDMFIO):
 
         if path is not None:
             store = cls._resolve_store(path, storage_options)
-            f = cls._open_for_namespaces(store)
+            try:
+                f = cls._open_for_namespaces(store)
+            except Exception as e:
+                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a
+                # cryptic error. Point the user at the Zarr v2 backend instead.
+                if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
+                    raise ValueError(cls._zarr_v2_read_error_message(path, cls.__name__)) from e
+                raise
         else:
             f = file
         return cls._load_namespaces(namespace_catalog, namespaces, f)
@@ -684,8 +708,10 @@ class ZarrIO(HDMFIO):
         """Resolve a store path to a Zarr store, using FsspecStore for remote paths."""
         if storage_options is not None:
             if not FSSPECSTORE_AVAILABLE:
-                raise ImportError("FsspecStore is required for remote storage but is not available. "
-                                  "Install fsspec to use remote storage options.")
+                raise ImportError(
+                    "FsspecStore is required for remote storage but is not available. "
+                    "Install fsspec to use remote storage options."
+                )
             return FsspecStore.from_url(str(store), storage_options=storage_options)
         return store
 
@@ -1169,7 +1195,7 @@ class ZarrIO(HDMFIO):
         """Convert a list of source codecs to zarr v3-compatible codecs.
 
         zarr v3 arrays can only be created with zarr v3 codecs. A zarr v2 source
-        (read via :class:`~hdmf_zarr.backend_v2.ZarrV2IO`) exposes numcodecs codecs
+        (read via :class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO`) exposes numcodecs codecs
         (e.g. ``numcodecs.Blosc``). These are mapped to their ``numcodecs.zarr3``
         wrappers via the zarr codec registry so the original compression/filters are
         preserved on export. Codecs that are already zarr v3 codecs are kept as-is,
@@ -1220,16 +1246,16 @@ class ZarrIO(HDMFIO):
         # v2 sources expose numcodecs codecs (e.g. numcodecs.Blosc) which zarr v3
         # rejects, so map them to their numcodecs.zarr3 wrappers (see _to_v3_codecs)
         # to preserve the original compression/filters on v2 -> v3 export.
-        if hasattr(source, 'compressors') and source.compressors:
+        if hasattr(source, "compressors") and source.compressors:
             compressors = ZarrIO._to_v3_codecs(source.compressors)
             if compressors:
-                kwargs['compressors'] = compressors
-        if hasattr(source, 'filters') and source.filters:
+                kwargs["compressors"] = compressors
+        if hasattr(source, "filters") and source.filters:
             filters = ZarrIO._to_v3_codecs(source.filters)
             if filters:
-                kwargs['filters'] = filters
-        if hasattr(source, 'fill_value'):
-            kwargs['fill_value'] = source.fill_value
+                kwargs["filters"] = filters
+        if hasattr(source, "fill_value"):
+            kwargs["fill_value"] = source.fill_value
 
         dest = dest_group.create_array(**kwargs)
         dest[:] = source[:]
@@ -1654,12 +1680,16 @@ class ZarrIO(HDMFIO):
                     # Use object dtype for string/flexible fields to avoid truncation
                     # when the original dtype has zero-length strings (e.g. <U0).
                     if not isinstance(data, np.ndarray):
-                        obj_dtype = np.dtype([
-                            (fn, "O") if (np.issubdtype(dtype[fn], np.flexible)
-                                          or np.issubdtype(dtype[fn], np.object_))
-                            else (fn, dtype[fn])
-                            for fn in dtype.names
-                        ])
+                        obj_dtype = np.dtype(
+                            [
+                                (
+                                    (fn, "O")
+                                    if (np.issubdtype(dtype[fn], np.flexible) or np.issubdtype(dtype[fn], np.object_))
+                                    else (fn, dtype[fn])
+                                )
+                                for fn in dtype.names
+                            ]
+                        )
                         data = np.array(data, dtype=obj_dtype)
                     # In zarr v3, convert string fields to fixed-length strings
                     # with lengths dynamically sized to fit the actual data, with a minimum
@@ -1759,13 +1789,49 @@ class ZarrIO(HDMFIO):
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
     def read_builder(self):
-        # ignore cached specs when reading builder
-        ignore_groups = set()
-        specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
-        if specloc is not None:
-            ignore_groups.add(self.__file[specloc].name)
-        f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
-        return f_builder
+        try:
+            # ignore cached specs when reading builder
+            ignore_groups = set()
+            specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
+            if specloc is not None:
+                ignore_groups.add(self.__file[specloc].name)
+            f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
+            return f_builder
+        except Exception as e:
+            # A common failure here is trying to read a Zarr v2 file with the Zarr v3
+            # backend: zarr-python raises a cryptic error deep in the read. Detect that
+            # case and re-raise with a message that points at the Zarr v2 backend.
+            if (
+                not self._reads_zarr_v2
+                and self.mode in ("r", "r-")
+                and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
+            ):
+                raise ValueError(self._zarr_v2_read_error_message(self.source, type(self).__name__)) from e
+            raise
+
+    @staticmethod
+    def _zarr_v2_read_error_message(source, io_cls_name):
+        """Build the error shown when a Zarr v2 file is opened with the Zarr v3 backend."""
+        return (
+            f"Failed to read '{source}' with {io_cls_name}, which reads Zarr v3 files, but this "
+            "path is a Zarr v2 file. Open it read-only with the Zarr v2 backend (NWBZarrV2IO for "
+            "NWB files, or ZarrV2IO), or convert it to Zarr v3 with "
+            "NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
+        )
+
+    @classmethod
+    def _looks_like_zarr_v2_path(cls, path, storage_options=None):
+        """Best-effort check of whether *path* is a Zarr v2 hierarchy.
+
+        Used only on the read-error path to produce a helpful message. Any failure of
+        the check itself is swallowed so it never masks the original read error.
+        """
+        try:
+            from .backend_zarrv2 import is_zarr_v2_file
+
+            return is_zarr_v2_file(path, storage_options)
+        except Exception:
+            return False
 
     def __set_built(self, zarr_obj, builder):
         fpath = self._get_store_path(zarr_obj.store)

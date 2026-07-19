@@ -4,18 +4,17 @@ This test reads a NWB zarr file that was generated with hdmf-zarr<1.0 + zarr<3
 (see ``helpers/generate_nwb_zarrv2.py``) and validates that key metadata and
 data can be read correctly.
 
-The test file and its expected metadata are produced by the companion generation
-script and placed at a known location by CI (see
-``.github/workflows/test_backward_compat.yml``).
+The test file (``helpers/nwb_zarrv2_test.nwb.zarr``) and its expected metadata
+(``helpers/nwb_zarrv2_expected.json``) are checked into the repository, so the
+test runs without any generation step. To regenerate them (e.g. after changing
+the generation script), run the script in a temporary venv with zarr v2::
 
-To run locally::
-
-    # Step 1 — generate the v2 file in a temporary venv
+    # Step 1 — regenerate the v2 fixture in a temporary venv
     python -m venv /tmp/zarr_v2_env
     /tmp/zarr_v2_env/bin/pip install "hdmf-zarr<1.0" "zarr>=2.18,<3" pynwb
     /tmp/zarr_v2_env/bin/python tests/unit/helpers/generate_nwb_zarrv2.py \
-        tests/unit/helpers/v2_test_file.nwb.zarr \
-        > tests/unit/helpers/v2_expected.json
+        --nwb-output-path tests/unit/helpers/nwb_zarrv2_test.nwb.zarr \
+        --expectations-output-path tests/unit/helpers/nwb_zarrv2_expected.json
 
     # Step 2 — run this test with the current code
     pytest tests/unit/test_zarrv2_backward_compat.py -v
@@ -152,15 +151,11 @@ class TestV2BackwardCompat(unittest.TestCase):
 
     def test_ephys_data_values(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        np.testing.assert_array_almost_equal(
-            np.asarray(series.data), np.array(self.expected["ephys_data"])
-        )
+        np.testing.assert_array_almost_equal(np.asarray(series.data), np.array(self.expected["ephys_data"]))
 
     def test_ephys_timestamps(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        np.testing.assert_array_almost_equal(
-            np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"])
-        )
+        np.testing.assert_array_almost_equal(np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"]))
 
     # ---- units table (ragged spike_times — VectorIndex / object-dtype) ----
 
@@ -183,7 +178,35 @@ class TestV2BackwardCompat(unittest.TestCase):
         self.assertTrue(is_zarr_v2_file(_V2_FILE))
 
 
-@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_v2_nwb_zarr.py first")
+@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
+class TestV2ReadWithV3Backend(unittest.TestCase):
+    """Reading a v2 file with the v3 backend must raise a message pointing at the v2 backend."""
+
+    def _assert_helpful_v2_error(self, cm):
+        msg = str(cm.exception)
+        self.assertIn("Zarr v2 file", msg)
+        self.assertIn("NWBZarrV2IO", msg)
+
+    def test_nwbzarrio_default_raises_hint(self):
+        """The default read path (load_namespaces=True) fails while opening for namespaces."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(ValueError) as cm:
+                with NWBZarrIO(_V2_FILE, mode="r") as io:
+                    io.read()
+        self._assert_helpful_v2_error(cm)
+
+    def test_nwbzarrio_no_namespaces_raises_hint(self):
+        """With load_namespaces=False the failure surfaces later, still with the hint."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(ValueError) as cm:
+                with NWBZarrIO(_V2_FILE, mode="r", load_namespaces=False) as io:
+                    io.read()
+        self._assert_helpful_v2_error(cm)
+
+
+@unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
 class TestV2ExportToV3(unittest.TestCase):
     """Export a zarr v2 NWB file to zarr v3 and verify it round-trips via the v3 reader."""
 
@@ -292,15 +315,11 @@ class TestV2ExportToV3(unittest.TestCase):
 
     def test_ephys_data_values(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        np.testing.assert_array_almost_equal(
-            np.asarray(series.data), np.array(self.expected["ephys_data"])
-        )
+        np.testing.assert_array_almost_equal(np.asarray(series.data), np.array(self.expected["ephys_data"]))
 
     def test_ephys_timestamps(self):
         series = self.nwbfile.acquisition[self.expected["ephys_name"]]
-        np.testing.assert_array_almost_equal(
-            np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"])
-        )
+        np.testing.assert_array_almost_equal(np.asarray(series.timestamps), np.array(self.expected["ephys_timestamps"]))
 
     def test_ephys_data_values_match_v2(self):
         """Exported data values must match the original v2 file exactly."""

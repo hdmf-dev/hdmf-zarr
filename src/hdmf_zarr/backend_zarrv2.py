@@ -24,6 +24,7 @@ from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 try:
     from zarr.storage import FsspecStore
+
     FSSPECSTORE_AVAILABLE = True
 except ImportError:
     FsspecStore = None  # type: ignore[assignment]
@@ -78,9 +79,7 @@ def is_zarr_v2_file(path, storage_options=None):
         path_str = str(path)
         is_remote = path_str.startswith(("s3://", "http://", "https://", "gs://"))
         if not is_remote and storage_options is None:
-            return any(
-                os.path.exists(os.path.join(path_str, m)) for m in (".zgroup", ".zarray")
-            )
+            return any(os.path.exists(os.path.join(path_str, m)) for m in (".zgroup", ".zarray"))
         # For remote URLs use zarr.open so that it creates the appropriate store
         # internally (FsspecStore via s3fs, https, gcs, …).  FsspecStore.from_url
         # with an empty storage_options dict can behave differently from how zarr
@@ -96,9 +95,7 @@ def is_zarr_v2_file(path, storage_options=None):
             # root .zgroup is read directly — these are exactly the v2 files that
             # ZarrV2IO exists to handle, so a parse failure must not be a v2 miss.
             try:
-                f = zarr.open(
-                    path_str, mode="r", storage_options=storage_options or {}, use_consolidated=False
-                )
+                f = zarr.open(path_str, mode="r", storage_options=storage_options or {}, use_consolidated=False)
                 return f.metadata.zarr_format == 2
             except Exception:
                 return False
@@ -141,11 +138,13 @@ class ZarrV2SpecReader(ZarrSpecReader):
         compressor_config = zarray_meta.get("compressor")
         if compressor_config is not None:
             import numcodecs
+
             raw = numcodecs.get_codec(compressor_config).decode(raw)
 
         filters = zarray_meta.get("filters") or []
         if filters:
             import numcodecs
+
             for filt_config in reversed(filters):
                 raw = numcodecs.get_codec(filt_config).decode(raw)
 
@@ -184,6 +183,10 @@ class ZarrV2IO(ZarrIO):
         in a follow-up if it becomes a performance issue
         (see https://github.com/hdmf-dev/hdmf-zarr/issues).
     """
+
+    #: This backend reads Zarr v2 files, so the v2 read-error hint in
+    #: :meth:`ZarrIO.read_builder` is suppressed for it.
+    _reads_zarr_v2 = True
 
     @docval(*get_docval(ZarrIO.__init__))
     def __init__(self, **kwargs):
@@ -262,8 +265,7 @@ class ZarrV2IO(ZarrIO):
                 readers[ns] = cls._make_spec_reader(ns_group[latest_version])
             except Exception as e:
                 warnings.warn(
-                    f"Could not read cached namespace '{ns}' from "
-                    f"{cls._get_store_path(f.store)}: {e}. Skipping."
+                    f"Could not read cached namespace '{ns}' from " f"{cls._get_store_path(f.store)}: {e}. Skipping."
                 )
 
         if not readers:
@@ -272,10 +274,7 @@ class ZarrV2IO(ZarrIO):
         try:
             return namespace_catalog.load_namespaces("namespace", reader=readers)
         except Exception as e:
-            warnings.warn(
-                f"Could not load cached namespaces from "
-                f"{cls._get_store_path(f.store)}: {e}. Skipping."
-            )
+            warnings.warn(f"Could not load cached namespaces from " f"{cls._get_store_path(f.store)}: {e}. Skipping.")
             return {}
 
     # ----- reference resolution -----
@@ -340,7 +339,7 @@ class ZarrV2IO(ZarrIO):
             if prefix:
                 if not key.startswith(prefix + "/"):
                     continue
-                rel = key[len(prefix) + 1:]
+                rel = key[len(prefix) + 1 :]
             else:
                 rel = key
             first_segment = rel.split("/", 1)[0]
@@ -521,16 +520,13 @@ class ZarrV2IO(ZarrIO):
             except Exception as e:
                 # zarr v3 could not open the child. If it is an array (has a
                 # .zarray), attempt the manual v2 decode fallback.
-                zarray_key = (
-                    f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
-                )
+                zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
                 if _store_key_exists(store, zarray_key):
                     try:
                         # Returns a DatasetBuilder with the data already decoded.
                         builder = self._read_v2_dataset(store, group_prefix, entry)
                         warnings.warn(
-                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store "
-                            f"fallback (zarr v3 error: {e})"
+                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store " f"fallback (zarr v3 error: {e})"
                         )
                         yield entry, builder
                     except Exception as e2:
@@ -611,12 +607,7 @@ class ZarrV2IO(ZarrIO):
                 data = BuilderZarrTableDataset(data, self, [d["dtype"] for d in zarr_dtype])
         elif isinstance(data, np.ndarray) and data.dtype.kind in ("U", "S"):
             data = list(data)
-        elif (
-            isinstance(data, np.ndarray)
-            and data.dtype == object
-            and data.size > 0
-            and isinstance(data.flat[0], str)
-        ):
+        elif isinstance(data, np.ndarray) and data.dtype == object and data.size > 0 and isinstance(data.flat[0], str):
             data = list(data)
 
         builder = DatasetBuilder(
@@ -629,9 +620,7 @@ class ZarrV2IO(ZarrIO):
             data=data,
         )
         if group_path:
-            builder.location = (
-                group_path if group_path.startswith("/") else "/" + group_path.replace("\\", "/")
-            )
+            builder.location = group_path if group_path.startswith("/") else "/" + group_path.replace("\\", "/")
         else:
             builder.location = "/"
         self._written_builders.set_written(builder)

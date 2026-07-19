@@ -1,7 +1,7 @@
 """Read-only NWB IO backend for NWB Zarr files written with hdmf-zarr<1.0 + zarr<3.
 
 :class:`NWBZarrV2IO` is the V2 counterpart of :class:`~hdmf_zarr.NWBZarrIO`.
-It uses :class:`~hdmf_zarr.backend_v2.ZarrV2IO` under the hood, which knows
+It uses :class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` under the hood, which knows
 how to navigate zarr v2 stores with zarr-python v3.
 """
 
@@ -40,9 +40,7 @@ class NWBZarrV2IO(ZarrV2IO):
         path, mode, manager, extensions, load_namespaces, storage_options = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-        manager = _build_nwb_manager(
-            type(self), path, mode, manager, extensions, load_namespaces, storage_options
-        )
+        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(
@@ -54,9 +52,7 @@ class NWBZarrV2IO(ZarrV2IO):
         {
             "name": "nwbfile",
             "type": "NWBFile",
-            "doc": (
-                "the NWBFile object to export. If None, the file is read from this IO and exported in full."
-            ),
+            "doc": ("the NWBFile object to export. If None, the file is read from this IO and exported in full."),
             "default": None,
         },
         {
@@ -80,9 +76,7 @@ class NWBZarrV2IO(ZarrV2IO):
         rewrites the storage layout, data chunks are always copied (``link_data`` is
         forced to ``False``) rather than linked back to the source file.
         """
-        path, nwbfile, write_args, storage_options = popargs(
-            "path", "nwbfile", "write_args", "storage_options", kwargs
-        )
+        path, nwbfile, write_args, storage_options = popargs("path", "nwbfile", "write_args", "storage_options", kwargs)
         if isinstance(path, Path):
             path = str(path)
         write_args = dict(write_args) if write_args is not None else {}
