@@ -9,7 +9,6 @@ jobs:
   run-tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45  # fail fast instead of burning the 6h default when a job hangs
     defaults:
       run:
         shell: bash
@@ -70,7 +69,6 @@ jobs:
   run-gallery-tests:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45  # fail fast instead of burning the 6h default when a job hangs
     defaults:
       run:
         shell: bash
@@ -109,7 +107,6 @@ jobs:
   run-tests-on-conda:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # fail fast instead of burning the 6h default when a job hangs
     defaults:
      run:
        shell: bash -l {0}
