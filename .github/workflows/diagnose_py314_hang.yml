@@ -1,0 +1,83 @@
+name: Diagnose py3.14 CI hang
+
+# Hunts the intermittent Python 3.14 test-suite deadlock (see the draft PR that adds
+# this file). The 6-hour hangs on this (zarr v3) branch all stall in the ZarrToHDF5
+# DynamicTable export-roundtrip tests, where a zarr v3 read (async `sync()` event
+# loop) is interleaved with an HDF5 write (h5py C calls) in one process.
+#
+# Each job runs a chosen scope of the suite in a loop of fresh pytest processes;
+# pytest-timeout aborts any test that hangs longer than 180s and dumps every
+# thread's stack, so a caught hang leaves an actionable traceback in the log.
+# Re-run via the "Run workflow" button (workflow_dispatch) to keep rolling the
+# dice; set `iterations` to override the per-scope default loop count.
+#
+# Scopes:
+#   focused   - only the ZarrToHDF5 tests (does the deadlock trip standalone?)
+#   ioconvert - the whole test_io_convert.py (preserves the HDF5ToZarr -> ZarrToHDF5
+#               ordering that precedes every observed hang)
+#   full      - the full unit suite minus the slow network streaming tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Override loop count for every job (blank = per-scope default)"
+        default: ""
+  pull_request:
+    paths:
+      - ".github/workflows/diagnose_py314_hang.yml"
+      - "pyproject.toml"
+
+jobs:
+  hunt:
+    name: hunt-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: focused-linux,     os: ubuntu-latest,  target: "tests/unit/test_io_convert.py -k ZarrToHDF5",              iters: 120 }
+          - { name: focused-windows,   os: windows-latest, target: "tests/unit/test_io_convert.py -k ZarrToHDF5",              iters: 120 }
+          - { name: ioconvert-linux,   os: ubuntu-latest,  target: "tests/unit/test_io_convert.py",                           iters: 60 }
+          - { name: ioconvert-windows, os: windows-latest, target: "tests/unit/test_io_convert.py",                           iters: 60 }
+          - { name: fullsuite-linux,   os: ubuntu-latest,  target: "tests/unit --ignore=tests/unit/test_fsspec_streaming.py", iters: 30 }
+    env:
+      # Belt-and-suspenders: also arm the interpreter's own fault handler.
+      PYTHONFAULTHANDLER: "1"
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # tags are required to determine the version
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group test
+          python -m pip list
+
+      - name: Run scope in a loop of fresh processes, dump stacks on hang
+        run: |
+          n="${{ github.event.inputs.iterations || matrix.iters }}"
+          echo "Scope '${{ matrix.name }}': running '${{ matrix.target }}' $n time(s); a hang dumps thread stacks and fails."
+          for i in $(seq 1 "$n"); do
+            echo "::group::iteration $i / $n"
+            python -X faulthandler -m pytest ${{ matrix.target }} -q -p no:cacheprovider \
+              --timeout=180 --timeout-method=thread
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              echo "::error::iteration $i exited with code $code (see stack dump above if it hung)"
+              exit "$code"
+            fi
+          done
+          echo "All $n iteration(s) passed without hanging."

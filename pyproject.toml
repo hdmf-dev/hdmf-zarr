@@ -59,6 +59,7 @@ test = [
     "pre-commit",
     "pytest",
     "pytest-cov",
+    "pytest-timeout",  # dumps all thread stacks on a hung test (CI deadlock diagnosis)
     "python-dateutil",  # used in some tests
     "ruff",
     "scipy>=1.7",  # used in some tests
@@ -95,6 +96,18 @@ exclude = [".git_archival.txt"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/hdmf_zarr"]
 
+
+[tool.pytest.ini_options]
+# Diagnostic instrumentation for the intermittent Python 3.14 CI deadlock, which
+# stalls in the ZarrToHDF5 DynamicTable export-roundtrip tests (zarr v3 `sync()`
+# event loop interacting with h5py). pytest-timeout aborts any test that runs
+# longer than `timeout` seconds and, with the "thread" method, dumps the stack of
+# every thread before killing the process, so a hung CI job fails fast with an
+# actionable traceback instead of spinning for hours. The thread method works
+# cross-platform and even when the main thread is stuck in a C call (e.g. HDF5),
+# which the signal method cannot interrupt.
+timeout = 300
+timeout_method = "thread"
 
 [tool.codespell]
 skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,./docs/_build/*,*.ipynb"
