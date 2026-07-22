@@ -12,7 +12,7 @@ on:
     inputs:
       iterations:
         description: "Times to run the unit test suite per job"
-        default: "10"
+        default: "40"
   pull_request:
     paths:
       - ".github/workflows/diagnose_py314_hang.yml"
@@ -57,12 +57,17 @@ jobs:
 
       - name: Run unit tests in a loop, dump stacks on hang
         run: |
-          n="${{ github.event.inputs.iterations || '10' }}"
+          n="${{ github.event.inputs.iterations || '40' }}"
           echo "Running the unit test suite $n time(s); a hang dumps thread stacks and fails."
+          # Skip test_fsspec_streaming.py: it hits real S3/DANDI over the network (minutes
+          # per run) and is not the deadlock (the hang also occurs on non-optional jobs,
+          # which skip it). Ignoring it lets every config run fast so we can do many more
+          # iterations per CI minute.
           for i in $(seq 1 "$n"); do
             echo "::group::iteration $i / $n"
             python -X faulthandler -m pytest tests/unit -q -p no:cacheprovider \
-              --timeout=300 --timeout-method=thread
+              --ignore=tests/unit/test_fsspec_streaming.py \
+              --timeout=180 --timeout-method=thread
             code=$?
             echo "::endgroup::"
             if [ "$code" -ne 0 ]; then
