@@ -1,6 +1,7 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 
 # Python imports
+import asyncio
 import itertools
 import json
 import os
@@ -54,6 +55,39 @@ def _zarr_array_getitem_scalar_fix(self, key):
 
 
 Array.__getitem__ = _zarr_array_getitem_scalar_fix
+
+
+# zarr v3 executes reads on a shared background event-loop thread named "zarr_io":
+# a synchronous read blocks the calling thread while that thread runs the read.
+# numpy calls Array.__array__ to coerce a zarr Array into an ndarray, which happens
+# when another backend copies the array, e.g. h5py during export of a Zarr file to
+# HDF5. h5py holds its global "phil" lock across that copy, and h5py's own object
+# finalizers also acquire "phil". If a cyclic-GC finalizer runs on the "zarr_io"
+# thread while the calling thread holds "phil" and waits on that thread's read, the
+# two threads deadlock on "phil". Materializing the array on the calling thread keeps
+# the "zarr_io" thread out of the read, so the lock cycle cannot form.
+_zarr_array_original_array = Array.__array__
+
+
+def _zarr_array_array_on_calling_thread(self, dtype=None, copy=None):
+    if copy is False:
+        raise ValueError("`copy=False` is not supported. This method always creates a copy.")
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No event loop runs on this thread, so read the whole array here on a private
+        # loop, which keeps the read on the calling thread.
+        loop = asyncio.new_event_loop()
+        try:
+            data = loop.run_until_complete(self._async_array.getitem(Ellipsis))
+        finally:
+            loop.close()
+        return np.asarray(data, dtype=dtype)
+    # An event loop is already running on this thread; use zarr's default coercion.
+    return _zarr_array_original_array(self, dtype=dtype, copy=copy)
+
+
+Array.__array__ = _zarr_array_array_on_calling_thread
 
 
 # Module variables

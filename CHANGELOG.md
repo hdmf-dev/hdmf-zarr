@@ -4,6 +4,7 @@
 
 ### Fixed
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
+- Fixed a deadlock when exporting a Zarr file to HDF5 with `HDF5IO.export`. numpy coercion of a zarr Array now reads on the calling thread instead of zarr's shared background event-loop thread, so a garbage-collection finalizer that acquires h5py's global lock on that thread cannot deadlock against the export. @rly [#362](https://github.com/hdmf-dev/hdmf-zarr/issues/362)
 
 
 ## 0.13.0 (June 22, 2026)
