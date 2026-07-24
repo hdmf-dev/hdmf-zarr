@@ -9,7 +9,6 @@
 ### Fixed
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 - Fixed `ZarrIO._copy_array` failing to export arrays compressed with Zarr v2 numcodecs (e.g. `numcodecs.Blosc`) by mapping them to their `numcodecs.zarr3` equivalents, preserving compression/filters when exporting from Zarr v2 to v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
-- Fixed `ZarrIO.resolve_ref` failing with `PathNotFoundError: nothing found at path ''` when resolving self-references (`source == "."`) over fsspec-backed stores. The function now short-circuits the `"."` case and reuses the already-open file instead of re-opening the URL as if it were an external store. Affects every non-trivial NWB Zarr file read over HTTPS, S3, GCS, or any other fsspec scheme. @h-mayorquin [#348](https://github.com/hdmf-dev/hdmf-zarr/pull/348)
 - Fixed lazily-loaded Zarr arrays not being recognized as `collections.abc.Iterable`, which caused hdmf/pynwb type checks (e.g. `ImageSeries.dimension`) to reject them. `zarr.Array` gains an `__iter__` that yields elements lazily via `__getitem__`. This applies to arrays from both Zarr v2 and Zarr v3 files, since both are read through zarr-python v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 
 
@@ -26,6 +25,7 @@
 - Fixed bug where the `specifications` group and its contents were read during `ZarrIO.read_builder`. @rly [#322](https://github.com/hdmf-dev/hdmf-zarr/pull/322)
 - Fixed issue with `tox.ini` configuration. @rly [#326](https://github.com/hdmf-dev/hdmf-zarr/pull/326)
 - Fixed `ZarrIO.is_remote()` returning `False` for remote stores using consolidated metadata, which caused `resolve_ref` to mangle HTTPS URLs and fail with `PathNotFoundError` when reading links. @rly [#328](https://github.com/hdmf-dev/hdmf-zarr/pull/328)
+- Fixed `ZarrIO.resolve_ref` failing with `PathNotFoundError: nothing found at path ''` when resolving self-references (`source == "."`) over fsspec-backed stores. The function now short-circuits the `"."` case and reuses the already-open file instead of re-opening the URL as if it were an external store. Affects every non-trivial NWB Zarr file read over HTTPS, S3, GCS, or any other fsspec scheme. @h-mayorquin [#348](https://github.com/hdmf-dev/hdmf-zarr/pull/348)
 
 ### Changed
 - Replaced `requirements-min.txt` with `uv pip install --resolution lowest-direct` in tox and converted `test` and `docs` from optional dependencies to dependency groups (PEP 735), making the project compatible with uv. @h-mayorquin [#327](https://github.com/hdmf-dev/hdmf-zarr/pull/327)
