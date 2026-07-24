@@ -376,7 +376,13 @@ class ZarrV2IO(ZarrIO):
             raw = compressor.decode(raw)
 
         if is_object:
-            # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array
+            # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array.
+            # The decoded chunk is returned as the filter yields it (typically 1-D) without
+            # reshaping to chunk_shape. This assumes object-dtype v2 arrays are 1-D, which
+            # holds for every array this fallback handles (specs, references, vlen columns).
+            # A multi-dimensional object-dtype array split across chunks would misalign
+            # against the N-D slices in _decode_v2_dataset; add reshaping here if such an
+            # array is ever encountered.
             for filt in reversed(filters):
                 raw = filt.decode(raw)
             if isinstance(raw, np.ndarray):
