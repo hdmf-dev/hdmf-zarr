@@ -1229,7 +1229,7 @@ class ZarrIO(HDMFIO):
     def _copy_array(source, dest_group, name):
         """
         Copy a zarr Array from source to dest_group with the given name.
-        This replaces zarr.copy() which is not available in zarr v3.
+        This replaces zarr.copy() which is not implemented in zarr v3.
         """
         # Create the new array with the same properties
         source_dtype = source.dtype

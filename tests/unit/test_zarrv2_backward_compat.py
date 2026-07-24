@@ -1,6 +1,6 @@
 """Backward compatibility test: read a zarr v2 NWB file with the current (zarr v3) code.
 
-This test reads a NWB zarr file that was generated with hdmf-zarr<1.0 + zarr<3
+This test reads a NWB zarr file that was generated with hdmf-zarr<0.14 + zarr<3
 (see ``helpers/generate_nwb_zarrv2.py``) and validates that key metadata and
 data can be read correctly.
 
@@ -11,7 +11,7 @@ the generation script), run the script in a temporary venv with zarr v2::
 
     # Step 1 — regenerate the v2 fixture in a temporary venv
     python -m venv /tmp/zarr_v2_env
-    /tmp/zarr_v2_env/bin/pip install "hdmf-zarr<1.0" "zarr>=2.18,<3" pynwb
+    /tmp/zarr_v2_env/bin/pip install "hdmf-zarr<0.14" "zarr>=2.18,<3" pynwb
     /tmp/zarr_v2_env/bin/python tests/unit/helpers/generate_nwb_zarrv2.py \
         --nwb-output-path tests/unit/helpers/nwb_zarrv2_test.nwb.zarr \
         --expectations-output-path tests/unit/helpers/nwb_zarrv2_expected.json

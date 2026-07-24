@@ -1,4 +1,4 @@
-"""Read-only NWB IO backend for NWB Zarr files written with hdmf-zarr<1.0 + zarr<3.
+"""Read-only NWB IO backend for NWB Zarr files written with hdmf-zarr<0.14 + zarr<3.
 
 :class:`NWBZarrV2IO` is the V2 counterpart of :class:`~hdmf_zarr.NWBZarrIO`.
 It uses :class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` under the hood, which knows

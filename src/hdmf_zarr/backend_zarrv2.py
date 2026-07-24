@@ -1,4 +1,4 @@
-"""Read-only backend for NWB / HDMF ZarrV2 files written with hdmf-zarr<1.0 + zarr<3.
+"""Read-only backend for NWB / HDMF ZarrV2 files written with hdmf-zarr<0.14 + zarr<3.
 
 Zarr-python v3 cannot fully parse some constructs produced by zarr v2 (object
 dtype arrays with ``pickle`` / ``json2`` / ``vlen-utf8`` codecs, fill_values

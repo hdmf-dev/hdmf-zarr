@@ -1,8 +1,8 @@
-"""Generate a zarr v2 NWB file using hdmf-zarr<1.0 and zarr<3.
+"""Generate a zarr v2 NWB file using hdmf-zarr<0.14 and zarr<3.
 
 This script is meant to run in a temporary environment with::
 
-    pip install "hdmf-zarr<1.0" "zarr>=2.18,<3" pynwb
+    pip install "hdmf-zarr<0.14" "zarr>=2.18,<3" pynwb
 
 It creates a small but representative NWB zarr file that exercises the
 data types most affected by the zarr v2 → v3 migration:
