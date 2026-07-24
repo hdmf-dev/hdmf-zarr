@@ -181,7 +181,7 @@ class ZarrV2IO(ZarrIO):
         compound/vlen columns) this is not a concern, but it could matter for
         large datasets that zarr v3 fails to parse. Lazy decoding could be added
         in a follow-up if it becomes a performance issue
-        (see https://github.com/hdmf-dev/hdmf-zarr/issues).
+        (see https://github.com/hdmf-dev/hdmf-zarr/issues/356).
     """
 
     #: This backend reads Zarr v2 files, so the v2 read-error hint in
