@@ -287,12 +287,7 @@ class ZarrIO(HDMFIO):
             except Exception as e:
                 # Opening a Zarr v2 file with the Zarr v3 backend fails here with a cryptic
                 # error. Point the user at the Zarr v2 backend instead.
-                if (
-                    not self._reads_zarr_v2
-                    and self.mode in ("r", "r-")
-                    and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
-                ):
-                    raise ValueError(self._zarr_v2_read_error_message(self.source)) from e
+                self._raise_if_zarr_v2(e)
                 raise
 
     def close(self):
@@ -1272,9 +1267,7 @@ class ZarrIO(HDMFIO):
         chunks = dest.chunks
         chunk_ranges = [range(0, dim, max(cs, 1)) for dim, cs in zip(source.shape, chunks)]
         for start in itertools.product(*chunk_ranges):
-            region = tuple(
-                slice(s, min(s + cs, dim)) for s, cs, dim in zip(start, chunks, source.shape)
-            )
+            region = tuple(slice(s, min(s + cs, dim)) for s, cs, dim in zip(start, chunks, source.shape))
             dest[region] = source[region]
 
         # Copy attributes
@@ -1806,25 +1799,20 @@ class ZarrIO(HDMFIO):
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
     def read_builder(self):
+        # ignore cached specs when reading builder
+        ignore_groups = set()
+        specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
+        if specloc is not None:
+            ignore_groups.add(self.__file[specloc].name)
         try:
-            # ignore cached specs when reading builder
-            ignore_groups = set()
-            specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
-            if specloc is not None:
-                ignore_groups.add(self.__file[specloc].name)
             f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
-            return f_builder
         except Exception as e:
-            # A common failure here is trying to read a Zarr v2 file with the Zarr v3
-            # backend: zarr-python raises a cryptic error deep in the read. Detect that
-            # case and re-raise with a message that points at the Zarr v2 backend.
-            if (
-                not self._reads_zarr_v2
-                and self.mode in ("r", "r-")
-                and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
-            ):
-                raise ValueError(self._zarr_v2_read_error_message(self.source, type(self).__name__)) from e
+            # A Zarr v2 file read with the Zarr v3 backend fails here with a cryptic
+            # zarr-python error deep in the read. Convert that to a message pointing at
+            # the Zarr v2 backend; any other error is re-raised unchanged.
+            self._raise_if_zarr_v2(e)
             raise
+        return f_builder
 
     @classmethod
     def _zarr_v2_read_error_message(cls, source):
@@ -1847,6 +1835,22 @@ class ZarrIO(HDMFIO):
             return is_zarr_v2_file(path, storage_options)
         except Exception:
             return False
+
+    def _raise_if_zarr_v2(self, exc):
+        """Convert a read failure caused by a Zarr v2 file into a helpful error.
+
+        Reading a Zarr v2 file with the Zarr v3 backend fails with a cryptic
+        zarr-python error. When this read-only backend is pointed at a path that is
+        in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
+        v2 backend, chaining *exc* as the cause. Otherwise return without raising so
+        the caller can re-raise *exc* unchanged.
+        """
+        if (
+            not self._reads_zarr_v2
+            and self.mode in ("r", "r-")
+            and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
+        ):
+            raise ValueError(self._zarr_v2_read_error_message(self.source)) from exc
 
     def __set_built(self, zarr_obj, builder):
         fpath = self._get_store_path(zarr_obj.store)

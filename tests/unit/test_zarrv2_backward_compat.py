@@ -217,6 +217,27 @@ class TestV2ReadWithV3Backend(unittest.TestCase):
         self.assertNotIn("NWBZarrV2IO", msg)
         self.assertNotIn("NWBZarrIO", msg)
 
+    def test_read_builder_path_raises_hint(self):
+        """The hint is raised when the failure surfaces in read_builder rather than open().
+
+        Removing the consolidated ``.zmetadata`` forces the non-consolidated open path,
+        which succeeds on the v2 root group. The unreadable v2 arrays then fail inside
+        ``read_builder`` instead of ``open()``, and that path must produce the same hint.
+        """
+        tmpdir = tempfile.mkdtemp()
+        try:
+            dst = os.path.join(tmpdir, "v2_noconsolidated.nwb.zarr")
+            shutil.copytree(_V2_FILE, dst)
+            os.remove(os.path.join(dst, ".zmetadata"))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with self.assertRaises(ValueError) as cm:
+                    with NWBZarrIO(dst, mode="r", load_namespaces=False) as io:
+                        io.read()
+            self._assert_helpful_v2_error(cm)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
 class TestV2ExportToV3(unittest.TestCase):
