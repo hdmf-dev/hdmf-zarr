@@ -459,7 +459,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "doc": ("Consolidate metadata into the root group's zarr.json to accelerate read."),
             "default": True,
         },
     )
@@ -540,7 +540,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "doc": ("Consolidate metadata into the root group's zarr.json to accelerate read."),
             "default": True,
         },
     )
@@ -657,7 +657,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": "Consolidate metadata into a single .zmetadata file in the root group to accelerate read.",
+            "doc": "Consolidate metadata into the root group's zarr.json to accelerate read.",
             "default": True,
         },
     )

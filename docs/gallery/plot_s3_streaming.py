@@ -120,8 +120,9 @@ except Exception as e:
 # significantly slow down file opening and data access.
 #
 # **Consolidated metadata** addresses this by storing all metadata in a single
-# ``.zmetadata`` file at the root of the Zarr store. This helps improve read performance
-# by reducing the number of S3 requests needed to open a file.
+# consolidated document at the root of the Zarr store (``zarr.json`` for Zarr v3,
+# ``.zmetadata`` for Zarr v2). This helps improve read performance by reducing the
+# number of S3 requests needed to open a file.
 #
 # By default, :py:class:`~hdmf_zarr.nwb.NWBZarrIO` consolidates metadata when
 # writing files, and automatically uses consolidated metadata when available
@@ -175,9 +176,9 @@ except Exception as e:
 ###############################################################################
 # .. note::
 #
-#     PyNWB also provides a more general :py:func:`~pynwb.NWBHDF5IO.read` method that
-#     can automatically detect and use the appropriate IO class (HDF5 or Zarr) based
-#     on the file path or URL.
+#     PyNWB also provides a more general :py:func:`~pynwb.read_nwb` function that
+#     automatically detects and uses the appropriate IO class (HDF5 or Zarr) based
+#     on the file.
 
 ###############################################################################
 # Best Practices for S3 Streaming
