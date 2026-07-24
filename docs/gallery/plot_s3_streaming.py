@@ -33,8 +33,8 @@ Or install the dependencies separately:
 #
 # To read an NWB Zarr file from a public S3 bucket, you provide the S3 URL to the
 # appropriate IO class. Files written with current hdmf-zarr use Zarr v3 and are
-# read with :py:class:`~hdmf_zarr.nwb.NWBZarrIO`, while older files (such as those
-# already on the DANDI Archive) use Zarr v2 and must be read with the read-only
+# read with :py:class:`~hdmf_zarr.nwb.NWBZarrIO`, while older files that
+# use Zarr v2 must be read with the read-only
 # :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO`. You can detect which format a file
 # uses with :py:func:`~hdmf_zarr.backend_zarrv2.is_zarr_v2_file` and pick the right
 # class accordingly.
