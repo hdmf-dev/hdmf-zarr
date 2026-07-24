@@ -34,6 +34,7 @@ from hdmf_zarr import NWBZarrIO
 def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
     if os.path.exists(nwb_output_path):
         import shutil
+
         shutil.rmtree(nwb_output_path)
 
     session_start = datetime(2024, 3, 15, 10, 30, 0, tzinfo=tzlocal())
@@ -51,6 +52,7 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
 
     # Subject with date_of_birth (datetime, |O dtype with fill_value=0)
     from pynwb.file import Subject
+
     nwbfile.subject = Subject(
         subject_id="mouse-001",
         age="P90D",
@@ -72,7 +74,9 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
     n_electrodes = 4
     for i in range(n_electrodes):
         nwbfile.add_electrode(
-            x=float(i), y=0.0, z=0.0,
+            x=float(i),
+            y=0.0,
+            z=0.0,
             imp=np.nan,
             filtering="none",
             group=electrode_group,

@@ -159,7 +159,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                 iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
                     store = zarr_dataset.store
-                    store_path = str(store.root) if hasattr(store, 'root') else str(store)
+                    store_path = str(store.root) if hasattr(store, "root") else str(store)
                     buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (

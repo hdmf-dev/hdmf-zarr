@@ -358,10 +358,10 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_basic(self):
         """Test basic HTML generation for a Zarr array"""
         from zarr.codecs import BloscCodec
+
         # Create a test zarr array
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4",
-                              compressors=[BloscCodec()])
+        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4", compressors=[BloscCodec()])
         z[:] = np.random.random((100, 100))
 
         # Generate HTML representation
@@ -376,10 +376,12 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_with_compression(self):
         """Test HTML generation includes compression information"""
         from zarr.codecs import BloscCodec
+
         # Create a zarr array with specific compression
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(50, 50), chunks=(25, 25), dtype="i4",
-                              compressors=[BloscCodec(cname="zstd", clevel=9)])
+        z = zarr.create_array(
+            store, shape=(50, 50), chunks=(25, 25), dtype="i4", compressors=[BloscCodec(cname="zstd", clevel=9)]
+        )
         z[:] = np.arange(2500).reshape(50, 50)
 
         # Generate HTML representation
@@ -500,9 +502,7 @@ class TestCopyArray(TestCase):
 
     def test_copy_multichunk_numeric(self):
         """Data spanning multiple chunks is copied correctly (chunk-wise)."""
-        source = zarr.create_array(
-            zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4"
-        )
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4")
         source[:] = np.arange(20).reshape(5, 4)
         source.attrs["zarr_dtype"] = "int32"
         dest = ZarrIO._copy_array(source, self._dest_group(), "x")
@@ -511,9 +511,7 @@ class TestCopyArray(TestCase):
         self.assertEqual(dest.attrs["zarr_dtype"], "int32")
 
     def test_copy_object_becomes_stringdtype(self):
-        source = zarr.create_array(
-            zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType()
-        )
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType())
         source[:] = np.array(["aa", "bb", "cc"], dtype=np.dtypes.StringDType())
         dest = ZarrIO._copy_array(source, self._dest_group(), "y")
         self.assertEqual(list(dest[:]), ["aa", "bb", "cc"])
