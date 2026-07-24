@@ -22,15 +22,6 @@ from .backend import ZarrIO, SPEC_LOC_ATTR
 from .utils import ZarrSpecReader
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
-try:
-    from zarr.storage import FsspecStore
-
-    FSSPECSTORE_AVAILABLE = True
-except ImportError:
-    FsspecStore = None  # type: ignore[assignment]
-    FSSPECSTORE_AVAILABLE = False
-
-
 _V2_READ_MODES = ("r", "r-")
 
 
@@ -216,7 +207,10 @@ class ZarrV2IO(ZarrIO):
         store = self._resolve_store(store, storage_options)
         try:
             return zarr.open(store=store, mode=mode)
-        except (TypeError, ValueError):
+        except Exception:
+            # zarr v3 fails to parse some v2 constructs (e.g. an object-dtype array
+            # with an int fill_value in the consolidated block). The failing type is
+            # not a stable API, so retry the more permissive non-consolidated open.
             return zarr.open(store=store, mode=mode, use_consolidated=False)
 
     def _open_file_consolidated(self, store, mode, storage_options=None):
@@ -240,7 +234,9 @@ class ZarrV2IO(ZarrIO):
     def _open_for_namespaces(cls, store):
         try:
             return zarr.open(store, mode="r")
-        except (TypeError, ValueError):
+        except Exception:
+            # See _open_file: zarr v3 can fail to parse a v2 consolidated block with
+            # varying exception types, so retry the non-consolidated open.
             return zarr.open(store, mode="r", use_consolidated=False)
 
     @classmethod
