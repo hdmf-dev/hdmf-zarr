@@ -124,6 +124,14 @@ class NWBZarrV2IO(ZarrV2IO):
         more control (e.g. inspecting or modifying the :class:`NWBFile` before
         writing), open the file yourself and use :meth:`export_to_v3` instead.
 
+        ``s3://`` *source_path* URLs are read anonymously
+        (``storage_options={"anon": True}``), which works for public buckets. To
+        read a source that needs credentials or non-default options (a private S3
+        bucket, ``gs://``, etc.), open it with
+        ``NWBZarrV2IO(source_path, mode="r", storage_options=...)`` and call
+        :meth:`export_to_v3`. The ``storage_options`` argument of this method
+        configures the *destination* store, not the source.
+
         Example::
 
             NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr")
@@ -151,7 +159,14 @@ class NWBZarrV2IO(ZarrV2IO):
         is_method=False,
     )
     def read_nwb(**kwargs):
-        """Open a zarr-v2 NWB file and return its :class:`NWBFile`."""
+        """Open a zarr-v2 NWB file and return its :class:`NWBFile`.
+
+        ``s3://`` *path* URLs are read anonymously
+        (``storage_options={"anon": True}``), which works for public buckets. To
+        read a file that needs credentials or non-default options (a private S3
+        bucket, ``gs://``, etc.), construct :class:`NWBZarrV2IO` directly with the
+        appropriate ``storage_options`` and call ``read()``.
+        """
         path = popargs("path", kwargs)
         if isinstance(path, Path):
             path = str(path)
