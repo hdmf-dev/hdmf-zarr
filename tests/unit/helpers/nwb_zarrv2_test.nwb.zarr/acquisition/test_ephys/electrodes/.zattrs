@@ -1,0 +1,19 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "num_rows"
+    ],
+    "description": "all electrodes",
+    "namespace": "hdmf-common",
+    "neurodata_type": "DynamicTableRegion",
+    "object_id": "85c35564-7cbd-4075-b4c4-2c6cbefbe7eb",
+    "table": {
+        "value": {
+            "object_id": "588a3669-d3a4-442c-ac7c-2d1430947027",
+            "path": "/general/extracellular_ephys/electrodes",
+            "source": ".",
+            "source_object_id": "cd7369dd-582d-4872-8eaa-8bd9226094ef"
+        },
+        "zarr_dtype": "object"
+    },
+    "zarr_dtype": "int64"
+}

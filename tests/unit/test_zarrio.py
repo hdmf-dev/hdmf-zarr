@@ -158,15 +158,15 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
     def test_get_store_path_shallow(self):
         self.create_zarr(consolidate_metadata=False)
         store = LocalStore(self.store_path)
-        path = ZarrIO._ZarrIO__get_store_path(store)
-        # In zarr v3, __get_store_path returns str(store) which is the LocalStore repr
+        path = ZarrIO._get_store_path(store)
+        # In zarr v3, _get_store_path returns str(store) which is the LocalStore repr
         self.assertIsInstance(path, str)
 
     def test_get_store_path_deep(self):
         self.create_zarr()
         zarr_obj = zarr.open_consolidated(self.store_path, mode="r")
         store = zarr_obj.store
-        path = ZarrIO._ZarrIO__get_store_path(store)
+        path = ZarrIO._get_store_path(store)
         self.assertIsInstance(path, str)
 
     def test_force_open_without_consolidated(self):
@@ -183,7 +183,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
     def test_force_open_without_consolidated_fails(self):
         """
-        Test that we indeed can't use '_ZarrIO__open_file_consolidated' function in r- read mode, which
+        Test that we indeed can't use '_open_file_consolidated' function in r- read mode, which
         is used to force read without consolidated metadata.
         """
         self.create_zarr(consolidate_metadata=True)
@@ -191,12 +191,12 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             # Check that using 'r-' fails
             msg = "Mode r- not allowed for reading with consolidated metadata"
             with self.assertRaisesWith(ValueError, msg):
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r-")
+                read_io._open_file_consolidated(store=self.store_path, mode="r-")
             # Check that using 'r' does not fail
             try:
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r")
+                read_io._open_file_consolidated(store=self.store_path, mode="r")
             except ValueError as e:
-                self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+                self.fail("ZarrIO._open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
     def test_is_remote_local_with_consolidated(self):
         """Test that is_remote() returns False for local stores with consolidated metadata."""
@@ -358,10 +358,10 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_basic(self):
         """Test basic HTML generation for a Zarr array"""
         from zarr.codecs import BloscCodec
+
         # Create a test zarr array
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4",
-                              compressors=[BloscCodec()])
+        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4", compressors=[BloscCodec()])
         z[:] = np.random.random((100, 100))
 
         # Generate HTML representation
@@ -376,10 +376,12 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_with_compression(self):
         """Test HTML generation includes compression information"""
         from zarr.codecs import BloscCodec
+
         # Create a zarr array with specific compression
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(50, 50), chunks=(25, 25), dtype="i4",
-                              compressors=[BloscCodec(cname="zstd", clevel=9)])
+        z = zarr.create_array(
+            store, shape=(50, 50), chunks=(25, 25), dtype="i4", compressors=[BloscCodec(cname="zstd", clevel=9)]
+        )
         z[:] = np.arange(2500).reshape(50, 50)
 
         # Generate HTML representation
@@ -500,9 +502,7 @@ class TestCopyArray(TestCase):
 
     def test_copy_multichunk_numeric(self):
         """Data spanning multiple chunks is copied correctly (chunk-wise)."""
-        source = zarr.create_array(
-            zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4"
-        )
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4")
         source[:] = np.arange(20).reshape(5, 4)
         source.attrs["zarr_dtype"] = "int32"
         dest = ZarrIO._copy_array(source, self._dest_group(), "x")
@@ -511,9 +511,7 @@ class TestCopyArray(TestCase):
         self.assertEqual(dest.attrs["zarr_dtype"], "int32")
 
     def test_copy_object_becomes_stringdtype(self):
-        source = zarr.create_array(
-            zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType()
-        )
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType())
         source[:] = np.array(["aa", "bb", "cc"], dtype=np.dtypes.StringDType())
         dest = ZarrIO._copy_array(source, self._dest_group(), "y")
         self.assertEqual(list(dest[:]), ["aa", "bb", "cc"])

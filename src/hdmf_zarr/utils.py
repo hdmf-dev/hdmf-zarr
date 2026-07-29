@@ -159,7 +159,7 @@ class ZarrIODataChunkIteratorQueue(deque):
                 iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
                     store = zarr_dataset.store
-                    store_path = str(store.root) if hasattr(store, 'root') else str(store)
+                    store_path = str(store.root) if hasattr(store, "root") else str(store)
                     buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (
@@ -386,22 +386,28 @@ class ZarrSpecReader(SpecReader):
         super().__init__(source=source)
         self.__cache = None
 
-    def __read(self, path):
-        s = self.__group[path][0]
+    def _read(self, path):
+        """Read a JSON-encoded spec from a single-element string array at *path*."""
+        s = self._group[path][0]
         # In zarr v3, string arrays may return numpy StringDType scalars
         # Ensure we have a plain Python string for json.loads
         s = str(s) if not isinstance(s, str) else s
         d = json.loads(s)
         return d
 
+    @property
+    def _group(self):
+        """The underlying Zarr group. Exposed as a protected accessor for subclasses."""
+        return self.__group
+
     def read_spec(self, spec_path):
         """Read a spec from the given path"""
-        return self.__read(spec_path)
+        return self._read(spec_path)
 
     def read_namespace(self, ns_path):
         """Read a namespace from the given path"""
         if self.__cache is None:
-            self.__cache = self.__read(ns_path)
+            self.__cache = self._read(ns_path)
         ret = self.__cache["namespaces"]
         return ret
 
