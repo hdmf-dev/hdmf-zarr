@@ -1308,8 +1308,10 @@ class ZarrIO(HDMFIO):
                 )
                 dset.attrs["zarr_dtype"] = type_str
                 dset[...] = arr
+            # If the compound data type contains only regular data (i.e., no references) then we can write it as usual
+            elif len(np.shape(data)) == 0:
+                dset = self.__scalar_fill__(parent, name, data, options)
             else:
-                # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
         elif self.__is_ref(options["dtype"]):
@@ -1345,6 +1347,9 @@ class ZarrIO(HDMFIO):
             elif isinstance(data, AbstractDataChunkIterator):
                 dset = self.__setup_chunked_dataset__(parent, name, data, options)
                 self.__dci_queue.append(dataset=dset, data=data)
+            # Check for scalar (0-dimensional) data before checking __len__
+            elif len(np.shape(data)) == 0:
+                dset = self.__scalar_fill__(parent, name, data, options)
             elif hasattr(data, "__len__"):
                 dset = self.__list_fill__(parent, name, data, options)
             else:
@@ -1439,6 +1444,9 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get("bytes")
         elif not hasattr(data, "__len__"):
             return type(data)
+        # Handle 0-dimensional numpy arrays (scalars with compound dtype)
+        elif hasattr(data, 'ndim') and data.ndim == 0:
+            return data.dtype
         else:
             if len(data) == 0:
                 raise ValueError("cannot determine type for empty data")
@@ -1557,7 +1565,17 @@ class ZarrIO(HDMFIO):
             io_settings["object_codec"] = self.__codec_cls()
 
         dset = parent.require_dataset(name, shape=(1,), dtype=dtype, **io_settings)
-        dset[:] = data
+        # For scalar compound dtypes, wrap the data in an array
+        if isinstance(dtype, np.dtype) and dtype.names is not None:
+            # Check if data is a 0-dimensional array
+            if hasattr(data, 'ndim') and data.ndim == 0:
+                # Extract the scalar value and wrap it in an array
+                dset[:] = np.array([data[()]], dtype=dtype)
+            else:
+                # If data is already a tuple/scalar value, wrap it
+                dset[:] = np.array([data], dtype=dtype)
+        else:
+            dset[:] = data
         type_str = "scalar"
         dset.attrs["zarr_dtype"] = type_str
         return dset

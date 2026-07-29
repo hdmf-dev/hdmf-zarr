@@ -478,6 +478,52 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         self.assertTupleEqual(test_data[1], tuple(dataset[1]))
         self.assertTupleEqual(test_data[2], tuple(dataset[2]))
 
+    def test_write_scalar_compound(self):
+        """Test writing a scalar (0-dimensional) array with compound dtype"""
+        # Create a scalar numpy array with compound dtype
+        dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
+        scalar_data = np.array((1.0, 2.0, 3.0), dtype=dtype)
+        
+        self.__dataset_builder = DatasetBuilder("my_data", scalar_data)
+        self.createGroupBuilder()
+        writer = ZarrIO(self.store_path, manager=self.manager, mode="w")
+        writer.write_builder(self.builder)
+        writer.close()
+    
+    def test_write_scalar_compound_with_dtype_spec(self):
+        """Test writing a scalar (0-dimensional) array with compound dtype specified in builder"""
+        # Create a scalar numpy array with compound dtype
+        dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
+        scalar_data = np.array((1.0, 2.0, 3.0), dtype=dtype)
+        
+        # Specify dtype as a list (like NWB does)
+        data_type = [
+            {"name": "x", "dtype": "float32"},
+            {"name": "y", "dtype": "float32"},
+            {"name": "z", "dtype": "float32"}
+        ]
+        
+        self.__dataset_builder = DatasetBuilder("my_data", scalar_data, dtype=data_type)
+        self.createGroupBuilder()
+        writer = ZarrIO(self.store_path, manager=self.manager, mode="w")
+        writer.write_builder(self.builder)
+        writer.close()
+        
+    def test_read_scalar_compound(self):
+        """Test reading a scalar (0-dimensional) array with compound dtype"""
+        dtype = np.dtype([('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
+        scalar_data = np.array((1.0, 2.0, 3.0), dtype=dtype)
+        
+        self.test_write_scalar_compound()
+        dataset = self.read_test_dataset()["data"]
+        
+        # The scalar is stored as shape=(1,) for backward compatibility
+        self.assertTupleEqual(dataset.shape, (1,))
+        # Check the data values
+        self.assertAlmostEqual(dataset[0]['x'], 1.0, places=5)
+        self.assertAlmostEqual(dataset[0]['y'], 2.0, places=5)
+        self.assertAlmostEqual(dataset[0]['z'], 3.0, places=5)
+
     def test_read_link(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
         self.test_write_links(test_data=test_data)
