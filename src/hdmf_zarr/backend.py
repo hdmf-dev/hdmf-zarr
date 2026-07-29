@@ -458,6 +458,42 @@ class ZarrIO(HDMFIO):
             writer = ZarrSpecWriter(ns_group)
             ns_builder.export("namespace", writer=writer)
 
+    def __reset_parent_on_non_zarr_containers(self, container):
+        """
+        Recursively reset parent on containers that have a non-Zarr container_source.
+        
+        This is necessary when exporting from HDF5 (or other non-Zarr backends) to Zarr.
+        Objects read from HDF5 files have their container_source set to the HDF5 file path.
+        When these objects are added to another container and exported to Zarr, HDMF would
+        try to create links to them. However, cross-backend links are not supported.
+        
+        By calling reset_parent() on such containers, we ensure they are treated as new
+        objects and will be copied rather than linked during export.
+        
+        :param container: The container to check and potentially reset, along with its children
+        :type container: Container
+        """
+        from hdmf.container import AbstractContainer
+        
+        # Reset parent if this container has a non-Zarr source
+        if container.container_source is not None:
+            # Check if the container_source is a Zarr file (ends with .zarr or is a Zarr store)
+            source_str = str(container.container_source)
+            is_zarr_source = source_str.endswith('.zarr') or '/zarr/' in source_str
+            
+            if not is_zarr_source:
+                self.logger.debug(
+                    "Resetting parent for %s '%s' with non-Zarr container_source: %s"
+                    % (container.__class__.__name__, container.name, container.container_source)
+                )
+                container.reset_parent()
+        
+        # Recursively process children
+        if isinstance(container, AbstractContainer):
+            for child in container.children:
+                if isinstance(child, Container):
+                    self.__reset_parent_on_non_zarr_containers(child)
+
     @docval(
         *get_docval(HDMFIO.export),
         {"name": "cache_spec", "type": bool, "doc": "whether to cache the specification to file", "default": True},
@@ -520,6 +556,13 @@ class ZarrIO(HDMFIO):
                 "to Zarr with write argument link_data=True. "
                 "Set write_args={'link_data': False}"
             )
+
+        # Automatically reset parent on containers from non-Zarr sources when exporting from a non-Zarr backend
+        # This prevents HDMF from trying to create cross-backend links which are not supported
+        if not isinstance(src_io, ZarrIO):
+            container = kwargs.get("container")
+            if container is not None:
+                self.__reset_parent_on_non_zarr_containers(container)
 
         write_args["export_source"] = src_io.source  # pass export_source=src_io.source to write_builder
         write_args["consolidate_metadata"] = consolidate_metadata
