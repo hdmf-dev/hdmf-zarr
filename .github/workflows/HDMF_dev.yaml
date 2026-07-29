@@ -10,7 +10,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # tags are required to determine the version
 
@@ -27,7 +27,16 @@ jobs:
         run: |
           git clone https://github.com/hdmf-dev/hdmf.git --recurse-submodules
           cd hdmf
-          python -m pip install ".[test]"
+          python -m pip install --group test .
+          cd ..
+
+      - name: Clone and Install PyNWB Dev Branch
+        # PyNWB dev tracks HDMF dev's interfaces (e.g., the abstract HERDManager added in
+        # HDMF 5.1+). Released PyNWB may not yet satisfy these, so install PyNWB dev too.
+        run: |
+          git clone https://github.com/NeurodataWithoutBorders/pynwb.git --recurse-submodules
+          cd pynwb
+          python -m pip install .
           cd ..
 
       - name: Run HDMF_Zarr Tests

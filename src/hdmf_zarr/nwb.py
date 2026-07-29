@@ -9,6 +9,30 @@ from hdmf.build import BuildManager, TypeMap
 from pynwb import get_manager, get_type_map
 
 
+def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces, storage_options):
+    """Resolve a BuildManager for NWB given the IO subclass and constructor args.
+
+    Centralises the namespace-loading + manager-selection logic that both
+    :class:`NWBZarrIO` and :class:`NWBZarrV2IO` share.
+    """
+    io_modes_that_create_file = ["w", "w-", "x"]
+    if mode in io_modes_that_create_file or manager is not None or extensions is not None:
+        load_namespaces = False
+
+    if load_namespaces:
+        tm = get_type_map()
+        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        return BuildManager(tm)
+
+    if manager is not None and extensions is not None:
+        raise ValueError("'manager' and 'extensions' cannot be specified together")
+    if extensions is not None:
+        return get_manager(extensions=extensions)
+    if manager is None:
+        return get_manager()
+    return manager
+
+
 class NWBZarrIO(ZarrIO):
     """
     IO backend for PyNWB for writing NWB files
@@ -17,6 +41,15 @@ class NWBZarrIO(ZarrIO):
     is to perform default setup for BuildManager, loading or namespaces etc., in the context
     of the NWB format.
     """
+
+    _zarr_v2_backend_name = "NWBZarrV2IO"
+
+    @classmethod
+    def _zarr_v2_read_error_message(cls, source):
+        """Extend the base v2 read-error message with the NWB convert helper."""
+        return super()._zarr_v2_read_error_message(source) + (
+            " Or convert it to Zarr v3 with NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
+        )
 
     @docval(
         *get_docval(ZarrIO.__init__),
@@ -37,22 +70,7 @@ class NWBZarrIO(ZarrIO):
         path, mode, manager, extensions, load_namespaces, storage_options = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-
-        io_modes_that_create_file = ["w", "w-", "x"]
-        if mode in io_modes_that_create_file or manager is not None or extensions is not None:
-            load_namespaces = False
-
-        if load_namespaces:
-            tm = get_type_map()
-            super().load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
-            manager = BuildManager(tm)
-        else:
-            if manager is not None and extensions is not None:
-                raise ValueError("'manager' and 'extensions' cannot be specified together")
-            elif extensions is not None:
-                manager = get_manager(extensions=extensions)
-            elif manager is None:
-                manager = get_manager()
+        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(
@@ -81,7 +99,7 @@ class NWBZarrIO(ZarrIO):
     )
     def read_nwb(**kwargs):
         """
-        Helper factory method for reading an NWB file and return the NWBFile object
+        Helper factory method for reading an NWB file and return the NWBFile object.
         """
         # Retrieve the filepath
         path = popargs("path", kwargs)

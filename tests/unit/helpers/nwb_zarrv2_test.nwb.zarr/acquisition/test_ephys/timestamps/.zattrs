@@ -1,0 +1,5 @@
+{
+    "interval": 1,
+    "unit": "seconds",
+    "zarr_dtype": "float64"
+}
