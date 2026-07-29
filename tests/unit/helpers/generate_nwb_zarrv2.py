@@ -21,6 +21,7 @@ capture them without hard-coding values in two places.
 
 import json
 import os
+import shutil
 from argparse import ArgumentParser
 import numpy as np
 from datetime import datetime
@@ -28,13 +29,12 @@ from dateutil.tz import tzlocal
 
 from pynwb import NWBFile
 from pynwb.ecephys import ElectricalSeries
+from pynwb.file import Subject
 from hdmf_zarr import NWBZarrIO
 
 
 def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
     if os.path.exists(nwb_output_path):
-        import shutil
-
         shutil.rmtree(nwb_output_path)
 
     session_start = datetime(2024, 3, 15, 10, 30, 0, tzinfo=tzlocal())
@@ -51,8 +51,6 @@ def main(nwb_output_path: str, expectations_output_path: str = None) -> None:
     )
 
     # Subject with date_of_birth (datetime, |O dtype with fill_value=0)
-    from pynwb.file import Subject
-
     nwbfile.subject = Subject(
         subject_id="mouse-001",
         age="P90D",
