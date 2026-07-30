@@ -30,7 +30,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
-    "hdmf @ git+https://github.com/hdmf-dev/hdmf.git@remove_duck_typing_for_type",
+    "hdmf>=6.1.0",
     "zarr>=3.1.3",
     "numpy>=1.26.0",
     "numcodecs>=0.14.0",
@@ -79,12 +79,6 @@ docs = [
 [project.urls]
 "Homepage" = "https://github.com/hdmf-dev/hdmf-zarr"
 "Bug Tracker" = "https://github.com/hdmf-dev/hdmf-zarr/issues"
-
-[tool.uv.sources]
-hdmf = { git = "https://github.com/hdmf-dev/hdmf.git", branch = "remove_duck_typing_for_type" }
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.version]
 source = "vcs"
