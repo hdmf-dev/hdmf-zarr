@@ -4,7 +4,7 @@
 
 ### Fixed
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
-- Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`, because `ZarrIO.__dtypes` was missing those keys and the resulting `None` was passed to `np.dtype`. This affected the `HERD` index fields, among others. @ehennestad [#PRNUM](https://github.com/hdmf-dev/hdmf-zarr/pull/PRNUM)
+- Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`, because `ZarrIO.__dtypes` was missing those keys and the resulting `None` was passed to `np.dtype`. This affected the `HERD` index fields, among others. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 
 
 ## 0.13.0 (June 22, 2026)
