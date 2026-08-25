@@ -1369,8 +1369,10 @@ class ZarrIO(HDMFIO):
         "uint64": np.uint64,
         "int": np.int32,
         "int32": np.int32,
+        "short": np.int16,
         "int16": np.int16,
         "int8": np.int8,
+        "uint": np.uint32,
         "bool": np.bool_,
         "bool_": np.bool_,
         "text": str,
@@ -1427,7 +1429,19 @@ class ZarrIO(HDMFIO):
         elif isinstance(dtype, dict):
             return cls.__dtypes.get(dtype["reftype"])
         elif isinstance(dtype, list):
-            return np.dtype([(x["name"], cls.__resolve_dtype_helper__(x["dtype"])) for x in dtype])
+            # A field dtype that does not resolve must not be passed on to np.dtype, which reads
+            # None as "unspecified" and silently substitutes float64. Unlike the scalar case,
+            # __resolve_dtype__ cannot fall back to inferring the dtype from the data here,
+            # because the None is consumed while the compound dtype is being built.
+            fields = []
+            for field in dtype:
+                field_dtype = cls.__resolve_dtype_helper__(field["dtype"])
+                if field_dtype is None:
+                    raise ValueError(
+                        f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}"
+                    )
+                fields.append((field["name"], field_dtype))
+            return np.dtype(fields)
         else:
             raise ValueError(f"Can't resolve dtype {dtype}")
 
