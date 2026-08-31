@@ -26,7 +26,6 @@ except ImportError:
 
 # HDMF-ZARR imports
 from .utils import (
-    HDMFZarrArray,
     ZarrDataIO,
     ZarrReference,
     ZarrSpecWriter,
@@ -2022,7 +2021,6 @@ class ZarrIO(HDMFIO):
         dtype = kwargs["dtype"]
 
         # By default, use the zarr Array as data for lazy data load
-        zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
         # Read scalar dataset
