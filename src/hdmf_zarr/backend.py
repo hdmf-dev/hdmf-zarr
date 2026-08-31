@@ -25,7 +25,14 @@ except ImportError:
     FSSPECSTORE_AVAILABLE = False
 
 # HDMF-ZARR imports
-from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
+from .utils import (
+    HDMFZarrArray,
+    ZarrDataIO,
+    ZarrReference,
+    ZarrSpecWriter,
+    ZarrSpecReader,
+    ZarrIODataChunkIteratorQueue,
+)
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 # HDMF imports
@@ -71,7 +78,6 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 
 
 class ZarrIO(HDMFIO):
-
     #: Whether this backend reads Zarr v2 files. False for the Zarr v3 ``ZarrIO``;
     #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
     _reads_zarr_v2 = False
@@ -537,7 +543,7 @@ class ZarrIO(HDMFIO):
 
         if not isinstance(src_io, ZarrIO) and write_args.get("link_data", True):
             raise UnsupportedOperation(
-                f"Cannot export from non-Zarr backend { src_io.__class__.__name__} "
+                f"Cannot export from non-Zarr backend {src_io.__class__.__name__} "
                 "to Zarr with write argument link_data=True. "
                 "Set write_args={'link_data': False}"
             )
@@ -826,7 +832,9 @@ class ZarrIO(HDMFIO):
                                 (
                                     i.item()
                                     if (isinstance(i, np.generic) and not isinstance(i, np.bytes_))
-                                    else i.decode("utf-8") if isinstance(i, (bytes, np.bytes_)) else i
+                                    else i.decode("utf-8")
+                                    if isinstance(i, (bytes, np.bytes_))
+                                    else i
                                 )
                                 for i in value
                             ]
@@ -855,7 +863,9 @@ class ZarrIO(HDMFIO):
                         val = (
                             value.item()
                             if (isinstance(value, np.generic) and not isinstance(value, np.bytes_))
-                            else val.decode("utf-8") if isinstance(value, (bytes, np.bytes_)) else val
+                            else val.decode("utf-8")
+                            if isinstance(value, (bytes, np.bytes_))
+                            else val
                         )
                         obj.attrs[key] = val
                     except:  # noqa: E722
@@ -1389,7 +1399,6 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
-
                 self._written_builders.set_written(builder)  # record that the builder has been written
 
                 # gather items to write
@@ -2013,6 +2022,7 @@ class ZarrIO(HDMFIO):
         dtype = kwargs["dtype"]
 
         # By default, use the zarr Array as data for lazy data load
+        zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
         # Read scalar dataset

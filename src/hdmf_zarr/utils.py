@@ -16,7 +16,7 @@ from warnings import warn
 
 import zarr
 import numpy as np
-from zarr import Group
+from zarr import Group, Array
 from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
@@ -33,6 +33,27 @@ from hdmf.spec import SpecWriter, SpecReader
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
+
+
+class HDMFZarrArray(Array):
+    """
+    A subclass of zarr.Array used by HDMF to provide compatibility with array-like
+    interfaces expected by PyNWB and HDMF, without monkey-patching the global
+    zarr.Array class.
+    """
+
+    def __len__(self):
+        return self.shape[0]
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    def __getitem__(self, key):
+        result = super().__getitem__(key)
+        if isinstance(result, np.ndarray) and result.ndim == 0:
+            return result[()]
+        return result
 
 
 class ZarrIODataChunkIteratorQueue(deque):
