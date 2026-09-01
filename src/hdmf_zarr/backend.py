@@ -858,13 +858,13 @@ class ZarrIO(HDMFIO):
                 # Numpy scalars and bytes are not JSON serializable. Try to convert to a serializable type instead
                 except TypeError as e:
                     try:
-                        val = value.item if isinstance(value, np.ndarray) else value
+                        val = value.item() if isinstance(value, np.ndarray) else value
                         # TODO: refactor this to be more readable
                         val = (
-                            value.item()
-                            if (isinstance(value, np.generic) and not isinstance(value, np.bytes_))
+                            val.item()
+                            if (isinstance(val, np.generic) and not isinstance(val, np.bytes_))
                             else val.decode("utf-8")
-                            if isinstance(value, (bytes, np.bytes_))
+                            if isinstance(val, (bytes, np.bytes_))
                             else val
                         )
                         obj.attrs[key] = val
