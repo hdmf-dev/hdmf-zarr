@@ -41,37 +41,6 @@ from hdmf.container import Container
 
 from pathlib import Path
 
-# zarr v3 Array does not implement __len__; add it for compatibility with array-like interfaces
-if not hasattr(Array, "__len__"):
-    Array.__len__ = lambda self: self.shape[0]
-
-# zarr v3 Array does not implement __iter__, so it is not recognized as a
-# collections.abc.Iterable. hdmf/pynwb type-check some fields against Iterable
-# (e.g. ImageSeries.dimension), which rejects a lazy zarr Array even though it
-# supports __getitem__. Add __iter__ to keep the array lazy while satisfying the
-# Iterable interface, matching zarr v2 / numpy behavior.
-if not hasattr(Array, "__iter__"):
-
-    def _zarr_array_iter(self):
-        for i in range(len(self)):
-            yield self[i]
-
-    Array.__iter__ = _zarr_array_iter
-
-# zarr v3 Array scalar indexing returns 0-d ndarrays instead of numpy scalars;
-# patch to match zarr v2 / numpy behavior expected by hdmf type checks
-_zarr_array_original_getitem = Array.__getitem__
-
-
-def _zarr_array_getitem_scalar_fix(self, key):
-    result = _zarr_array_original_getitem(self, key)
-    if isinstance(result, np.ndarray) and result.ndim == 0:
-        return result[()]
-    return result
-
-
-Array.__getitem__ = _zarr_array_getitem_scalar_fix
-
 
 # Module variables
 ROOT_NAME = "root"
@@ -1528,7 +1497,7 @@ class ZarrIO(HDMFIO):
             )
             self._written_builders.set_written(builder)  # record that the builder has been written
             dset.attrs["zarr_dtype"] = type_str
-            if hasattr(refs, "__len__") and not isinstance(refs, dict):
+            if self._is_collection(refs) and not isinstance(refs, dict):
                 json_refs = [json.dumps(dict(r)) for r in refs]
                 for i, jr in enumerate(json_refs):
                     dset[i] = jr
@@ -1542,7 +1511,7 @@ class ZarrIO(HDMFIO):
             elif isinstance(data, AbstractDataChunkIterator):
                 dset = self.__setup_chunked_dataset__(parent, name, data, options)
                 self.__dci_queue.append(dataset=dset, data=data)
-            elif hasattr(data, "__len__"):
+            elif self._is_collection(data):
                 dset = self.__list_fill__(parent, name, data, options)
             else:
                 dset = self.__scalar_fill__(parent, name, data, options)
@@ -1634,12 +1603,38 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get("str")
         elif isinstance(data, bytes):
             return cls.__dtypes.get("bytes")
-        elif not hasattr(data, "__len__"):
+        elif isinstance(data, np.ndarray) and data.ndim == 0:
+            return type(data.item())
+        elif not cls._is_collection(data):
             return type(data)
         else:
-            if len(data) == 0:
+            if cls._get_length(data) == 0:
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
+
+    @staticmethod
+    def _is_collection(data):
+        """Check if data is a collection (array-like with elements) vs a scalar.
+
+        Uses ndim for array-like objects (numpy, zarr, h5py, dask) and falls back
+        to __len__ for plain Python containers (list, tuple). Strings and bytes
+        are treated as scalars.
+        """
+        if isinstance(data, (str, bytes)):
+            return False
+        if hasattr(data, "ndim"):
+            return data.ndim > 0
+        return hasattr(data, "__len__")
+
+    @staticmethod
+    def _get_length(data):
+        """Get the length of the first dimension of a collection.
+
+        Uses shape[0] for array-like objects and len() for plain containers.
+        """
+        if hasattr(data, "shape") and data.shape is not None:
+            return data.shape[0]
+        return len(data)
 
     __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
