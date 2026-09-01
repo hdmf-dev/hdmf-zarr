@@ -54,12 +54,15 @@ class HDMFZarrArray(Array):
         return super().dtype
 
     def __len__(self):
+        if self.ndim == 0:
+            raise TypeError("len() of unsized object")
         return self.shape[0]
 
     def __iter__(self):
+        if self.ndim == 0:
+            raise TypeError("iteration over a 0-d array")
         for i in range(self.shape[0]):
             yield self[i]
-
     def __getitem__(self, key):
         result = super().__getitem__(key)
         if self._has_string_dtype() and isinstance(result, np.ndarray):
