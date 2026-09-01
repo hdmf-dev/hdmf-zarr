@@ -2021,7 +2021,12 @@ class ZarrIO(HDMFIO):
         }
         dtype = kwargs["dtype"]
 
-        # By default, use the zarr Array as data for lazy data load
+        # By default, use the zarr Array as data for lazy data load. HDMFZarrArray
+        # is a subclass of zarr.Array and provides additional functionality. In particular,
+        # it exposes StringDType arrays as object dtype and decodes them on access, so
+        # HDMF recognizes them as UTF-8 without materializing them during this read,
+        # enabling lazy loading of variable-length strings. It further adds __len__,
+        # __iter__ methods that are missing on Zarr arrays.
         zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
@@ -2042,14 +2047,6 @@ class ZarrIO(HDMFIO):
         elif self._is_ref(dtype):
             # Array of references
             data = BuilderZarrReferenceDataset(data, self)
-        # Decode StringDType arrays to a numpy object array of native Python str so that
-        # HDMF's dtype machinery and other backends (e.g. HDF5IO) recognize them: numpy's
-        # StringDType (kind "T") is not understood by HDMF's convert_dtype, and a plain
-        # `list(...)` loses shape/dtype and breaks N-D indexing. Using an object ndarray
-        # preserves shape, dtype, and data[i, j] indexing.
-        # Must be after reference checks since references are also stored as StringDType.
-        elif isinstance(zarr_obj.dtype, np.dtypes.StringDType) and dtype != "scalar":
-            data = zarr_obj[:].astype(object)
 
         kwargs["data"] = data
         if name is None:

@@ -38,9 +38,20 @@ global _operation_to_run
 class HDMFZarrArray(Array):
     """
     A subclass of zarr.Array used by HDMF to provide compatibility with array-like
-    interfaces expected by PyNWB and HDMF, without monkey-patching the global
-    zarr.Array class.
+    interfaces expected by PyNWB and HDMF, including lazy decoding of variable-length
+    strings, without monkey-patching the global zarr.Array class.
     """
+
+    def _has_string_dtype(self):
+        return isinstance(super().dtype, np.dtypes.StringDType)
+
+    @property
+    def dtype(self):
+        if self._has_string_dtype():
+            # HDMF does not recognize StringDType (kind "T") when inferring generic
+            # dataset types. Object arrays are inferred as variable-length UTF-8.
+            return np.dtype(object)
+        return super().dtype
 
     def __len__(self):
         return self.shape[0]
@@ -51,9 +62,18 @@ class HDMFZarrArray(Array):
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
+        if self._has_string_dtype() and isinstance(result, np.ndarray):
+            result = result.astype(object)
         if isinstance(result, np.ndarray) and result.ndim == 0:
             return result[()]
         return result
+
+    def __array__(self, dtype=None, copy=None):
+        if not self._has_string_dtype():
+            return super().__array__(dtype=dtype, copy=copy)
+        if copy is False:
+            raise ValueError("`copy=False` is not supported. This method always creates a copy.")
+        return np.asarray(self[...], dtype=dtype)
 
 
 class ZarrIODataChunkIteratorQueue(deque):
