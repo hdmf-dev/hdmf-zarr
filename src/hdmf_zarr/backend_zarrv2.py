@@ -364,8 +364,7 @@ class ZarrV2IO(ZarrIO):
         :param is_object: ``True`` when ``dtype == '|O'`` — object arrays are decoded via filters
             only (pickle / json2 / vlen-utf8) and not reinterpreted as a raw buffer.
         :type is_object: bool
-        :returns: Decoded chunk with shape *chunk_shape* (or a flat object array for
-            ``is_object=True``).
+        :returns: Decoded chunk with shape *chunk_shape*.
         :rtype: numpy.ndarray
         """
         if compressor is not None:
@@ -373,17 +372,10 @@ class ZarrV2IO(ZarrIO):
 
         if is_object:
             # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array.
-            # The decoded chunk is returned as the filter yields it (typically 1-D) without
-            # reshaping to chunk_shape. This assumes object-dtype v2 arrays are 1-D, which
-            # holds for every array this fallback handles (specs, references, vlen columns).
-            # A multi-dimensional object-dtype array split across chunks would misalign
-            # against the N-D slices in _decode_v2_dataset; add reshaping here if such an
-            # array is ever encountered.
             for filt in reversed(filters):
                 raw = filt.decode(raw)
-            if isinstance(raw, np.ndarray):
-                return raw
-            return np.array(raw, dtype=object)
+            arr = raw if isinstance(raw, np.ndarray) else np.asarray(raw, dtype=object)
+            return arr.reshape(chunk_shape, order=order)
 
         if isinstance(raw, (bytes, bytearray)):
             arr = np.frombuffer(raw, dtype=dtype).copy()
@@ -461,6 +453,17 @@ class ZarrV2IO(ZarrIO):
             result[slices] = chunk_data[chunk_slices]
         return result
 
+    @staticmethod
+    def _v2_array_metadata_supported_by_zarr(zarray_meta):
+        """Return whether zarr-python v3 can parse v2 array metadata."""
+        from zarr.core.metadata.v2 import ArrayV2Metadata
+
+        try:
+            ArrayV2Metadata.from_dict(zarray_meta)
+        except (TypeError, ValueError):
+            return False
+        return True
+
     # ----- group iteration with v2 chunk fallback -----
 
     def _iter_children(self, zarr_obj):
@@ -515,14 +518,21 @@ class ZarrV2IO(ZarrIO):
                 )
                 if not os.path.isdir(entry_full):
                     continue
+            zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
             try:
+                # Avoid asking zarr v3 to open metadata it cannot parse. Its group
+                # traversal leaves an unhandled async task behind for those failures.
+                zarray_bytes = _read_store_bytes(store, zarray_key)
+                if zarray_bytes is not None:
+                    zarray_meta = json.loads(zarray_bytes)
+                    if not self._v2_array_metadata_supported_by_zarr(zarray_meta):
+                        raise ValueError("zarr v3 cannot parse this v2 array's metadata")
                 # Happy path: let zarr v3 open the child group/array.
                 child = zarr_obj[entry]
                 yield entry, child
             except Exception as e:
                 # zarr v3 could not open the child. If it is an array (has a
                 # .zarray), attempt the manual v2 decode fallback.
-                zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
                 if _store_key_exists(store, zarray_key):
                     try:
                         # Returns a DatasetBuilder with the data already decoded.

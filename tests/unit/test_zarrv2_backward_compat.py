@@ -28,8 +28,10 @@ import unittest
 import warnings
 
 import numpy as np
+from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
+from hdmf_zarr.backend_zarrv2 import ZarrV2IO
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +40,52 @@ _V2_FILE = os.path.join(_HELPERS, "nwb_zarrv2_test.nwb.zarr")
 _V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
+
+
+class TestV2ObjectChunkDecoding(unittest.TestCase):
+    """Regression tests for raw v2 object-array chunk decoding."""
+
+    def test_multichunk_2d_vlen_utf8_array(self):
+        """Flat vlen-decoded chunks must be reshaped before N-D slice assignment."""
+        from numcodecs import VLenUTF8
+
+        chunk_values = {
+            (0, 0): ["00", "01", "10", "11"],
+            (0, 1): ["02", "padding", "12", "padding"],
+            (1, 0): ["20", "21", "padding", "padding"],
+            (1, 1): ["22", "padding", "padding", "padding"],
+        }
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "|O",
+            "compressor": None,
+            "filters": [{"id": "vlen-utf8"}],
+            "order": "C",
+            "dimension_separator": ".",
+        }
+        codec = VLenUTF8()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            with open(os.path.join(array_path, ".zarray"), "w") as f:
+                json.dump(metadata, f)
+            for chunk_index, values in chunk_values.items():
+                chunk_name = ".".join(str(index) for index in chunk_index)
+                with open(os.path.join(array_path, chunk_name), "wb") as f:
+                    f.write(codec.encode(np.array(values, dtype=object)))
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+        expected = np.array([["00", "01", "02"], ["10", "11", "12"], ["20", "21", "22"]], dtype=object)
+        self.assertEqual(result.shape, (3, 3))
+        self.assertEqual(result.dtype, np.dtype(object))
+        np.testing.assert_array_equal(result, expected)
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
