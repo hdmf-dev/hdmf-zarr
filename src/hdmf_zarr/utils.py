@@ -571,6 +571,10 @@ class ZarrDataIO(DataIO):
         :param dataset: h5py.Dataset object that should be wrapped
         :type dataset: h5py.Dataset
         :param kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
+            ``fillvalue``, ``chunks``, ``compressor``, and ``filters`` override
+            the corresponding values inferred from ``h5dataset``. When omitted,
+            fill value and chunks are copied from the HDF5 dataset, while Zarr
+            compressors and filters are inferred from its HDF5 filter pipeline.
 
         :returns: ZarrDataIO object wrapping the dataset
         """
@@ -582,16 +586,19 @@ class ZarrDataIO(DataIO):
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
-        if len(compressors) == 1:
+        if "compressor" in kwargs:
+            compressor = kwargs.pop("compressor")
+        elif len(compressors) == 1:
             compressor = compressors[0]
         elif len(compressors) > 1:
             compressor = compressors
         else:
             compressor = None
+        filters = kwargs.pop("filters", filters if filters else None)
         re = ZarrDataIO(
             data=h5dataset,
             compressor=compressor,
-            filters=filters if filters else None,
+            filters=filters,
             fillvalue=fillval,
             chunks=chunks,
             **kwargs,
