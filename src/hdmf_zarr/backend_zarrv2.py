@@ -63,12 +63,12 @@ def is_zarr_v2_file(path, storage_options=None):
 
     Checks the zarr format reported by the opened hierarchy (zarr v2 sets
     ``zarr_format=2`` in ``.zgroup``; zarr v3 uses ``zarr.json``).  Works for
-    local paths, opened Zarr stores, and remote URLs (``s3://``,
-    ``http(s)://``, ``gs://``).
+    local paths, opened Zarr stores, and protocol URLs (including chained
+    fsspec URLs such as ``simplecache::s3://``).
     """
     if isinstance(path, (str, os.PathLike)) and not isinstance(path, LocalStore):
         path_str = str(path)
-        is_remote = path_str.startswith(("s3://", "http://", "https://", "gs://"))
+        is_remote = "://" in path_str
         if not is_remote and storage_options is None:
             return any(os.path.exists(os.path.join(path_str, m)) for m in (".zgroup", ".zarray"))
         # For remote URLs use zarr.open so that it creates the appropriate store

@@ -26,6 +26,8 @@ import shutil
 import tempfile
 import unittest
 import warnings
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 from zarr.storage import LocalStore
@@ -40,6 +42,28 @@ _V2_FILE = os.path.join(_HELPERS, "nwb_zarrv2_test.nwb.zarr")
 _V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
+
+
+class TestZarrV2FileDetection(unittest.TestCase):
+    """Tests for local and protocol URL detection of v2 Zarr stores."""
+
+    def test_protocol_urls_use_zarr_open_without_storage_options(self):
+        for path in (
+            "s3://bucket/file.zarr",
+            "gcs://bucket/file.zarr",
+            "gs://bucket/file.zarr",
+            "abfs://container/file.zarr",
+            "az://container/file.zarr",
+            "http://host/file.zarr",
+            "https://host/file.zarr",
+            "simplecache::s3://bucket/file.zarr",
+        ):
+            with self.subTest(path=path), patch(
+                "hdmf_zarr.backend_zarrv2.zarr.open",
+                return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
+            ) as open_zarr:
+                self.assertTrue(is_zarr_v2_file(path))
+                open_zarr.assert_called_once_with(path, mode="r", storage_options={})
 
 
 class TestV2ObjectChunkDecoding(unittest.TestCase):
