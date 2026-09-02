@@ -668,7 +668,10 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             if isinstance(value, (list, tuple, set)):
                 self.assertTupleEqual(read_val, tuple(value))
             elif isinstance(value, np.ndarray):
-                self.assertListEqual(list(read_val), value.tolist())
+                if value.ndim == 0:
+                    self.assertEqual(read_val, value.item())
+                else:
+                    self.assertListEqual(list(read_val), value.tolist())
             else:
                 self.assertEqual(testgroup.attrs[name], value)
         tempIO.close()
@@ -685,6 +688,11 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_attributes_write_scalar_str(self):
         self.__write_attribute_test_helper("strattr", "a")
         self.__write_attribute_test_helper("strattr", "Hello World")
+
+    def test_write_attributes_write_scalar_ndarray(self):
+        self.__write_attribute_test_helper("intattr", np.array(5))
+        val = self.__write_attribute_test_helper("bytesattr", np.array(b"Hello World"), assert_value=False)
+        self.assertEqual(val, "Hello World")
 
     def test_write_attributes_write_unsupported_scalar_type(self):
         with self.assertRaises(TypeError):

@@ -11,6 +11,7 @@ need to implement the tests separately for the different backends.
 """
 
 from unittest import TestCase
+from unittest.mock import patch
 from tests.unit.base_tests_zarrio import (
     BaseTestZarrWriter,
     ZarrStoreTestCase,
@@ -23,6 +24,7 @@ from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanag
 import zarr
 import numpy as np
 from hdmf_zarr.backend import ZarrIO, ROOT_NAME
+from hdmf_zarr.utils import HDMFZarrArray
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 import os
@@ -417,10 +419,9 @@ class TestGenerateDatasetHtml(TestCase):
 
 class TestStringDatasetRead(TestCase):
     """
-    On read, StringDType (zarr v3 variable-length string) datasets are decoded to a numpy
-    object array of native Python str. This preserves shape/dtype and N-D ``data[i, j]``
-    indexing (unlike ``list(zarr_obj[:])``) and yields a type that HDMF's dtype machinery
-    recognizes on re-write (unlike numpy's StringDType, whose kind "T" is not understood).
+    StringDType (zarr v3 variable-length string) datasets remain lazy on read. Their
+    HDMF-compatible wrapper exposes object dtype and decodes accessed arrays to native
+    Python strings so HDMF can infer ``utf8`` and export them correctly.
     """
 
     def setUp(self):
@@ -444,12 +445,14 @@ class TestStringDatasetRead(TestCase):
         self.addCleanup(read_io.close)
         return read_io.read()["text"].data
 
-    def test_1d_decoded_to_object_str(self):
+    def test_1d_is_lazily_decoded_to_object_str(self):
         data = self._roundtrip(["alpha", "beta", "gamma"])
+        self.assertIsInstance(data, HDMFZarrArray)
         self.assertEqual(data.dtype, np.dtype(object))
         self.assertEqual(data.shape, (3,))
         self.assertIsInstance(data[0], str)
         self.assertEqual(list(data[:]), ["alpha", "beta", "gamma"])
+        self.assertEqual(np.asarray(data).dtype, np.dtype(object))
 
     def test_2d_supports_multidimensional_indexing(self):
         """A 2-D string dataset must support data[i, j] indexing (regression: list(...) did not)."""
@@ -459,13 +462,82 @@ class TestStringDatasetRead(TestCase):
         self.assertEqual(data[0, 1], "b")
 
 
+class TestHDMFZarrArray(TestCase):
+    """Unit tests for the Zarr array compatibility wrapper."""
+
+    @staticmethod
+    def _make_array(shape, values, dtype):
+        array = zarr.create_array(
+            zarr.storage.MemoryStore(),
+            shape=shape,
+            dtype=dtype,
+        )
+        array[:] = np.array(values, dtype=dtype)
+        array.__class__ = HDMFZarrArray
+        return array
+
+    def _make_string_array(self, shape, values):
+        return self._make_array(shape, values, np.dtypes.StringDType())
+
+    def test_numeric_array_preserves_zarr_array_behavior(self):
+        array = self._make_array((2, 2), [[1, 2], [3, 4]], dtype="i4")
+
+        self.assertEqual(array.dtype, np.dtype("i4"))
+        self.assertEqual(len(array), 2)
+        np.testing.assert_array_equal(list(array), [[1, 2], [3, 4]])
+        np.testing.assert_array_equal(np.asarray(array), [[1, 2], [3, 4]])
+
+    def test_zero_dimensional_result_is_unwrapped(self):
+        array = self._make_array((2,), [1, 2], dtype="i4")
+
+        self.assertEqual(array[0], 1)
+        self.assertNotIsInstance(array[0], np.ndarray)
+
+    def test_string_array_is_not_materialized_when_wrapped(self):
+        """Applying the wrapper must not access a string array's data."""
+        array = zarr.create_array(
+            zarr.storage.MemoryStore(),
+            shape=(3,),
+            dtype=np.dtypes.StringDType(),
+        )
+        array[:] = np.array(["alpha", "beta", "gamma"], dtype=np.dtypes.StringDType())
+        original_getitem = zarr.Array.__getitem__
+        reads = []
+
+        def record_read(zarr_array, key):
+            reads.append(key)
+            return original_getitem(zarr_array, key)
+
+        with patch.object(zarr.Array, "__getitem__", record_read):
+            array.__class__ = HDMFZarrArray
+            self.assertEqual(reads, [])
+            self.assertEqual(array[0], "alpha")
+            self.assertEqual(reads, [0])
+
+    def test_string_array_decodes_lazily_and_preserves_dimensions(self):
+        array = self._make_string_array((2, 2), [["a", "b"], ["c", "d"]])
+
+        self.assertEqual(array.dtype, np.dtype(object))
+        self.assertEqual(array.shape, (2, 2))
+        self.assertEqual(len(array), 2)
+        self.assertEqual(array[1, 1], "d")
+        self.assertEqual(array[:].dtype, np.dtype(object))
+        self.assertEqual(array[:].shape, (2, 2))
+        self.assertEqual(np.asarray(array).dtype, np.dtype(object))
+        self.assertEqual(np.asarray(array).shape, (2, 2))
+
+    def test_string_array_rejects_copy_false_array_conversion(self):
+        array = self._make_string_array((2,), ["a", "b"])
+
+        with self.assertRaisesRegex(ValueError, "`copy=False` is not supported"):
+            np.asarray(array, copy=False)
+
+
 class TestPathNormalization(TestCase):
     """Local paths are made absolute, but protocol URLs must be left untouched."""
 
     def _init_path(self, path, storage_options=None):
         """Construct a ZarrIO with open() stubbed out and return the normalized path."""
-        from unittest.mock import patch
-
         with patch.object(ZarrIO, "open", lambda self: None):
             io = ZarrIO(path, mode="r", storage_options=storage_options)
         return io.path

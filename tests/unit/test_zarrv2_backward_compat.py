@@ -26,10 +26,14 @@ import shutil
 import tempfile
 import unittest
 import warnings
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
+from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
+from hdmf_zarr.backend_zarrv2 import UnsafePickleCodecError, ZarrV2IO
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +42,174 @@ _V2_FILE = os.path.join(_HELPERS, "nwb_zarrv2_test.nwb.zarr")
 _V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
+
+
+class TestZarrV2FileDetection(unittest.TestCase):
+    """Tests for local and protocol URL detection of v2 Zarr stores."""
+
+    def test_protocol_urls_use_zarr_open_without_storage_options(self):
+        for path in (
+            "s3://bucket/file.zarr",
+            "gcs://bucket/file.zarr",
+            "gs://bucket/file.zarr",
+            "abfs://container/file.zarr",
+            "az://container/file.zarr",
+            "http://host/file.zarr",
+            "https://host/file.zarr",
+            "simplecache::s3://bucket/file.zarr",
+        ):
+            with self.subTest(path=path), patch(
+                "hdmf_zarr.backend_zarrv2.zarr.open",
+                return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
+            ) as open_zarr:
+                self.assertTrue(is_zarr_v2_file(path))
+                open_zarr.assert_called_once_with(path, mode="r", storage_options={})
+
+
+class TestV2ObjectChunkDecoding(unittest.TestCase):
+    """Regression tests for raw v2 object-array chunk decoding."""
+
+    @staticmethod
+    def _write_chunk(array_path, chunk_index, values, codec):
+        chunk_name = ".".join(str(index) for index in chunk_index)
+        with open(os.path.join(array_path, chunk_name), "wb") as f:
+            f.write(codec.encode(np.array(values, dtype=object)))
+
+    def test_multichunk_2d_vlen_utf8_array(self):
+        """Flat vlen-decoded chunks must be reshaped before N-D slice assignment."""
+        from numcodecs import VLenUTF8
+
+        chunk_values = {
+            (0, 0): ["00", "01", "10", "11"],
+            (0, 1): ["02", "padding", "12", "padding"],
+            (1, 0): ["20", "21", "padding", "padding"],
+            (1, 1): ["22", "padding", "padding", "padding"],
+        }
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "|O",
+            "compressor": None,
+            "filters": [{"id": "vlen-utf8"}],
+            "order": "C",
+            "dimension_separator": ".",
+        }
+        codec = VLenUTF8()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            with open(os.path.join(array_path, ".zarray"), "w") as f:
+                json.dump(metadata, f)
+            for chunk_index, values in chunk_values.items():
+                self._write_chunk(array_path, chunk_index, values, codec)
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+        expected = np.array([["00", "01", "02"], ["10", "11", "12"], ["20", "21", "22"]], dtype=object)
+        self.assertEqual(result.shape, (3, 3))
+        self.assertEqual(result.dtype, np.dtype(object))
+        np.testing.assert_array_equal(result, expected)
+
+    def test_missing_object_chunk_uses_declared_fill_value(self):
+        """Missing object chunks are initialized from v2 ``fill_value`` metadata."""
+        from numcodecs import VLenUTF8
+
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "|O",
+            "compressor": None,
+            "filters": [{"id": "vlen-utf8"}],
+            "fill_value": "missing",
+            "order": "C",
+            "dimension_separator": ".",
+        }
+        codec = VLenUTF8()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            self._write_chunk(array_path, (0, 0), ["00", "01", "10", "11"], codec)
+            self._write_chunk(array_path, (0, 1), ["02", "padding", "12", "padding"], codec)
+            self._write_chunk(array_path, (1, 0), ["20", "21", "padding", "padding"], codec)
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+        expected = np.array(
+            [["00", "01", "02"], ["10", "11", "12"], ["20", "21", "missing"]],
+            dtype=object,
+        )
+        np.testing.assert_array_equal(result, expected)
+
+    def test_missing_numeric_chunks_use_declared_fill_value(self):
+        """Missing numeric chunks, including a sole chunk, use ``fill_value``."""
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "<i4",
+            "compressor": None,
+            "filters": None,
+            "fill_value": -1,
+            "order": "C",
+            "dimension_separator": ".",
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            for chunk_index, values in {
+                (0, 0): [[0, 1], [3, 4]],
+                (0, 1): [[2, -1], [5, -1]],
+                (1, 0): [[6, 7], [-1, -1]],
+            }.items():
+                chunk_name = ".".join(str(index) for index in chunk_index)
+                with open(os.path.join(array_path, chunk_name), "wb") as f:
+                    f.write(np.array(values, dtype="<i4").tobytes())
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+            empty_metadata = metadata | {"shape": [2], "chunks": [2], "fill_value": 7}
+            empty_result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="missing",
+                zarray_meta=empty_metadata,
+            )
+
+        np.testing.assert_array_equal(result, [[0, 1, 2], [3, 4, 5], [6, 7, -1]])
+        np.testing.assert_array_equal(empty_result, [7, 7])
+
+    def test_pickle_codecs_are_rejected_by_default(self):
+        metadata = {
+            "shape": [1],
+            "chunks": [1],
+            "dtype": "|O",
+            "compressor": None,
+            "filters": None,
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for key in ("compressor", "filters"):
+                with self.subTest(codec_location=key):
+                    unsafe_metadata = metadata.copy()
+                    unsafe_metadata[key] = {"id": "pickle"} if key == "compressor" else [{"id": "pickle"}]
+                    with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+                        ZarrV2IO._decode_v2_dataset(
+                            store=LocalStore(tmpdir),
+                            dataset_key="array",
+                            zarray_meta=unsafe_metadata,
+                        )
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
@@ -51,12 +223,17 @@ class TestV2BackwardCompat(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            cls.io = NWBZarrV2IO(_V2_FILE, mode="r")
+            cls.io = NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True)
             cls.nwbfile = cls.io.read()
 
     @classmethod
     def tearDownClass(cls):
         cls.io.close()
+
+    def test_pickle_codecs_require_explicit_opt_in(self):
+        with NWBZarrV2IO(_V2_FILE, mode="r") as io:
+            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+                io.read()
 
     # ---- scalar / string metadata ----
 
@@ -254,7 +431,7 @@ class TestV2ExportToV3(unittest.TestCase):
         # Convert the v2 file to a new zarr v3 file using the one-shot static helper.
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            NWBZarrV2IO.convert_to_v3(source_path=_V2_FILE, dest_path=cls.v3_path)
+            NWBZarrV2IO.convert_to_v3(source_path=_V2_FILE, dest_path=cls.v3_path, allow_pickle=True)
 
         # Read the exported file back with the v3 reader.
         cls.io = NWBZarrIO(cls.v3_path, mode="r")
@@ -356,7 +533,7 @@ class TestV2ExportToV3(unittest.TestCase):
 
     def test_ephys_data_values_match_v2(self):
         """Exported data values must match the original v2 file exactly."""
-        with NWBZarrV2IO(_V2_FILE, mode="r") as v2_io:
+        with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as v2_io:
             v2_nwbfile = v2_io.read()
             v2_data = np.asarray(v2_nwbfile.acquisition[self.expected["ephys_name"]].data)
         v3_data = np.asarray(self.nwbfile.acquisition[self.expected["ephys_name"]].data)
@@ -384,7 +561,7 @@ class TestV2ExportToV3(unittest.TestCase):
         dest = os.path.join(self.tmpdir, "instance_export_v3.nwb.zarr")
         with warnings.catch_warnings():
             warnings.simplefilter("always")
-            with NWBZarrV2IO(_V2_FILE, mode="r") as v2_io:
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as v2_io:
                 v2_io.export_to_v3(path=dest)
         self.assertFalse(is_zarr_v2_file(dest))
         with NWBZarrIO(dest, mode="r") as io:

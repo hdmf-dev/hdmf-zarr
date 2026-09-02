@@ -262,6 +262,25 @@ class TestZarrDataIO(TestCase):
         # Close the HDF5 file
         h5file.close()
 
+    def test_from_h5py_dataset_explicit_codecs_override_inferred_codecs(self):
+        """Explicit Zarr codec settings take precedence over inferred HDF5 codecs."""
+        from zarr.codecs import TransposeCodec
+
+        h5file = h5py.File(self.hdf_filename, mode="a")
+        h5dset = h5file.create_dataset(
+            name="test",
+            data=np.arange(1000).reshape((10, 100)),
+            compression="gzip",
+            compression_opts=6,
+            shuffle=True,
+        )
+        filters = [TransposeCodec(order=(1, 0))]
+        re_zarrdataio = ZarrDataIO.from_h5py_dataset(h5dset, compressor=False, filters=filters)
+
+        self.assertIsNone(re_zarrdataio.io_settings["compressors"])
+        self.assertEqual(re_zarrdataio.io_settings["filters"], filters)
+        h5file.close()
+
     def test_zarr_data_io_get_io_params(self):
         z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype="int32")
         io = ZarrDataIO(z, link_data=True)

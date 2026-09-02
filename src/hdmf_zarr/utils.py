@@ -16,7 +16,7 @@ from warnings import warn
 
 import zarr
 import numpy as np
-from zarr import Group
+from zarr import Group, Array
 from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
@@ -33,6 +33,50 @@ from hdmf.spec import SpecWriter, SpecReader
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
+
+
+class HDMFZarrArray(Array):
+    """
+    A subclass of zarr.Array used by HDMF to provide compatibility with array-like
+    interfaces expected by PyNWB and HDMF, including lazy decoding of variable-length
+    strings, without monkey-patching the global zarr.Array class.
+    """
+
+    def _has_string_dtype(self):
+        return isinstance(super().dtype, np.dtypes.StringDType)
+
+    @property
+    def dtype(self):
+        if self._has_string_dtype():
+            # HDMF does not recognize StringDType (kind "T") when inferring generic
+            # dataset types. Object arrays are inferred as variable-length UTF-8.
+            return np.dtype(object)
+        return super().dtype
+
+    def __len__(self):
+        if self.ndim == 0:
+            raise TypeError("len() of unsized object")
+        return self.shape[0]
+
+    def __iter__(self):
+        if self.ndim == 0:
+            raise TypeError("iteration over a 0-d array")
+        for i in range(self.shape[0]):
+            yield self[i]
+    def __getitem__(self, key):
+        result = super().__getitem__(key)
+        if self._has_string_dtype() and isinstance(result, np.ndarray):
+            result = result.astype(object)
+        if isinstance(result, np.ndarray) and result.ndim == 0:
+            return result[()]
+        return result
+
+    def __array__(self, dtype=None, copy=None):
+        if not self._has_string_dtype():
+            return super().__array__(dtype=dtype, copy=copy)
+        if copy is False:
+            raise ValueError("`copy=False` is not supported. This method always creates a copy.")
+        return np.asarray(self[...], dtype=dtype)
 
 
 class ZarrIODataChunkIteratorQueue(deque):
@@ -527,6 +571,10 @@ class ZarrDataIO(DataIO):
         :param dataset: h5py.Dataset object that should be wrapped
         :type dataset: h5py.Dataset
         :param kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
+            ``fillvalue``, ``chunks``, ``compressor``, and ``filters`` override
+            the corresponding values inferred from ``h5dataset``. When omitted,
+            fill value and chunks are copied from the HDF5 dataset, while Zarr
+            compressors and filters are inferred from its HDF5 filter pipeline.
 
         :returns: ZarrDataIO object wrapping the dataset
         """
@@ -538,16 +586,19 @@ class ZarrDataIO(DataIO):
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
-        if len(compressors) == 1:
+        if "compressor" in kwargs:
+            compressor = kwargs.pop("compressor")
+        elif len(compressors) == 1:
             compressor = compressors[0]
         elif len(compressors) > 1:
             compressor = compressors
         else:
             compressor = None
+        filters = kwargs.pop("filters", filters if filters else None)
         re = ZarrDataIO(
             data=h5dataset,
             compressor=compressor,
-            filters=filters if filters else None,
+            filters=filters,
             fillvalue=fillval,
             chunks=chunks,
             **kwargs,

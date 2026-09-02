@@ -16,13 +16,29 @@ import zarr
 from zarr.storage import LocalStore
 
 from hdmf.build import DatasetBuilder
-from hdmf.utils import docval, get_docval
+from hdmf.utils import docval, get_docval, popargs
 
 from .backend import ZarrIO, SPEC_LOC_ATTR
 from .utils import ZarrSpecReader
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 _V2_READ_MODES = ("r", "r-")
+
+
+class UnsafePickleCodecError(ValueError):
+    """Raised when an untrusted v2 file requests unsafe pickle decoding."""
+
+
+def _v2_codec(codec_config, allow_pickle):
+    """Build a declared v2 codec after enforcing the pickle trust policy."""
+    if codec_config and codec_config.get("id") == "pickle" and not allow_pickle:
+        raise UnsafePickleCodecError(
+            "Refusing to decode the unsafe pickle codec in a Zarr v2 file. "
+            "Reopen with allow_pickle=True only if this file is trusted."
+        )
+    import numcodecs
+
+    return numcodecs.get_codec(codec_config)
 
 
 def _read_store_bytes(store, key):
@@ -63,12 +79,12 @@ def is_zarr_v2_file(path, storage_options=None):
 
     Checks the zarr format reported by the opened hierarchy (zarr v2 sets
     ``zarr_format=2`` in ``.zgroup``; zarr v3 uses ``zarr.json``).  Works for
-    local paths, opened Zarr stores, and remote URLs (``s3://``,
-    ``http(s)://``, ``gs://``).
+    local paths, opened Zarr stores, and protocol URLs (including chained
+    fsspec URLs such as ``simplecache::s3://``).
     """
     if isinstance(path, (str, os.PathLike)) and not isinstance(path, LocalStore):
         path_str = str(path)
-        is_remote = path_str.startswith(("s3://", "http://", "https://", "gs://"))
+        is_remote = "://" in path_str
         if not is_remote and storage_options is None:
             return any(os.path.exists(os.path.join(path_str, m)) for m in (".zgroup", ".zarray"))
         # For remote URLs use zarr.open so that it creates the appropriate store
@@ -101,6 +117,19 @@ def is_zarr_v2_file(path, storage_options=None):
 class ZarrV2SpecReader(ZarrSpecReader):
     """Spec reader that can fall back to raw-chunk decoding for v2 object arrays."""
 
+    @docval(
+        *get_docval(ZarrSpecReader.__init__),
+        {
+            "name": "allow_pickle",
+            "type": bool,
+            "doc": "whether to decode unsafe pickle codecs from a trusted v2 file",
+            "default": False,
+        },
+    )
+    def __init__(self, **kwargs):
+        self.__allow_pickle = popargs("allow_pickle", kwargs)
+        super().__init__(**kwargs)
+
     def _read(self, path):
         try:
             return super()._read(path)
@@ -128,16 +157,12 @@ class ZarrV2SpecReader(ZarrSpecReader):
 
         compressor_config = zarray_meta.get("compressor")
         if compressor_config is not None:
-            import numcodecs
-
-            raw = numcodecs.get_codec(compressor_config).decode(raw)
+            raw = _v2_codec(compressor_config, self.__allow_pickle).decode(raw)
 
         filters = zarray_meta.get("filters") or []
         if filters:
-            import numcodecs
-
             for filt_config in reversed(filters):
-                raw = numcodecs.get_codec(filt_config).decode(raw)
+                raw = _v2_codec(filt_config, self.__allow_pickle).decode(raw)
 
         if isinstance(raw, np.ndarray):
             return raw.flat[0]
@@ -179,15 +204,53 @@ class ZarrV2IO(ZarrIO):
     #: :meth:`ZarrIO.read_builder` is suppressed for it.
     _reads_zarr_v2 = True
 
-    @docval(*get_docval(ZarrIO.__init__))
+    @docval(
+        *get_docval(ZarrIO.__init__),
+        {
+            "name": "allow_pickle",
+            "type": bool,
+            "doc": "whether to decode unsafe pickle codecs from a trusted v2 file",
+            "default": False,
+        },
+    )
     def __init__(self, **kwargs):
-        mode = kwargs.get("mode")
+        mode, self.__allow_pickle = popargs("mode", "allow_pickle", kwargs)
         if mode not in _V2_READ_MODES:
             raise ValueError(
                 f"ZarrV2IO is read-only; mode must be one of {_V2_READ_MODES}, got '{mode}'. "
                 "Use ZarrIO/NWBZarrIO to write zarr v3 files."
             )
+        kwargs["mode"] = mode
         super().__init__(**kwargs)
+
+    @property
+    def allow_pickle(self):
+        """Whether unsafe pickle decoding is enabled for this trusted v2 file."""
+        return self.__allow_pickle
+
+    @classmethod
+    @docval(
+        *get_docval(ZarrIO.load_namespaces),
+        {
+            "name": "allow_pickle",
+            "type": bool,
+            "doc": "whether to decode unsafe pickle codecs from a trusted v2 file",
+            "default": False,
+        },
+    )
+    def load_namespaces(cls, **kwargs):
+        """Load cached namespaces while enforcing the v2 pickle trust policy."""
+        namespace_catalog, path, file, storage_options, namespaces, allow_pickle = popargs(
+            "namespace_catalog", "path", "file", "storage_options", "namespaces", "allow_pickle", kwargs
+        )
+        if path is not None and file is not None:
+            raise ValueError("Only one of 'path' and 'file' must be provided.")
+        if path is not None:
+            store = cls._resolve_store(path, storage_options)
+            f = cls._open_for_namespaces(store)
+        else:
+            f = file
+        return cls._load_namespaces(namespace_catalog, namespaces, f, allow_pickle=allow_pickle)
 
     # ----- open / namespace hooks -----
 
@@ -244,7 +307,7 @@ class ZarrV2IO(ZarrIO):
         return ZarrV2SpecReader(ns_group)
 
     @classmethod
-    def _load_namespaces(cls, namespace_catalog, namespaces, f):
+    def _load_namespaces(cls, namespace_catalog, namespaces, f, allow_pickle=False):
         if SPEC_LOC_ATTR not in f.attrs:
             warnings.warn("No cached namespaces found in %s" % cls._get_store_path(f.store))
             return {}
@@ -258,7 +321,9 @@ class ZarrV2IO(ZarrIO):
             try:
                 ns_group = spec_group[ns]
                 latest_version = list(ns_group.keys())[-1]
-                readers[ns] = cls._make_spec_reader(ns_group[latest_version])
+                readers[ns] = ZarrV2SpecReader(ns_group[latest_version], allow_pickle=allow_pickle)
+            except UnsafePickleCodecError:
+                raise
             except Exception as e:
                 warnings.warn(
                     f"Could not read cached namespace '{ns}' from " f"{cls._get_store_path(f.store)}: {e}. Skipping."
@@ -364,8 +429,7 @@ class ZarrV2IO(ZarrIO):
         :param is_object: ``True`` when ``dtype == '|O'`` — object arrays are decoded via filters
             only (pickle / json2 / vlen-utf8) and not reinterpreted as a raw buffer.
         :type is_object: bool
-        :returns: Decoded chunk with shape *chunk_shape* (or a flat object array for
-            ``is_object=True``).
+        :returns: Decoded chunk with shape *chunk_shape*.
         :rtype: numpy.ndarray
         """
         if compressor is not None:
@@ -373,17 +437,10 @@ class ZarrV2IO(ZarrIO):
 
         if is_object:
             # For object dtype, filters (pickle / json2 / vlen-utf8) produce the array.
-            # The decoded chunk is returned as the filter yields it (typically 1-D) without
-            # reshaping to chunk_shape. This assumes object-dtype v2 arrays are 1-D, which
-            # holds for every array this fallback handles (specs, references, vlen columns).
-            # A multi-dimensional object-dtype array split across chunks would misalign
-            # against the N-D slices in _decode_v2_dataset; add reshaping here if such an
-            # array is ever encountered.
             for filt in reversed(filters):
                 raw = filt.decode(raw)
-            if isinstance(raw, np.ndarray):
-                return raw
-            return np.array(raw, dtype=object)
+            arr = raw if isinstance(raw, np.ndarray) else np.asarray(raw, dtype=object)
+            return arr.reshape(chunk_shape, order=order)
 
         if isinstance(raw, (bytes, bytearray)):
             arr = np.frombuffer(raw, dtype=dtype).copy()
@@ -402,7 +459,7 @@ class ZarrV2IO(ZarrIO):
         return arr.reshape(chunk_shape, order=order)
 
     @staticmethod
-    def _decode_v2_dataset(store, dataset_key, zarray_meta):
+    def _decode_v2_dataset(store, dataset_key, zarray_meta, allow_pickle=False):
         """Decode all chunks of a zarr v2 dataset from a store (local or remote).
 
         :param store: The zarr store (``LocalStore`` or ``FsspecStore``) backing the file.
@@ -414,8 +471,6 @@ class ZarrV2IO(ZarrIO):
             *zarray_meta*.  Object-dtype arrays are returned as ``dtype=object``.
         :rtype: numpy.ndarray
         """
-        import numcodecs
-
         shape = tuple(zarray_meta["shape"])
         chunks = tuple(zarray_meta["chunks"])
         dtype = np.dtype(zarray_meta.get("dtype", "f8"))
@@ -423,17 +478,19 @@ class ZarrV2IO(ZarrIO):
         dimension_separator = zarray_meta.get("dimension_separator", ".")
 
         compressor_config = zarray_meta.get("compressor")
-        compressor = numcodecs.get_codec(compressor_config) if compressor_config else None
+        compressor = _v2_codec(compressor_config, allow_pickle) if compressor_config else None
 
         filters_config = zarray_meta.get("filters") or []
-        filters = [numcodecs.get_codec(fc) for fc in filters_config]
+        filters = [_v2_codec(filter_config, allow_pickle) for filter_config in filters_config]
 
         is_object = dtype == np.dtype("|O")
+        result_dtype = object if is_object else dtype
+        fill_value = zarray_meta.get("fill_value", None if is_object else 0)
         ndim = len(shape)
         chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
 
         if any(s == 0 for s in shape):
-            return np.empty(shape, dtype=object if is_object else dtype)
+            return np.empty(shape, dtype=result_dtype)
 
         total_chunks = 1
         for g in chunk_grid:
@@ -447,9 +504,9 @@ class ZarrV2IO(ZarrIO):
                 if chunks != shape:
                     data = data[tuple(slice(0, s) for s in shape)]
                 return data
-            return np.full(shape, fill_value=None if is_object else 0, dtype=object if is_object else dtype)
+            return np.full(shape, fill_value=fill_value, dtype=result_dtype)
 
-        result = np.empty(shape, dtype=object if is_object else dtype)
+        result = np.full(shape, fill_value=fill_value, dtype=result_dtype)
         for idx in np.ndindex(*chunk_grid):
             chunk_name = dimension_separator.join(str(i) for i in idx)
             raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
@@ -460,6 +517,17 @@ class ZarrV2IO(ZarrIO):
             chunk_slices = tuple(slice(0, sl.stop - sl.start) for sl in slices)
             result[slices] = chunk_data[chunk_slices]
         return result
+
+    @staticmethod
+    def _v2_array_metadata_supported_by_zarr(zarray_meta):
+        """Return whether zarr-python v3 can parse v2 array metadata."""
+        from zarr.core.metadata.v2 import ArrayV2Metadata
+
+        try:
+            ArrayV2Metadata.from_dict(zarray_meta)
+        except (TypeError, ValueError):
+            return False
+        return True
 
     # ----- group iteration with v2 chunk fallback -----
 
@@ -515,14 +583,21 @@ class ZarrV2IO(ZarrIO):
                 )
                 if not os.path.isdir(entry_full):
                     continue
+            zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
             try:
+                # Avoid asking zarr v3 to open metadata it cannot parse. Its group
+                # traversal leaves an unhandled async task behind for those failures.
+                zarray_bytes = _read_store_bytes(store, zarray_key)
+                if zarray_bytes is not None:
+                    zarray_meta = json.loads(zarray_bytes)
+                    if not self._v2_array_metadata_supported_by_zarr(zarray_meta):
+                        raise ValueError("zarr v3 cannot parse this v2 array's metadata")
                 # Happy path: let zarr v3 open the child group/array.
                 child = zarr_obj[entry]
                 yield entry, child
             except Exception as e:
                 # zarr v3 could not open the child. If it is an array (has a
                 # .zarray), attempt the manual v2 decode fallback.
-                zarray_key = f"{group_prefix}/{entry}/.zarray" if group_prefix else f"{entry}/.zarray"
                 if _store_key_exists(store, zarray_key):
                     try:
                         # Returns a DatasetBuilder with the data already decoded.
@@ -531,6 +606,8 @@ class ZarrV2IO(ZarrIO):
                             f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store " f"fallback (zarr v3 error: {e})"
                         )
                         yield entry, builder
+                    except UnsafePickleCodecError:
+                        raise
                     except Exception as e2:
                         # Neither zarr v3 nor the manual fallback could read it;
                         # skip so the rest of the group still loads.
@@ -594,7 +671,7 @@ class ZarrV2IO(ZarrIO):
         chunks = tuple(zarray_meta["chunks"])
         source = self._get_store_path(store)
 
-        data = self._decode_v2_dataset(store, dataset_key, zarray_meta)
+        data = self._decode_v2_dataset(store, dataset_key, zarray_meta, allow_pickle=self.allow_pickle)
 
         if zarr_dtype == "scalar":
             if isinstance(data, np.ndarray) and data.size > 0:
