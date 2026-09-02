@@ -69,6 +69,12 @@ class TestZarrV2FileDetection(unittest.TestCase):
 class TestV2ObjectChunkDecoding(unittest.TestCase):
     """Regression tests for raw v2 object-array chunk decoding."""
 
+    @staticmethod
+    def _write_chunk(array_path, chunk_index, values, codec):
+        chunk_name = ".".join(str(index) for index in chunk_index)
+        with open(os.path.join(array_path, chunk_name), "wb") as f:
+            f.write(codec.encode(np.array(values, dtype=object)))
+
     def test_multichunk_2d_vlen_utf8_array(self):
         """Flat vlen-decoded chunks must be reshaped before N-D slice assignment."""
         from numcodecs import VLenUTF8
@@ -96,9 +102,7 @@ class TestV2ObjectChunkDecoding(unittest.TestCase):
             with open(os.path.join(array_path, ".zarray"), "w") as f:
                 json.dump(metadata, f)
             for chunk_index, values in chunk_values.items():
-                chunk_name = ".".join(str(index) for index in chunk_index)
-                with open(os.path.join(array_path, chunk_name), "wb") as f:
-                    f.write(codec.encode(np.array(values, dtype=object)))
+                self._write_chunk(array_path, chunk_index, values, codec)
 
             result = ZarrV2IO._decode_v2_dataset(
                 store=LocalStore(tmpdir),
@@ -110,6 +114,82 @@ class TestV2ObjectChunkDecoding(unittest.TestCase):
         self.assertEqual(result.shape, (3, 3))
         self.assertEqual(result.dtype, np.dtype(object))
         np.testing.assert_array_equal(result, expected)
+
+    def test_missing_object_chunk_uses_declared_fill_value(self):
+        """Missing object chunks are initialized from v2 ``fill_value`` metadata."""
+        from numcodecs import VLenUTF8
+
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "|O",
+            "compressor": None,
+            "filters": [{"id": "vlen-utf8"}],
+            "fill_value": "missing",
+            "order": "C",
+            "dimension_separator": ".",
+        }
+        codec = VLenUTF8()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            self._write_chunk(array_path, (0, 0), ["00", "01", "10", "11"], codec)
+            self._write_chunk(array_path, (0, 1), ["02", "padding", "12", "padding"], codec)
+            self._write_chunk(array_path, (1, 0), ["20", "21", "padding", "padding"], codec)
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+        expected = np.array(
+            [["00", "01", "02"], ["10", "11", "12"], ["20", "21", "missing"]],
+            dtype=object,
+        )
+        np.testing.assert_array_equal(result, expected)
+
+    def test_missing_numeric_chunks_use_declared_fill_value(self):
+        """Missing numeric chunks, including a sole chunk, use ``fill_value``."""
+        metadata = {
+            "shape": [3, 3],
+            "chunks": [2, 2],
+            "dtype": "<i4",
+            "compressor": None,
+            "filters": None,
+            "fill_value": -1,
+            "order": "C",
+            "dimension_separator": ".",
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            for chunk_index, values in {
+                (0, 0): [[0, 1], [3, 4]],
+                (0, 1): [[2, -1], [5, -1]],
+                (1, 0): [[6, 7], [-1, -1]],
+            }.items():
+                chunk_name = ".".join(str(index) for index in chunk_index)
+                with open(os.path.join(array_path, chunk_name), "wb") as f:
+                    f.write(np.array(values, dtype="<i4").tobytes())
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+            )
+
+            empty_metadata = metadata | {"shape": [2], "chunks": [2], "fill_value": 7}
+            empty_result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="missing",
+                zarray_meta=empty_metadata,
+            )
+
+        np.testing.assert_array_equal(result, [[0, 1, 2], [3, 4, 5], [6, 7, -1]])
+        np.testing.assert_array_equal(empty_result, [7, 7])
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")

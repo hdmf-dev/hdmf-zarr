@@ -421,11 +421,13 @@ class ZarrV2IO(ZarrIO):
         filters = [numcodecs.get_codec(fc) for fc in filters_config]
 
         is_object = dtype == np.dtype("|O")
+        result_dtype = object if is_object else dtype
+        fill_value = zarray_meta.get("fill_value", None if is_object else 0)
         ndim = len(shape)
         chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
 
         if any(s == 0 for s in shape):
-            return np.empty(shape, dtype=object if is_object else dtype)
+            return np.empty(shape, dtype=result_dtype)
 
         total_chunks = 1
         for g in chunk_grid:
@@ -439,9 +441,9 @@ class ZarrV2IO(ZarrIO):
                 if chunks != shape:
                     data = data[tuple(slice(0, s) for s in shape)]
                 return data
-            return np.full(shape, fill_value=None if is_object else 0, dtype=object if is_object else dtype)
+            return np.full(shape, fill_value=fill_value, dtype=result_dtype)
 
-        result = np.empty(shape, dtype=object if is_object else dtype)
+        result = np.full(shape, fill_value=fill_value, dtype=result_dtype)
         for idx in np.ndindex(*chunk_grid):
             chunk_name = dimension_separator.join(str(i) for i in idx)
             raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
