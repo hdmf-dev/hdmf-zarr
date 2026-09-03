@@ -180,6 +180,16 @@ class AbstractZarrTableDataset(DatasetOfReferences):
                 tmp.append(sub.type.__name__)
         self.__dtype = tmp
 
+        # The dtype a resolved row has in memory. Zarr v3 stores a reference inside a compound as a
+        # fixed-width string, which cannot hold the resolved Container or Builder, so the reference
+        # fields are widened to object here. This is also the dtype the HDF5 backend hands back.
+        self.__resolved_dtype = np.dtype(
+            [
+                (name, object if types[index] == DatasetBuilder.OBJECT_REF_TYPE else self.dataset.dtype[index])
+                for index, name in enumerate(self.dataset.dtype.names)
+            ]
+        )
+
     @property
     def types(self):
         return self.__types
@@ -191,18 +201,21 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     def __getitem__(self, arg):
         rows = copy(super().__getitem__(arg))
         if np.issubdtype(type(arg), np.integer):
-            # In zarr v3, structured array elements are 0-d numpy void with typed fields.
-            # Convert to list so we can replace fields with resolved references (Python objects).
-            row_list = list(rows.item()) if hasattr(rows, 'item') and rows.ndim == 0 else list(rows)
-            self.__swap_refs(row_list)
-            return row_list
-        else:
-            result = []
-            for row in rows:
-                row_list = list(row.item()) if hasattr(row, 'item') and row.ndim == 0 else list(row)
-                self.__swap_refs(row_list)
-                result.append(row_list)
-            return result
+            resolved = np.empty((), dtype=self.__resolved_dtype)
+            resolved[()] = tuple(self.__resolve_row(rows))
+            return resolved[()]
+
+        rows = np.asarray(rows)
+        resolved = np.empty(rows.shape, dtype=self.__resolved_dtype)
+        for index, row in enumerate(rows):
+            resolved[index] = tuple(self.__resolve_row(row))
+        return resolved
+
+    def __resolve_row(self, row):
+        # In zarr v3 a structured array element is a 0-d numpy void, so unpack it before swapping.
+        row_list = list(row.item()) if hasattr(row, "item") and getattr(row, "ndim", None) == 0 else list(row)
+        self.__swap_refs(row_list)
+        return row_list
 
     def __swap_refs(self, row):
         for i in self.__refgetters:
