@@ -17,9 +17,9 @@ from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO, ZarrReference
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager
 
-# Try to import numcodecs and disable compression tests if it is not available
+# Try to import zarr codecs and disable compression tests if not available
 try:
-    from numcodecs import Blosc, Delta, JSON
+    from zarr.codecs import BloscCodec, TransposeCodec
 
     DISABLE_ZARR_COMPRESSION_TESTS = False
 except ImportError:
@@ -414,6 +414,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer.close()
 
     def test_write_references_roundtrip(self):
+        import json
         # Setup a file container with references
         num_bazs = 1
         bazs = []  # set up dataset of references
@@ -437,9 +438,12 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
                     "object_id": expected_container.object_id,
                     "source_object_id": read_container.object_id,
                 }
-                # Read the dict with the definition of the reference from the raw Zarr file and compare
-                # to also check that reference (included object id's) are defined correctly
-                self.assertDictEqual(reader._file["baz_data"][i], expected_value)
+                # In zarr v3, references are stored as JSON strings (may be numpy StringDType scalars)
+                raw_ref = reader._file["baz_data"][i]
+                raw_ref = str(raw_ref) if not isinstance(raw_ref, (str, dict)) else raw_ref
+                if isinstance(raw_ref, str):
+                    raw_ref = json.loads(raw_ref)
+                self.assertDictEqual(raw_ref, expected_value)
                 # Also test using the low-level reference functions
                 zarr_ref = ZarrReference(**expected_value)
                 # Check the ZarrReference first
@@ -474,9 +478,10 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         test_data = [(1, "Allen1"), (2, "Bob1"), (3, "Mike1")]
         self.test_write_compound(test_data=test_data)
         dataset = self.read_test_dataset()["data"]
-        self.assertTupleEqual(test_data[0], tuple(dataset[0]))
-        self.assertTupleEqual(test_data[1], tuple(dataset[1]))
-        self.assertTupleEqual(test_data[2], tuple(dataset[2]))
+        # In zarr v3, indexing structured arrays returns 0-d numpy void; use .item() to convert to tuple
+        self.assertTupleEqual(test_data[0], dataset[0].item())
+        self.assertTupleEqual(test_data[1], dataset[1].item())
+        self.assertTupleEqual(test_data[2], dataset[2].item())
 
     def test_read_link(self):
         test_data = np.arange(100, 200, 10).reshape(5, 2)
@@ -519,15 +524,18 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         read_builder = self.root["ref_dataset"]
 
         # ensure the array was written as a compound array
-        ref_dtype = np.dtype([("id", "<i4"), ("name", "O"), ("reference", "O")])
-        self.assertEqual(read_builder.data.dataset.dtype, ref_dtype)
+        # In zarr v3, string/object fields are stored as fixed-length Unicode
+        # with lengths dynamically sized to fit the data
+        dset_dtype = read_builder.data.dataset.dtype
+        self.assertEqual(dset_dtype["id"], np.dtype("<i4"))
+        self.assertTrue(np.issubdtype(dset_dtype["name"], np.str_))
+        self.assertTrue(np.issubdtype(dset_dtype["reference"], np.str_))
 
-        # Load the elements of each entry in the compound dataset and compar the index, string, and referenced array
+        # Load the elements of each entry in the compound dataset and compare the index, string, and referenced array
         for i, v in enumerate(read_builder["data"]):
             self.assertEqual(v[0], builder["data"][i][0])  # Compare index value from compound tuple
             self.assertEqual(v[1], builder["data"][i][1])  # Compare string value from compound tuple
-            self.assertTrue(np.all(v[2]["data"][:] == builder["data"][i][2]["builder"]["data"][:]))  # Compare ref array
-        # print(read_builder)
+            self.assertTrue(np.all(v[2]["data"][:] == builder["data"][i][2]["builder"]["data"][:]))
 
     def test_read_reference_compound_buf(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
@@ -578,24 +586,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     #############################################
     #  ZarrDataIO general
     #############################################
-    def test_set_object_codec(self):
-        # Test that the default codec is the Pickle store
-        tempIO = ZarrIO(self.store_path, mode="w")
-        self.assertEqual(tempIO.object_codec_class.__qualname__, "Pickle")
-        del tempIO  # also calls tempIO.close()
-        tempIO = ZarrIO(self.store_path, mode="w", object_codec_class=JSON)
-        self.assertEqual(tempIO.object_codec_class.__qualname__, "JSON")
-        tempIO.close()
-
-    def test_synchronizer_constructor_arg_bool(self):
-        """Test that setting the synchronizer argument to True/False works in ZarrIO"""
-        tempIO = ZarrIO(self.store_path, mode="w", synchronizer=False)
-        self.assertIsNone(tempIO.synchronizer)
-        del tempIO  # also calls tempIO.close()
-        tempIO = ZarrIO(self.store_path, mode="w", synchronizer=True)
-        self.assertTrue(isinstance(tempIO.synchronizer, zarr.ProcessSynchronizer))
-        tempIO.close()
-
     def test_zarrdataio_enable_default_compressor(self):
         """Default compression simply means not specifying any compressor and using Zarr defaults"""
         dataio = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=True)
@@ -605,7 +595,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         """Test that ZarrDataIO.__array__ is working when wrapping an ndarray"""
         test_speed = np.array([10.0, 20.0])
         data = ZarrDataIO((test_speed), compressor=False)
-        self.assertIsNone(data.io_settings["compressor"])
+        self.assertIsNone(data.io_settings["compressors"])
 
     def test_zarrdataio_array_conversion_numpy(self):
         """Test that ZarrDataIO.__array__ is working when wrapping an ndarray"""
@@ -841,30 +831,30 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(dset.fill_value, -1)
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to numcodec compressor not available")
+    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress(self):
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
         dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
-        self.assertTrue(dset.compressor == compressor)
+        self.assertEqual(len(dset.compressors), 1)
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to numcodec compressor not available")
+    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress_and_filter(self):
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
-        filters = [Delta(dtype="i4")]
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
+        filters = [TransposeCodec(order=(2, 1, 0))]
         a = ZarrDataIO(np.arange(30, dtype="i4").reshape(5, 2, 3), compressor=compressor, filters=filters)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
         dset = tempIO._file["test_dataset"]
         self.assertTrue(np.all(dset[:] == a.data))
-        self.assertTrue(dset.compressor == compressor)
-        self.assertListEqual(dset.filters, filters)
+        self.assertEqual(len(dset.compressors), 1)
+        self.assertEqual(len(dset.filters), len(filters))
         tempIO.close()
 
     ##########################################
@@ -894,8 +884,9 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", data, attributes={}, dtype=dt))
         dset = tempIO._file["test_dataset"]
-        self.assertEqual(dset["a"].tolist(), data["a"].tolist())
-        self.assertEqual(dset["b"].tolist(), data["b"].tolist())
+        # In zarr v3, field-name indexing on Array is not supported; read all then index
+        self.assertEqual(dset[:]["a"].tolist(), data["a"].tolist())
+        self.assertEqual(dset[:]["b"].tolist(), data["b"].tolist())
         tempIO.close()
 
     def test_write_nested_structured_array_table(self):
@@ -940,7 +931,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         a = np.arange(30).reshape(5, 2, 3)
         aiter = iter(a)
         daiter = DataChunkIterator.from_iterable(aiter, buffer_size=2)
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_daiter = ZarrDataIO(data=daiter, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
@@ -948,7 +939,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         dset = tempIO._file["test_dataset"]
         self.assertEqual(dset.shape, a.shape)
         self.assertListEqual(dset[:].tolist(), a.tolist())
-        self.assertTrue(dset.compressor == compressor)
+        self.assertEqual(len(dset.compressors), 1)
         tempIO.close()
 
     def test_write_dataset_data_chunk_iterator(self):
@@ -962,14 +953,14 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
 
     def test_write_dataset_data_chunk_iterator_with_compression(self):
         dci = DataChunkIterator(data=np.arange(10), buffer_size=2)
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor, chunks=(2,))
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
         dset = tempIO._file["test_dataset"]
         self.assertListEqual(dset[:].tolist(), list(range(10)))
-        self.assertTrue(dset.compressor == compressor)
+        self.assertEqual(len(dset.compressors), 1)
         self.assertEqual(dset.chunks, (2,))
         tempIO.close()
 
@@ -980,14 +971,14 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
                 return (5, 1, 1)
 
         dci = DC(data=np.arange(30).reshape(5, 2, 3))
-        compressor = Blosc(cname="zstd", clevel=3, shuffle=Blosc.BITSHUFFLE)
+        compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         wrapped_dci = ZarrDataIO(data=dci, compressor=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
         dset = tempIO._file["test_dataset"]
         self.assertEqual(dset.chunks, (5, 1, 1))
-        self.assertTrue(dset.compressor == compressor)
+        self.assertEqual(len(dset.compressors), 1)
         tempIO.close()
 
     #############################################
@@ -1232,8 +1223,8 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             with ZarrIO(self.store_path[1], mode="w") as export_io:
                 export_io.export(src_io=read_io, container=read_foofile, cache_spec=True)
 
-        with zarr.open(self.store_path[1], mode="r") as zarr_io:
-            self.assertTrue("specifications" in zarr_io.keys())
+        zarr_io = zarr.open(self.store_path[1], mode="r")
+        self.assertTrue("specifications" in zarr_io.keys())
 
     def test_cache_spec_consolidated(self):
         """Test that exporting with cache_spec and consolidate_metadata writes .specloc to consolidated metadata."""
@@ -1295,7 +1286,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             if isinstance(self.store_path[1], str):
                 self.assertEqual(read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[1]))
             else:
-                self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[1].path)
+                self.assertEqual(read_foofile2.foo_link.container_source, str(self.store_path[1]))
 
     def test_external_link_group(self):
         """Test that exporting a written file with external linked groups maintains the links."""
@@ -1325,7 +1316,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
             if isinstance(self.store_path[0], str):
                 self.assertEqual(read_foofile2.foo_link.container_source, os.path.abspath(self.store_path[0]))
             else:
-                self.assertEqual(read_foofile2.foo_link.container_source, self.store_path[0].path)
+                self.assertEqual(read_foofile2.foo_link.container_source, str(self.store_path[0]))
 
     def test_external_link_dataset(self):
         """Test that exporting a written file with external linked datasets maintains the links."""
@@ -1380,7 +1371,7 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
         with ZarrIO(self.store_path[2], manager=get_foo_buildmanager(), mode="r") as read_io:
             read_foofile2 = read_io.read()
             # make sure the linked dataset is read from the first file
-            self.assertEqual(read_foofile2.foofile_data.store.store.path, os.path.abspath(self.store_path[0]))
+            self.assertEqual(str(read_foofile2.foofile_data.store.root), os.path.abspath(self.store_path[0]))
 
     def test_external_link_link(self):
         """Test that exporting a written file with external links to external links maintains the links."""

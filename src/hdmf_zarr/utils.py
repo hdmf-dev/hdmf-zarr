@@ -14,10 +14,10 @@ from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
 from warnings import warn
 
-import numcodecs
 import zarr
 import numpy as np
-from zarr.hierarchy import Group
+from zarr import Group
+from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -158,7 +158,9 @@ class ZarrIODataChunkIteratorQueue(deque):
 
                 iterator_itemsize = iterator.dtype.itemsize
                 for buffer_selection in iterator.buffer_selection_generator:
-                    buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
+                    store = zarr_dataset.store
+                    store_path = str(store.root) if hasattr(store, "root") else str(store)
+                    buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (
                         math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
@@ -353,12 +355,10 @@ class ZarrSpecWriter(SpecWriter):
 
     def __write(self, d, name):
         data = self.stringify(d)
-        dset = self.__group.require_dataset(
+        dset = self.__group.require_array(
             name,
             shape=(1,),
-            dtype=object,
-            object_codec=numcodecs.JSON(),
-            compressor=None,
+            dtype=np.dtypes.StringDType(),
         )
         dset.attrs["zarr_dtype"] = "scalar"
         dset[0] = data
@@ -381,27 +381,33 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        if isinstance(self.__group.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = self.__group.store.store.path
-        else:
-            fpath = self.__group.store.path
+        fpath = str(self.__group.store)
         source = "%s:%s" % (os.path.abspath(fpath), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 
-    def __read(self, path):
-        s = self.__group[path][0]
+    def _read(self, path):
+        """Read a JSON-encoded spec from a single-element string array at *path*."""
+        s = self._group[path][0]
+        # In zarr v3, string arrays may return numpy StringDType scalars
+        # Ensure we have a plain Python string for json.loads
+        s = str(s) if not isinstance(s, str) else s
         d = json.loads(s)
         return d
 
+    @property
+    def _group(self):
+        """The underlying Zarr group. Exposed as a protected accessor for subclasses."""
+        return self.__group
+
     def read_spec(self, spec_path):
         """Read a spec from the given path"""
-        return self.__read(spec_path)
+        return self._read(spec_path)
 
     def read_namespace(self, ns_path):
         """Read a namespace from the given path"""
         if self.__cache is None:
-            self.__cache = self.__read(ns_path)
+            self.__cache = self._read(ns_path)
         ret = self.__cache["namespaces"]
         return ret
 
@@ -435,17 +441,21 @@ class ZarrDataIO(DataIO):
         },
         {
             "name": "compressor",
-            "type": (numcodecs.abc.Codec, bool),
+            "type": (BytesBytesCodec, list, bool),
             "doc": (
-                "Zarr compressor filter to be used. Set to True to use Zarr default. "
-                "Set to False to disable compression)"
+                "Zarr compressor codec (BytesBytesCodec) to be used. Can be a single codec or list of codecs. "
+                "Set to True to use Zarr default. Set to False to disable compression. "
+                "Use zarr.codecs (e.g., zarr.codecs.BloscCodec()) or zarr.codecs.numcodecs wrappers."
             ),
             "default": None,
         },
         {
             "name": "filters",
             "type": (list, tuple),
-            "doc": "One or more Zarr-supported codecs used to transform data prior to compression.",
+            "doc": (
+                "One or more Zarr-supported codecs (ArrayArrayCodec) used to transform data prior to compression. "
+                "Use zarr.codecs or zarr.codecs.numcodecs wrappers."
+            ),
             "default": None,
         },
         {
@@ -476,17 +486,17 @@ class ZarrDataIO(DataIO):
             self.__iosettings["fill_value"] = fill_value
         if compressor is not None:
             if isinstance(compressor, bool):
-                # Disable compression by setting compressor to None
+                # Disable compression by setting compressors to empty list
                 if not compressor:
-                    self.__iosettings["compressor"] = None
+                    self.__iosettings["compressors"] = None
                 # To use default settings simply do not specify any compressor settings
                 else:
                     pass
-            # use the user-specified compressor
+            # use the user-specified compressor(s)
             else:
-                self.__iosettings["compressor"] = compressor
+                self.__iosettings["compressors"] = compressor
         if filters is not None:
-            self.__iosettings["filters"] = filters
+            self.__iosettings["filters"] = list(filters)
 
     @property
     def link_data(self) -> bool:
@@ -520,14 +530,24 @@ class ZarrDataIO(DataIO):
 
         :returns: ZarrDataIO object wrapping the dataset
         """
-        filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        all_codecs = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        # In zarr v3, separate compressors (BytesBytesCodec) from filters (ArrayArrayCodec)
+        compressors = [c for c in all_codecs if isinstance(c, BytesBytesCodec)]
+        filters = [c for c in all_codecs if isinstance(c, ArrayArrayCodec)]
         fillval = h5dataset.fillvalue if "fillvalue" not in kwargs else kwargs.pop("fillvalue")
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
+        if len(compressors) == 1:
+            compressor = compressors[0]
+        elif len(compressors) > 1:
+            compressor = compressors
+        else:
+            compressor = None
         re = ZarrDataIO(
             data=h5dataset,
-            filters=filters,
+            compressor=compressor,
+            filters=filters if filters else None,
             fillvalue=fillval,
             chunks=chunks,
             **kwargs,
@@ -536,45 +556,55 @@ class ZarrDataIO(DataIO):
 
     @staticmethod
     def hdf5_to_zarr_filters(h5dataset) -> list:
-        """From the given h5py.Dataset infer the corresponding filters to use in Zarr"""
+        """From the given h5py.Dataset infer the corresponding zarr v3 codecs.
+
+        Returns a list of zarr v3 codec instances (BytesBytesCodec or ArrayArrayCodec).
+        Uses zarr.codecs.numcodecs wrappers for codecs not natively available in zarr v3.
+        """
         # Based on https://github.com/fsspec/kerchunk/blob/617d9ce06b9d02375ec0e5584541fcfa9e99014a/kerchunk/hdf.py#L181
-        filters = []
+        import warnings as _warnings
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Blosc as ZarrBlosc, Zstd as ZarrZstd, Zlib as ZarrZlib
+
+        codecs = []
         # Check for unsupported filters
         if h5dataset.scaleoffset:
-            # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
             warn(f"{h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
         if h5dataset.compression in ("szip", "lzf"):
             warn(f"{h5dataset.name} HDF5 szip or lzf compression ignored in Zarr")
         # Add the shuffle filter if possible
         if h5dataset.shuffle and h5dataset.dtype.kind != "O":
             # cannot use shuffle if we materialised objects
-            filters.append(numcodecs.Shuffle(elementsize=h5dataset.dtype.itemsize))
+            with _warnings.catch_warnings():
+                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
+                codecs.append(ZarrShuffle(elementsize=h5dataset.dtype.itemsize))
         # iterate through all the filters and add them to the list
         for filter_id, properties in h5dataset._filters.items():
             filter_id_str = str(filter_id)
-            if filter_id_str == "32001":
-                blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
-                (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
-                pars = dict(
-                    blocksize=total_bytes,
-                    clevel=clevel,
-                    shuffle=shuffle,
-                    cname=blosc_compressors[compressor],
-                )
-                filters.append(numcodecs.Blosc(**pars))
-            elif filter_id_str == "32015":
-                filters.append(numcodecs.Zstd(level=properties[0]))
-            elif filter_id_str == "gzip":
-                filters.append(numcodecs.Zlib(level=properties))
-            elif filter_id_str == "32004":
-                warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
-            elif filter_id_str == "32008":
-                warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
-            elif filter_id_str == "shuffle":  # already handled above
-                pass
-            else:
-                warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
-        return filters
+            with _warnings.catch_warnings():
+                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
+                if filter_id_str == "32001":
+                    blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
+                    (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
+                    pars = dict(
+                        blocksize=total_bytes,
+                        clevel=clevel,
+                        shuffle=shuffle,
+                        cname=blosc_compressors[compressor],
+                    )
+                    codecs.append(ZarrBlosc(**pars))
+                elif filter_id_str == "32015":
+                    codecs.append(ZarrZstd(level=properties[0]))
+                elif filter_id_str == "gzip":
+                    codecs.append(ZarrZlib(level=properties))
+                elif filter_id_str == "32004":
+                    warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
+                elif filter_id_str == "32008":
+                    warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
+                elif filter_id_str == "shuffle":  # already handled above
+                    pass
+                else:
+                    warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
+        return codecs
 
     @staticmethod
     def is_h5py_dataset(obj):

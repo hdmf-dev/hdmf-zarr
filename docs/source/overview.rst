@@ -21,7 +21,7 @@ Supported features
 - Links
 - Object references
 - Writing/loading namespaces/specifications
-- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator` 
+- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator`
 - Parallel write with :py:class:`~hdmf.data_utils.GenericDataChunkIterator` (since v0.4)
 - Lazy load of datasets
 - Lazy load of datasets containing object references (since v0.4)
@@ -30,7 +30,9 @@ Known Limitations
 -----------------
 
 - The Zarr backend is currently experimental and may still change.
-- Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
-- Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's directory-based stores :py:class:`~zarr.storage.DirectoryStore`, :py:class:`~zarr.storage.NestedDirectoryStore`, and :py:class:`~zarr.storage.TempStore`. Other `Zarr stores <https://zarr.readthedocs.io/en/v2.18.4/api/storage.html>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_.
-- Exporting of HDF5 files with external links is not yet fully implemented/tested. (see `hdmf-zarr issue #49 <https://github.com/hdmf-dev/hdmf-zarr/issues/49>`_.
+- **Zarr v2 read-only:** Zarr v2 folders can only be read in read-only mode with the :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` and corresponding :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO` classes. Writing of new Zarr v2 files is not supported, i.e., new files can only be written in Zarr v3 via :py:class:`~hdmf_zarr.backend.ZarrIO` and :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. Zarr v2 folders can be converted to v3 using the :py:meth:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO.convert_to_v3` function. (since v0.14)
+- Attributes are stored as JSON documents in Zarr (using the :py:class:`~zarr.storage.LocalStore`). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
+- Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's :py:class:`~zarr.storage.LocalStore` for local storage and :py:class:`~zarr.storage.FsspecStore` for remote read-only access. Other `Zarr stores <https://zarr.readthedocs.io/en/stable/user-guide/storage/>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_).
+- **Compound dtypes with strings:** String and reference fields in compound data types are stored as fixed-length Unicode strings (``FixedLengthUTF32``) in zarr v3. The ``FixedLengthUTF32`` data type is currently not part of the Zarr V3 specification and may not be supported by other zarr implementations.
+- Exporting of HDF5 files with external links is not yet fully implemented/tested (see `hdmf-zarr issue #49 <https://github.com/hdmf-dev/hdmf-zarr/issues/49>`_).
 - Special characters (e.g., ``:``, ``<``, ``>``, ``"``, ``/``, ``\``, ``|``, ``?``, or ``*``) may not be supported by all file systems (e.g., on Windows) and as such should not be used as part of the names of Datasets or Groups as Zarr needs to create folders on the filesystem for these objects.

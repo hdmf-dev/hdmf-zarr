@@ -12,11 +12,10 @@ authors = [
 ]
 description = "A package defining a Zarr I/O backend for HDMF"
 readme = "README.rst"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "BSD"}
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -31,11 +30,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
-    "hdmf>=4.1.0",
-    "zarr>=2.18.0, <3.0",  # pin below 3.0 until HDMF-zarr supports zarr 3.0
-    "numpy>=1.24.0",
-    "numcodecs>=0.12.0, <0.16.0",  # numcodecs 0.16.0 is not compatible with some versions of zarr 2.18.* and those versions do not include this restriction
-    "pynwb>=2.8.3",
+    "hdmf>=6.2.0",  # 6.2.0 reads a zarr array into memory before the HDF5 write, which avoids a deadlock when exporting to HDF5
+    "zarr>=3.1.3",
+    "numpy>=1.26.0",
+    "numcodecs>=0.14.0",
+    "pynwb>=4.2.0",  # pynwb 3.x requires hdmf<5
     "threadpoolctl>=3.1.0",
 ]
 dynamic = ["version"]

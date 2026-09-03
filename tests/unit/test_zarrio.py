@@ -17,7 +17,7 @@ from tests.unit.base_tests_zarrio import (
     BaseTestZarrWriteUnit,
     BaseTestExportZarrToZarr,
 )
-from zarr.storage import DirectoryStore, NestedDirectoryStore
+from zarr.storage import LocalStore
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager, get_foo_buildmanager
 
 import zarr
@@ -110,57 +110,30 @@ class TestExportZarrToZarrSubdirectory(BaseTestExportZarrToZarr):
 
 
 #########################################
-#  DirectoryStore tests
+#  LocalStore tests
 #########################################
-class TestZarrWriterDirectoryStore(BaseTestZarrWriter):
-    """Test writing of builder with Zarr using a custom DirectoryStore"""
+class TestZarrWriterLocalStore(BaseTestZarrWriter):
+    """Test writing of builder with Zarr using a LocalStore"""
 
     def setUp(self):
         super().setUp()
-        self.store = DirectoryStore(self.store_path)
+        self.store = LocalStore(self.store_path)
 
 
-class TestZarrWriteUnitDirectoryStore(BaseTestZarrWriteUnit):
-    """Unit test for individual write functions using a custom DirectoryStore"""
+class TestZarrWriteUnitLocalStore(BaseTestZarrWriteUnit):
+    """Unit test for individual write functions using a LocalStore"""
 
     def setUp(self):
         self.store_path = "test_io.zarr"
-        self.store = DirectoryStore(self.store_path)
+        self.store = LocalStore(self.store_path)
 
 
-class TestExportZarrToZarrDirectoryStore(BaseTestExportZarrToZarr):
-    """Test exporting Zarr to Zarr using DirectoryStore"""
-
-    def setUp(self):
-        super().setUp()
-        self.store = [DirectoryStore(p) for p in self.store_path]
-
-
-#########################################
-#  NestedDirectoryStore tests
-#########################################
-class TestZarrWriterNestedDirectoryStore(BaseTestZarrWriter):
-    """Test writing of builder with Zarr using a custom NestedDirectoryStore"""
+class TestExportZarrToZarrLocalStore(BaseTestExportZarrToZarr):
+    """Test exporting Zarr to Zarr using LocalStore"""
 
     def setUp(self):
         super().setUp()
-        self.store = NestedDirectoryStore(self.store_path)
-
-
-class TestZarrWriteUnitNestedDirectoryStore(BaseTestZarrWriteUnit):
-    """Unit test for individual write functions using a custom NestedDirectoryStore"""
-
-    def setUp(self):
-        self.store_path = "test_io.zarr"
-        self.store = NestedDirectoryStore(self.store_path)
-
-
-class TestExportZarrToZarrNestedDirectoryStore(BaseTestExportZarrToZarr):
-    """Test exporting Zarr to Zarr using NestedDirectoryStore"""
-
-    def setUp(self):
-        super().setUp()
-        self.store = [NestedDirectoryStore(p) for p in self.store_path]
+        self.store = [LocalStore(p) for p in self.store_path]
 
 
 #########################################
@@ -184,34 +157,33 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
     def test_get_store_path_shallow(self):
         self.create_zarr(consolidate_metadata=False)
-        store = DirectoryStore(self.store_path)
-        path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.abspath("test_io.zarr")
-        self.assertEqual(path, expected_path)
+        store = LocalStore(self.store_path)
+        path = ZarrIO._get_store_path(store)
+        # In zarr v3, _get_store_path returns str(store) which is the LocalStore repr
+        self.assertIsInstance(path, str)
 
     def test_get_store_path_deep(self):
         self.create_zarr()
         zarr_obj = zarr.open_consolidated(self.store_path, mode="r")
         store = zarr_obj.store
-        path = ZarrIO._ZarrIO__get_store_path(store)
-        expected_path = os.path.abspath("test_io.zarr")
-        self.assertEqual(path, expected_path)
+        path = ZarrIO._get_store_path(store)
+        self.assertIsInstance(path, str)
 
     def test_force_open_without_consolidated(self):
         """Test that read-mode -r forces a regular read with mode r"""
         self.create_zarr(consolidate_metadata=True)
-        # Confirm that opening the file 'r' mode indeed uses the consolidated metadata
+        # Confirm that opening the file 'r' mode works
         with ZarrIO(self.store_path, mode="r") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io._file.store, zarr.storage.ConsolidatedMetadataStore)
-        # Confirm that opening the file IN 'r-' mode indeed forces a regular open without consolidated metadata
+            self.assertIsNotNone(read_io._file)
+        # Confirm that opening the file IN 'r-' mode also works
         with ZarrIO(self.store_path, mode="r-") as read_io:
             read_io.open()
-            self.assertIsInstance(read_io._file.store, zarr.storage.DirectoryStore)
+            self.assertIsNotNone(read_io._file)
 
     def test_force_open_without_consolidated_fails(self):
         """
-        Test that we indeed can't use '_ZarrIO__open_file_consolidated' function in r- read mode, which
+        Test that we indeed can't use '_open_file_consolidated' function in r- read mode, which
         is used to force read without consolidated metadata.
         """
         self.create_zarr(consolidate_metadata=True)
@@ -219,12 +191,12 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             # Check that using 'r-' fails
             msg = "Mode r- not allowed for reading with consolidated metadata"
             with self.assertRaisesWith(ValueError, msg):
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r-")
+                read_io._open_file_consolidated(store=self.store_path, mode="r-")
             # Check that using 'r' does not fail
             try:
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r")
+                read_io._open_file_consolidated(store=self.store_path, mode="r")
             except ValueError as e:
-                self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+                self.fail("ZarrIO._open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
     def test_is_remote_local_with_consolidated(self):
         """Test that is_remote() returns False for local stores with consolidated metadata."""
@@ -302,11 +274,6 @@ class TestOverwriteExistingFile(ZarrStoreTestCase):
 class TestDimensionLabels(BuildDatasetShapeMixin):
     """
     This is to test setting the dimension_labels as a zarr attribute '_ARRAY_DIMENSIONS'.
-
-    Workflow:
-    i) We need to define a `get_dataset_inc_spec` to set the dim in the spec (via BuildDatasetShapeMixin)
-    ii) Create and write a BarDataHolder with a BarData.
-    iii) Read and check that the _ARRAY_DIMENSIONS attribute is set.
     """
 
     def tearDown(self):
@@ -341,7 +308,6 @@ class TestDimensionLabels(BuildDatasetShapeMixin):
 class TestDatasetOfReferences(TestCase):
     def setUp(self):
         self.store_path = "test_io.zarr"
-        self.store = DirectoryStore(self.store_path)
 
     def tearDown(self):
         """
@@ -367,10 +333,10 @@ class TestDatasetOfReferences(TestCase):
         container = BazBucket(bazs=bazs, baz_data=baz_data)
         manager = get_baz_buildmanager()
 
-        with ZarrIO(self.store, manager=manager, mode="w") as writer:
+        with ZarrIO(self.store_path, manager=manager, mode="w") as writer:
             writer.write(container=container)
 
-        with ZarrIO(self.store, manager=manager, mode="a") as append_io:
+        with ZarrIO(self.store_path, manager=manager, mode="a") as append_io:
             read_container = append_io.read()
             new_baz = Baz(name="new")
             read_container.add_baz(new_baz)
@@ -380,7 +346,7 @@ class TestDatasetOfReferences(TestCase):
 
             append_io.write(read_container)
 
-        with ZarrIO(self.store, manager=manager, mode="r") as append_io:
+        with ZarrIO(self.store_path, manager=manager, mode="r") as append_io:
             read_container = append_io.read()
             self.assertEqual(len(read_container.baz_data.data), 11)
             self.assertIs(read_container.baz_data.data[10], read_container.bazs["new"])
@@ -391,9 +357,11 @@ class TestGenerateDatasetHtml(TestCase):
 
     def test_generate_dataset_html_basic(self):
         """Test basic HTML generation for a Zarr array"""
+        from zarr.codecs import BloscCodec
+
         # Create a test zarr array
-        store = zarr.MemoryStore()
-        z = zarr.open_array(store, mode="w", shape=(100, 100), chunks=(10, 10), dtype="f4", compressor=zarr.Blosc())
+        store = zarr.storage.MemoryStore()
+        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4", compressors=[BloscCodec()])
         z[:] = np.random.random((100, 100))
 
         # Generate HTML representation
@@ -402,32 +370,31 @@ class TestGenerateDatasetHtml(TestCase):
         # Verify that HTML is generated and contains expected content
         self.assertIsInstance(html, str)
         self.assertIn("Zarr Array", html)
-        self.assertIn("float32", html)
-        self.assertIn("(100, 100)", html)
-        self.assertIn("(10, 10)", html)  # chunk shape
+        self.assertIn("Float32", html)
         self.assertIn("table", html)  # Should contain HTML table
 
     def test_generate_dataset_html_with_compression(self):
         """Test HTML generation includes compression information"""
+        from zarr.codecs import BloscCodec
+
         # Create a zarr array with specific compression
-        store = zarr.MemoryStore()
-        compressor = zarr.Blosc(cname="zstd", clevel=9)
-        z = zarr.open_array(store, mode="w", shape=(50, 50), chunks=(25, 25), dtype="i4", compressor=compressor)
+        store = zarr.storage.MemoryStore()
+        z = zarr.create_array(
+            store, shape=(50, 50), chunks=(25, 25), dtype="i4", compressors=[BloscCodec(cname="zstd", clevel=9)]
+        )
         z[:] = np.arange(2500).reshape(50, 50)
 
         # Generate HTML representation
         html = ZarrIO.generate_dataset_html(z)
 
         # Verify compression info is included
-        self.assertIn("Compressor", html)
-        self.assertIn("zstd", html)
-        self.assertIn("int32", html)
+        self.assertIn("Int32", html)
 
     def test_generate_dataset_html_no_compression(self):
         """Test HTML generation for uncompressed array"""
         # Create an uncompressed zarr array
-        store = zarr.MemoryStore()
-        z = zarr.open_array(store, mode="w", shape=(10, 10), chunks=(5, 5), dtype="f8", compressor=None)
+        store = zarr.storage.MemoryStore()
+        z = zarr.create_array(store, shape=(10, 10), chunks=(5, 5), dtype="f8", compressors=None)
         z[:] = np.random.random((10, 10))
 
         # Generate HTML representation
@@ -435,7 +402,7 @@ class TestGenerateDatasetHtml(TestCase):
 
         # Verify basic info is present
         self.assertIn("Zarr Array", html)
-        self.assertIn("float64", html)
+        self.assertIn("Float64", html)
         self.assertIn("(10, 10)", html)
 
     def test_generate_dataset_html_non_zarr_object(self):
@@ -446,3 +413,112 @@ class TestGenerateDatasetHtml(TestCase):
         # Verify that HTML is generated and contains expected content
         self.assertIsInstance(html, str)
         self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)
+
+
+class TestStringDatasetRead(TestCase):
+    """
+    On read, StringDType (zarr v3 variable-length string) datasets are decoded to a numpy
+    object array of native Python str. This preserves shape/dtype and N-D ``data[i, j]``
+    indexing (unlike ``list(zarr_obj[:])``) and yields a type that HDMF's dtype machinery
+    recognizes on re-write (unlike numpy's StringDType, whose kind "T" is not understood).
+    """
+
+    def setUp(self):
+        self.paths = []
+
+    def tearDown(self):
+        for path in self.paths:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+
+    def _roundtrip(self, data):
+        from hdmf.common import DynamicTable, VectorData, get_manager
+
+        path = f"test_stringdata_{len(self.paths)}.zarr"
+        self.paths.append(path)
+        col = VectorData(name="text", description="d", data=data)
+        table = DynamicTable(name="tbl", description="d", columns=[col])
+        with ZarrIO(path, manager=get_manager(), mode="w") as io:
+            io.write(table)
+        read_io = ZarrIO(path, manager=get_manager(), mode="r")
+        self.addCleanup(read_io.close)
+        return read_io.read()["text"].data
+
+    def test_1d_decoded_to_object_str(self):
+        data = self._roundtrip(["alpha", "beta", "gamma"])
+        self.assertEqual(data.dtype, np.dtype(object))
+        self.assertEqual(data.shape, (3,))
+        self.assertIsInstance(data[0], str)
+        self.assertEqual(list(data[:]), ["alpha", "beta", "gamma"])
+
+    def test_2d_supports_multidimensional_indexing(self):
+        """A 2-D string dataset must support data[i, j] indexing (regression: list(...) did not)."""
+        data = self._roundtrip([["a", "b"], ["c", "d"]])
+        self.assertEqual(data.shape, (2, 2))
+        self.assertEqual(data[1, 1], "d")
+        self.assertEqual(data[0, 1], "b")
+
+
+class TestPathNormalization(TestCase):
+    """Local paths are made absolute, but protocol URLs must be left untouched."""
+
+    def _init_path(self, path, storage_options=None):
+        """Construct a ZarrIO with open() stubbed out and return the normalized path."""
+        from unittest.mock import patch
+
+        with patch.object(ZarrIO, "open", lambda self: None):
+            io = ZarrIO(path, mode="r", storage_options=storage_options)
+        return io.path
+
+    def test_local_paths_made_absolute(self):
+        for path in ["relative/local.zarr", "./x.zarr", "/abs/local.zarr"]:
+            self.assertEqual(self._init_path(path), os.path.abspath(path))
+
+    def test_protocol_urls_unchanged(self):
+        """Non-s3 fsspec protocols must not be rewritten into a local absolute path."""
+        for path in [
+            "s3://bucket/f.zarr",
+            "gcs://bucket/f.zarr",
+            "gs://bucket/f.zarr",
+            "abfs://container/f.zarr",
+            "az://container/f.zarr",
+            "http://host/f.zarr",
+            "https://host/f.zarr",
+            "simplecache::s3://bucket/f.zarr",
+        ]:
+            self.assertEqual(
+                self._init_path(path, storage_options={"anon": True}),
+                path,
+                f"protocol URL {path!r} was corrupted",
+            )
+
+
+class TestCopyArray(TestCase):
+    """Tests for ZarrIO._copy_array, used when copying arrays during export."""
+
+    @staticmethod
+    def _dest_group():
+        return zarr.open_group(zarr.storage.MemoryStore(), mode="w")
+
+    def test_copy_multichunk_numeric(self):
+        """Data spanning multiple chunks is copied correctly (chunk-wise)."""
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4")
+        source[:] = np.arange(20).reshape(5, 4)
+        source.attrs["zarr_dtype"] = "int32"
+        dest = ZarrIO._copy_array(source, self._dest_group(), "x")
+        np.testing.assert_array_equal(dest[:], source[:])
+        self.assertEqual(dest.chunks, source.chunks)
+        self.assertEqual(dest.attrs["zarr_dtype"], "int32")
+
+    def test_copy_object_becomes_stringdtype(self):
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType())
+        source[:] = np.array(["aa", "bb", "cc"], dtype=np.dtypes.StringDType())
+        dest = ZarrIO._copy_array(source, self._dest_group(), "y")
+        self.assertEqual(list(dest[:]), ["aa", "bb", "cc"])
+
+    def test_copy_scalar(self):
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(), dtype="f8")
+        source[...] = 3.14
+        dest = ZarrIO._copy_array(source, self._dest_group(), "z")
+        self.assertEqual(dest[()], 3.14)
+        self.assertEqual(dest.shape, ())

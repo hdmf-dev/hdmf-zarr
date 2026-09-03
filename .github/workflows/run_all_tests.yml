@@ -25,24 +25,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-python3.10-minimum     , test-tox-env: py310-minimum   , python-ver: "3.10", os: ubuntu-latest }
-          - { name: linux-python3.10             , test-tox-env: py310           , python-ver: "3.10", os: ubuntu-latest }
+          - { name: linux-python3.11-minimum     , test-tox-env: py311-minimum   , python-ver: "3.11", os: ubuntu-latest }
           - { name: linux-python3.11             , test-tox-env: py311           , python-ver: "3.11", os: ubuntu-latest }
           - { name: linux-python3.12             , test-tox-env: py312           , python-ver: "3.12", os: ubuntu-latest }
           - { name: linux-python3.13             , test-tox-env: py313           , python-ver: "3.13", os: ubuntu-latest }
           - { name: linux-python3.14             , test-tox-env: py314           , python-ver: "3.14", os: ubuntu-latest }
           - { name: linux-python3.14-optional    , test-tox-env: py314-optional  , python-ver: "3.14", os: ubuntu-latest }
           - { name: linux-python3.14-prerelease  , test-tox-env: py314-prerelease, python-ver: "3.14", os: ubuntu-latest }
-          - { name: windows-python3.10-minimum   , test-tox-env: py310-minimum   , python-ver: "3.10", os: windows-latest }
-          - { name: windows-python3.10           , test-tox-env: py310           , python-ver: "3.10", os: windows-latest }
+          - { name: windows-python3.11-minimum   , test-tox-env: py311-minimum   , python-ver: "3.11", os: windows-latest }
           - { name: windows-python3.11           , test-tox-env: py311           , python-ver: "3.11", os: windows-latest }
           - { name: windows-python3.12           , test-tox-env: py312           , python-ver: "3.12", os: windows-latest }
           - { name: windows-python3.13           , test-tox-env: py313           , python-ver: "3.13", os: windows-latest }
           - { name: windows-python3.14           , test-tox-env: py314           , python-ver: "3.14", os: windows-latest }
           - { name: windows-python3.14-optional  , test-tox-env: py314-optional  , python-ver: "3.14", os: windows-latest }
           - { name: windows-python3.14-prerelease, test-tox-env: py314-prerelease, python-ver: "3.14", os: windows-latest }
-          - { name: macos-python3.10-minimum     , test-tox-env: py310-minimum   , python-ver: "3.10", os: macos-15-intel }
-          - { name: macos-python3.10             , test-tox-env: py310           , python-ver: "3.10", os: macos-latest }
+          - { name: macos-python3.11-minimum     , test-tox-env: py311-minimum   , python-ver: "3.11", os: macos-15-intel }
           - { name: macos-python3.11             , test-tox-env: py311           , python-ver: "3.11", os: macos-latest }
           - { name: macos-python3.12             , test-tox-env: py312           , python-ver: "3.12", os: macos-latest }
           - { name: macos-python3.13             , test-tox-env: py313           , python-ver: "3.13", os: macos-latest }
@@ -100,13 +97,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-gallery-python3.10-minimum     , test-tox-env: gallery-py310-minimum   , python-ver: "3.10", os: ubuntu-latest }
+          - { name: linux-gallery-python3.11-minimum     , test-tox-env: gallery-py311-minimum   , python-ver: "3.11", os: ubuntu-latest }
           - { name: linux-gallery-python3.14-optional    , test-tox-env: gallery-py314-optional  , python-ver: "3.14", os: ubuntu-latest }
           - { name: linux-gallery-python3.14-prerelease  , test-tox-env: gallery-py314-prerelease, python-ver: "3.14", os: ubuntu-latest }
-          - { name: windows-gallery-python3.10-minimum   , test-tox-env: gallery-py310-minimum   , python-ver: "3.10", os: windows-latest }
+          - { name: windows-gallery-python3.11-minimum   , test-tox-env: gallery-py311-minimum   , python-ver: "3.11", os: windows-latest }
           - { name: windows-gallery-python3.14-optional  , test-tox-env: gallery-py314-optional  , python-ver: "3.14", os: windows-latest }
           - { name: windows-gallery-python3.14-prerelease, test-tox-env: gallery-py314-prerelease, python-ver: "3.14", os: windows-latest }
-          - { name: macos-gallery-python3.10-minimum     , test-tox-env: gallery-py310-minimum   , python-ver: "3.10", os: macos-15-intel }
+          - { name: macos-gallery-python3.11-minimum     , test-tox-env: gallery-py311-minimum   , python-ver: "3.11", os: macos-15-intel }
           - { name: macos-gallery-python3.13-optional    , test-tox-env: gallery-py313-optional  , python-ver: "3.13", os: macos-latest }
           - { name: macos-gallery-python3.13-prerelease  , test-tox-env: gallery-py313-prerelease, python-ver: "3.13", os: macos-latest }
           # No prebuilt wheels for numcodecs==0.15.1 for Python 3.14 on PyPI and cannot build numcodecs == 0.15.1 on macos-latest
@@ -147,8 +144,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: conda-linux-python3.10-minimum   , test-tox-env: py310-minimum   , python-ver: "3.10", os: ubuntu-latest }
-          - { name: conda-linux-python3.10           , test-tox-env: py310           , python-ver: "3.10", os: ubuntu-latest }
+          - { name: conda-linux-python3.11-minimum   , test-tox-env: py311-minimum   , python-ver: "3.11", os: ubuntu-latest }
           - { name: conda-linux-python3.11           , test-tox-env: py311           , python-ver: "3.11", os: ubuntu-latest }
           - { name: conda-linux-python3.12           , test-tox-env: py312           , python-ver: "3.12", os: ubuntu-latest }
           - { name: conda-linux-python3.13           , test-tox-env: py313           , python-ver: "3.13", os: ubuntu-latest }

@@ -1,0 +1,7 @@
+{
+    "comments": "no comments",
+    "description": "Test ephys data",
+    "namespace": "core",
+    "neurodata_type": "ElectricalSeries",
+    "object_id": "3c030033-1c9e-480c-ab7a-c3c02474b548"
+}
