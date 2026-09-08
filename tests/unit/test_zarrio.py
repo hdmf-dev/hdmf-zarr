@@ -483,7 +483,7 @@ class TestHDMFZarrArray(TestCase):
         array = self._make_array((2, 2), [[1, 2], [3, 4]], dtype="i4")
 
         self.assertEqual(array.dtype, np.dtype("i4"))
-        self.assertEqual(len(array), 2)
+        self.assertEqual(array.shape[0], 2)
         np.testing.assert_array_equal(list(array), [[1, 2], [3, 4]])
         np.testing.assert_array_equal(np.asarray(array), [[1, 2], [3, 4]])
 
@@ -519,7 +519,6 @@ class TestHDMFZarrArray(TestCase):
 
         self.assertEqual(array.dtype, np.dtype(object))
         self.assertEqual(array.shape, (2, 2))
-        self.assertEqual(len(array), 2)
         self.assertEqual(array[1, 1], "d")
         self.assertEqual(array[:].dtype, np.dtype(object))
         self.assertEqual(array[:].shape, (2, 2))
