@@ -537,6 +537,31 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             self.assertEqual(v[1], builder["data"][i][1])  # Compare string value from compound tuple
             self.assertTrue(np.all(v[2]["data"][:] == builder["data"][i][2]["builder"]["data"][:]))
 
+    def test_read_reference_compound_resolves_to_a_record(self):
+        """The resolved rows must come back as a structured array, not a list of lists.
+
+        test_read_reference_compound above compares rows by position, which a list also satisfies,
+        so it cannot see a regression here.
+        """
+        self.test_write_reference_compound()
+        self.read()
+        builder = self.createReferenceCompoundBuilder()["ref_dataset"]
+        read_builder = self.root["ref_dataset"]
+
+        rows = read_builder["data"][:]
+        self.assertIsInstance(rows, np.ndarray)
+        self.assertTupleEqual(rows.dtype.names, ("id", "name", "reference"))
+        self.assertIsInstance(read_builder["data"][0], np.void)
+
+        # Field access is what breaks when the rows come back as lists
+        np.testing.assert_array_equal(rows["id"], [entry[0] for entry in builder["data"]])
+        np.testing.assert_array_equal(rows["name"], [entry[1] for entry in builder["data"]])
+
+        # The reference field holds the resolved builder rather than the JSON string on disk
+        self.assertEqual(rows.dtype["reference"], np.dtype(object))
+        for i, reference in enumerate(rows["reference"]):
+            self.assertTrue(np.all(reference["data"][:] == builder["data"][i][2]["builder"]["data"][:]))
+
     def test_read_reference_compound_buf(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         data_2 = np.arange(0, 200, 10).reshape(4, 5)
