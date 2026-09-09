@@ -314,10 +314,6 @@ class ZarrV2IO(ZarrIO):
             return zarr.open(store, mode="r", use_consolidated=False)
 
     @classmethod
-    def _make_spec_reader(cls, ns_group):
-        return ZarrV2SpecReader(ns_group)
-
-    @classmethod
     def _load_namespaces(cls, namespace_catalog, namespaces, f, allow_pickle=False):
         if SPEC_LOC_ATTR not in f.attrs:
             warnings.warn("No cached namespaces found in %s" % cls._get_store_path(f.store))
@@ -337,7 +333,7 @@ class ZarrV2IO(ZarrIO):
                 raise
             except Exception as e:
                 warnings.warn(
-                    f"Could not read cached namespace '{ns}' from " f"{cls._get_store_path(f.store)}: {e}. Skipping."
+                    f"Could not read cached namespace '{ns}' from {cls._get_store_path(f.store)}: {e}. Skipping."
                 )
 
         if not readers:
@@ -346,7 +342,7 @@ class ZarrV2IO(ZarrIO):
         try:
             return namespace_catalog.load_namespaces("namespace", reader=readers)
         except Exception as e:
-            warnings.warn(f"Could not load cached namespaces from " f"{cls._get_store_path(f.store)}: {e}. Skipping.")
+            warnings.warn(f"Could not load cached namespaces from {cls._get_store_path(f.store)}: {e}. Skipping.")
             return {}
 
     # ----- reference resolution -----
@@ -622,7 +618,7 @@ class ZarrV2IO(ZarrIO):
                         # Returns a DatasetBuilder with the data already decoded.
                         builder = self._read_v2_dataset(store, group_prefix, entry)
                         warnings.warn(
-                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store " f"fallback (zarr v3 error: {e})"
+                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store fallback (zarr v3 error: {e})"
                         )
                         yield entry, builder
                     except UnsafePickleCodecError:

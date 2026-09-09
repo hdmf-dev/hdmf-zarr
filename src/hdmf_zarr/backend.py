@@ -361,6 +361,16 @@ class ZarrIO(HDMFIO):
     def _load_namespaces(
         cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
     ) -> dict:
+        """
+        Load cached namespaces from a Zarr group.
+
+        Subclasses may override to provide backend-specific functionality, e.g., using a different spec reader.
+
+        :param namespace_catalog: The NamespaceCatalog or TypeMap to load namespaces into.
+        :param namespaces: The namespaces to load.
+        :param f: The Zarr group from which to load the namespaces.
+        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping included namespace names and the included data types.
+        """
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % cls._get_store_path(f.store)
             warnings.warn(msg)
@@ -375,19 +385,10 @@ class ZarrIO(HDMFIO):
             ns_group = spec_group[ns]
             latest_version = list(ns_group.keys())[-1]
             latest_ns_group = ns_group[latest_version]
-            readers[ns] = cls._make_spec_reader(latest_ns_group)
+            readers[ns] = ZarrSpecReader(latest_ns_group)
 
         d = namespace_catalog.load_namespaces("namespace", reader=readers)
         return d
-
-    @classmethod
-    def _make_spec_reader(cls, ns_group):
-        """Hook: build the SpecReader used to read cached namespaces.
-
-        Subclasses may override to provide a backend-specific reader (e.g., a v2
-        backwards-compatible variant).
-        """
-        return ZarrSpecReader(ns_group)
 
     @docval(
         {"name": "container", "type": Container, "doc": "the Container object to write"},
