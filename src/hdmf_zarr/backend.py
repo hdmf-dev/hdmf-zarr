@@ -369,7 +369,8 @@ class ZarrIO(HDMFIO):
         :param namespace_catalog: The NamespaceCatalog or TypeMap to load namespaces into.
         :param namespaces: The namespaces to load.
         :param f: The Zarr group from which to load the namespaces.
-        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping included namespace names and the included data types.
+        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping 
+        included namespace names and the included data types.
         """
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % cls._get_store_path(f.store)
