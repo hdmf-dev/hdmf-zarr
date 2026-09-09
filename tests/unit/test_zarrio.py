@@ -577,4 +577,4 @@ class TestResolveCompoundDtype(ZarrStoreTestCase):
 
         written = zarr.open(os.path.join(self.store_path, "tbl"), mode="r")
         self.assertEqual(written.dtype["idx"], np.dtype(np.uint32))
-        self.assertEqual(written["idx"].tolist(), [0, 1])
+        self.assertEqual(written[:]["idx"].tolist(), [0, 1])
