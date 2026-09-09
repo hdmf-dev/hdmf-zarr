@@ -275,7 +275,7 @@ class TestZarrDataIO(TestCase):
             shuffle=True,
         )
         filters = [TransposeCodec(order=(1, 0))]
-        re_zarrdataio = ZarrDataIO.from_h5py_dataset(h5dset, compressor=False, filters=filters)
+        re_zarrdataio = ZarrDataIO.from_h5py_dataset(h5dset, compressors=False, filters=filters)
 
         self.assertIsNone(re_zarrdataio.io_settings["compressors"])
         self.assertEqual(re_zarrdataio.io_settings["filters"], filters)
