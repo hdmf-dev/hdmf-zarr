@@ -640,7 +640,7 @@ class ZarrDataIO(DataIO):
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
-        compressors = kwargs.pop("compressor", compressors if compressors else None)
+        compressors = kwargs.pop("compressors", compressors if compressors else None)
         filters = kwargs.pop("filters", filters if filters else None)
         re = ZarrDataIO(
             data=h5dataset,
