@@ -6,6 +6,9 @@
 - Added read-only `ZarrV2IO` and `NWBZarrV2IO` backends for reading legacy Zarr v2 files, with `NWBZarrV2IO.export_to_v3` and the one-shot `NWBZarrV2IO.convert_to_v3` static helper to convert NWB Zarr v2 files to Zarr v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 - Added a clear error when reading a Zarr v2 file with the Zarr v3 `ZarrIO`/`NWBZarrIO` that directs the user to `ZarrV2IO`/`NWBZarrV2IO`, replacing an opaque zarr-python parse error. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 
+### Changed
+- Aligned `ZarrDataIO` with the zarr v3 codec API: `compressor` is renamed to `compressors`, the `serializer` (`ArrayBytesCodec`) slot is now reachable, and `filters` keeps its name for `ArrayArrayCodec` only. @h-mayorquin [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369)
+
 ### Fixed
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 - Fixed `ZarrIO._copy_array` failing to export arrays compressed with Zarr v2 numcodecs (e.g. `numcodecs.Blosc`) by mapping them to their `numcodecs.zarr3` equivalents, preserving compression/filters when exporting from Zarr v2 to v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
