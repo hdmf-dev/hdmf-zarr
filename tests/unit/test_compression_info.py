@@ -38,7 +38,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         data_io = ZarrDataIO(
             data=data,
             chunks=(10, 10),
-            compressor=compressor,
+            compressors=compressor,
         )
 
         # Write data with ZarrIO
@@ -79,7 +79,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         data_io = ZarrDataIO(
             data=data,
             chunks=(10, 10),
-            compressor=compressor,
+            compressors=compressor,
         )
 
         # Write data with ZarrIO without consolidation
@@ -120,7 +120,7 @@ class TestZarrCompressionInfo(unittest.TestCase):
         data_io = ZarrDataIO(
             data=data,
             chunks=(10, 10),
-            compressor=compressor,
+            compressors=compressor,
         )
 
         # Write data with ZarrIO with consolidated metadata
