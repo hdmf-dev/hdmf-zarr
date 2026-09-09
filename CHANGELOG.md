@@ -13,6 +13,7 @@
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 - Fixed `ZarrIO._copy_array` failing to export arrays compressed with Zarr v2 numcodecs (e.g. `numcodecs.Blosc`) by mapping them to their `numcodecs.zarr3` equivalents, preserving compression/filters when exporting from Zarr v2 to v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 - Fixed lazily-loaded Zarr arrays not being recognized as `collections.abc.Iterable`, which caused hdmf/pynwb type checks (e.g. `ImageSeries.dimension`) to reject them. `zarr.Array` gains an `__iter__` that yields elements lazily via `__getitem__`. This applies to arrays from both Zarr v2 and Zarr v3 files, since both are read through zarr-python v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+- Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`, because `ZarrIO.__dtypes` was missing those keys and the resulting `None` was passed to `np.dtype`. This affected the `HERD` index fields, among others. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 
 
 ## 0.13.0 (June 22, 2026)
