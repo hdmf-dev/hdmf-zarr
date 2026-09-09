@@ -22,7 +22,7 @@ class TestFSSpecStreaming(unittest.TestCase):
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_fsspec_streaming(self):
-        with NWBZarrV2IO(self.s3_aind_path, mode="r", storage_options=dict(anon=True)) as io:
+        with NWBZarrV2IO(self.s3_aind_path, mode="r", storage_options=dict(anon=True), allow_pickle=True) as io:
             nwbfile = io.read()
 
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
@@ -37,21 +37,21 @@ class TestFSSpecStreaming(unittest.TestCase):
         The file is a Zarr file with consolidated metadata.
         In zarr v3, consolidated metadata is handled transparently.
         """
-        with NWBZarrV2IO(self.https_s3_path, mode="r") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r", allow_pickle=True) as read_io:
             read_io.open()
             self.assertIsNotNone(read_io._file)
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_is_remote_with_consolidated(self):
         """Test that is_remote() returns True for remote HTTPS stores with consolidated metadata."""
-        with NWBZarrV2IO(self.https_s3_path, mode="r") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r", allow_pickle=True) as read_io:
             read_io.open()
             self.assertTrue(read_io.is_remote())
 
     @unittest.skipIf(not HAVE_FSSPEC, "fsspec not installed")
     def test_is_remote_without_consolidated(self):
         """Test that is_remote() returns True for remote HTTPS stores without consolidated metadata."""
-        with NWBZarrV2IO(self.https_s3_path, mode="r-") as read_io:
+        with NWBZarrV2IO(self.https_s3_path, mode="r-", allow_pickle=True) as read_io:
             read_io.open()
             self.assertTrue(read_io.is_remote())
 
@@ -61,7 +61,7 @@ class TestFSSpecStreaming(unittest.TestCase):
         Test reading from s3 using the convenience function NWBZarrIO.read_nwb
         """
         # Test with a s3:// URL
-        nwbfile = NWBZarrV2IO.read_nwb(self.s3_aind_path)
+        nwbfile = NWBZarrV2IO.read_nwb(self.s3_aind_path, allow_pickle=True)
         self.assertEqual(nwbfile.identifier, "ecephys_625749_2022-08-03_15-15-06")
         self.assertEqual(nwbfile.institution, "AIND")
 
@@ -79,7 +79,7 @@ class TestFSSpecStreaming(unittest.TestCase):
         """
         # DANDI 000719 file used in this repo's S3 streaming tutorial (PR #330).
         url = "https://dandiarchive.s3.amazonaws.com/zarr/c8c6b848-fbc6-4f58-85ff-e3f2618ee983/"
-        nwbfile = NWBZarrV2IO.read_nwb(url)
+        nwbfile = NWBZarrV2IO.read_nwb(url, allow_pickle=True)
         self.assertEqual(nwbfile.identifier, "7208f856-f527-479f-973d-e6e72326a8ea")
         self.assertIsNotNone(nwbfile.subject)
         self.assertEqual(nwbfile.subject.subject_id, "R6")

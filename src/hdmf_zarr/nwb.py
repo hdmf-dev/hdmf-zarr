@@ -9,11 +9,23 @@ from hdmf.build import BuildManager, TypeMap
 from pynwb import get_manager, get_type_map
 
 
-def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces, storage_options):
-    """Resolve a BuildManager for NWB given the IO subclass and constructor args.
+def _build_nwb_manager(
+    io_cls, path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle=None
+):
+    """Resolve the NWB BuildManager from IO constructor arguments.
 
-    Centralises the namespace-loading + manager-selection logic that both
-    :class:`NWBZarrIO` and :class:`NWBZarrV2IO` share.
+    :param io_cls: IO class used to load cached namespaces.
+    :param path: Source Zarr path or store.
+    :param mode: Requested IO mode; write modes do not load namespaces.
+    :param manager: Explicit manager, when supplied instead of extensions.
+    :param extensions: Namespace extension path(s) or TypeMap.
+    :param load_namespaces: Whether to load cached namespaces from *path*.
+    :param storage_options: Options used to open a remote source store.
+    :param allow_pickle: Whether a v2 reader may decode unsafe pickle codecs.
+        ``None`` omits this v2-only option for v3 readers.
+
+    Centralizes the namespace-loading and manager-selection logic shared by
+    :class:`NWBZarrIO` and :class:`NWBZarrV2IO`.
     """
     io_modes_that_create_file = ["w", "w-", "x"]
     if mode in io_modes_that_create_file or manager is not None or extensions is not None:
@@ -21,7 +33,15 @@ def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces,
 
     if load_namespaces:
         tm = get_type_map()
-        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        if allow_pickle is None:
+            io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        else:
+            io_cls.load_namespaces(
+                namespace_catalog=tm,
+                path=path,
+                storage_options=storage_options,
+                allow_pickle=allow_pickle,
+            )
         return BuildManager(tm)
 
     if manager is not None and extensions is not None:

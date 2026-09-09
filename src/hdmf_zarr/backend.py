@@ -25,7 +25,14 @@ except ImportError:
     FSSPECSTORE_AVAILABLE = False
 
 # HDMF-ZARR imports
-from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
+from .utils import (
+    HDMFZarrArray,
+    ZarrDataIO,
+    ZarrReference,
+    ZarrSpecWriter,
+    ZarrSpecReader,
+    ZarrIODataChunkIteratorQueue,
+)
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 # HDMF imports
@@ -40,37 +47,6 @@ from hdmf.query import HDMFDataset
 from hdmf.container import Container
 
 from pathlib import Path
-
-# zarr v3 Array does not implement __len__; add it for compatibility with array-like interfaces
-if not hasattr(Array, "__len__"):
-    Array.__len__ = lambda self: self.shape[0]
-
-# zarr v3 Array does not implement __iter__, so it is not recognized as a
-# collections.abc.Iterable. hdmf/pynwb type-check some fields against Iterable
-# (e.g. ImageSeries.dimension), which rejects a lazy zarr Array even though it
-# supports __getitem__. Add __iter__ to keep the array lazy while satisfying the
-# Iterable interface, matching zarr v2 / numpy behavior.
-if not hasattr(Array, "__iter__"):
-
-    def _zarr_array_iter(self):
-        for i in range(len(self)):
-            yield self[i]
-
-    Array.__iter__ = _zarr_array_iter
-
-# zarr v3 Array scalar indexing returns 0-d ndarrays instead of numpy scalars;
-# patch to match zarr v2 / numpy behavior expected by hdmf type checks
-_zarr_array_original_getitem = Array.__getitem__
-
-
-def _zarr_array_getitem_scalar_fix(self, key):
-    result = _zarr_array_original_getitem(self, key)
-    if isinstance(result, np.ndarray) and result.ndim == 0:
-        return result[()]
-    return result
-
-
-Array.__getitem__ = _zarr_array_getitem_scalar_fix
 
 
 # Module variables
@@ -102,7 +78,6 @@ Tuple listing all Zarr storage backends supported by ZarrIO
 
 
 class ZarrIO(HDMFIO):
-
     #: Whether this backend reads Zarr v2 files. False for the Zarr v3 ``ZarrIO``;
     #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
     _reads_zarr_v2 = False
@@ -386,6 +361,17 @@ class ZarrIO(HDMFIO):
     def _load_namespaces(
         cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
     ) -> dict:
+        """
+        Load cached namespaces from a Zarr group.
+
+        Subclasses may override to provide backend-specific functionality, e.g., using a different spec reader.
+
+        :param namespace_catalog: The NamespaceCatalog or TypeMap to load namespaces into.
+        :param namespaces: The namespaces to load.
+        :param f: The Zarr group from which to load the namespaces.
+        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping 
+        included namespace names and the included data types.
+        """
         if SPEC_LOC_ATTR not in f.attrs:
             msg = "No cached namespaces found in %s" % cls._get_store_path(f.store)
             warnings.warn(msg)
@@ -400,19 +386,10 @@ class ZarrIO(HDMFIO):
             ns_group = spec_group[ns]
             latest_version = list(ns_group.keys())[-1]
             latest_ns_group = ns_group[latest_version]
-            readers[ns] = cls._make_spec_reader(latest_ns_group)
+            readers[ns] = ZarrSpecReader(latest_ns_group)
 
         d = namespace_catalog.load_namespaces("namespace", reader=readers)
         return d
-
-    @classmethod
-    def _make_spec_reader(cls, ns_group):
-        """Hook: build the SpecReader used to read cached namespaces.
-
-        Subclasses may override to provide a backend-specific reader (e.g., a v2
-        backwards-compatible variant).
-        """
-        return ZarrSpecReader(ns_group)
 
     @docval(
         {"name": "container", "type": Container, "doc": "the Container object to write"},
@@ -568,7 +545,7 @@ class ZarrIO(HDMFIO):
 
         if not isinstance(src_io, ZarrIO) and write_args.get("link_data", True):
             raise UnsupportedOperation(
-                f"Cannot export from non-Zarr backend { src_io.__class__.__name__} "
+                f"Cannot export from non-Zarr backend {src_io.__class__.__name__} "
                 "to Zarr with write argument link_data=True. "
                 "Set write_args={'link_data': False}"
             )
@@ -857,7 +834,9 @@ class ZarrIO(HDMFIO):
                                 (
                                     i.item()
                                     if (isinstance(i, np.generic) and not isinstance(i, np.bytes_))
-                                    else i.decode("utf-8") if isinstance(i, (bytes, np.bytes_)) else i
+                                    else i.decode("utf-8")
+                                    if isinstance(i, (bytes, np.bytes_))
+                                    else i
                                 )
                                 for i in value
                             ]
@@ -881,12 +860,14 @@ class ZarrIO(HDMFIO):
                 # Numpy scalars and bytes are not JSON serializable. Try to convert to a serializable type instead
                 except TypeError as e:
                     try:
-                        val = value.item if isinstance(value, np.ndarray) else value
+                        val = value.item() if isinstance(value, np.ndarray) else value
                         # TODO: refactor this to be more readable
                         val = (
-                            value.item()
-                            if (isinstance(value, np.generic) and not isinstance(value, np.bytes_))
-                            else val.decode("utf-8") if isinstance(value, (bytes, np.bytes_)) else val
+                            val.item()
+                            if (isinstance(val, np.generic) and not isinstance(val, np.bytes_))
+                            else val.decode("utf-8")
+                            if isinstance(val, (bytes, np.bytes_))
+                            else val
                         )
                         obj.attrs[key] = val
                     except:  # noqa: E722
@@ -1420,7 +1401,6 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
-
                 self._written_builders.set_written(builder)  # record that the builder has been written
 
                 # gather items to write
@@ -1528,7 +1508,7 @@ class ZarrIO(HDMFIO):
             )
             self._written_builders.set_written(builder)  # record that the builder has been written
             dset.attrs["zarr_dtype"] = type_str
-            if hasattr(refs, "__len__") and not isinstance(refs, dict):
+            if self._is_collection(refs) and not isinstance(refs, dict):
                 json_refs = [json.dumps(dict(r)) for r in refs]
                 for i, jr in enumerate(json_refs):
                     dset[i] = jr
@@ -1542,7 +1522,7 @@ class ZarrIO(HDMFIO):
             elif isinstance(data, AbstractDataChunkIterator):
                 dset = self.__setup_chunked_dataset__(parent, name, data, options)
                 self.__dci_queue.append(dataset=dset, data=data)
-            elif hasattr(data, "__len__"):
+            elif self._is_collection(data):
                 dset = self.__list_fill__(parent, name, data, options)
             else:
                 dset = self.__scalar_fill__(parent, name, data, options)
@@ -1634,9 +1614,7 @@ class ZarrIO(HDMFIO):
             for field in dtype:
                 field_dtype = cls.__resolve_dtype_helper__(field["dtype"])
                 if field_dtype is None:
-                    raise ValueError(
-                        f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}"
-                    )
+                    raise ValueError(f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}")
                 fields.append((field["name"], field_dtype))
             return np.dtype(fields)
         else:
@@ -1648,12 +1626,38 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get("str")
         elif isinstance(data, bytes):
             return cls.__dtypes.get("bytes")
-        elif not hasattr(data, "__len__"):
+        elif isinstance(data, np.ndarray) and data.ndim == 0:
+            return type(data.item())
+        elif not cls._is_collection(data):
             return type(data)
         else:
-            if len(data) == 0:
+            if cls._get_length(data) == 0:
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
+
+    @staticmethod
+    def _is_collection(data):
+        """Check if data is a collection (array-like with elements) vs a scalar.
+
+        Uses ndim for array-like objects (numpy, zarr, h5py, dask) and falls back
+        to __len__ for plain Python containers (list, tuple). Strings and bytes
+        are treated as scalars.
+        """
+        if isinstance(data, (str, bytes)):
+            return False
+        if hasattr(data, "ndim"):
+            return data.ndim > 0
+        return hasattr(data, "__len__")
+
+    @staticmethod
+    def _get_length(data):
+        """Get the length of the first dimension of a collection.
+
+        Uses shape[0] for array-like objects and len() for plain containers.
+        """
+        if hasattr(data, "shape") and data.shape is not None:
+            return data.shape[0]
+        return len(data)
 
     __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
@@ -2031,7 +2035,13 @@ class ZarrIO(HDMFIO):
         }
         dtype = kwargs["dtype"]
 
-        # By default, use the zarr Array as data for lazy data load
+        # By default, use the zarr Array as data for lazy data load. HDMFZarrArray
+        # is a subclass of zarr.Array and provides additional functionality. In particular,
+        # it exposes StringDType arrays as object dtype and decodes them on access, so
+        # HDMF recognizes them as UTF-8 without materializing them during this read,
+        # enabling lazy loading of variable-length strings. It further adds __len__,
+        # __iter__ methods that are missing on Zarr arrays.
+        zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
         # Read scalar dataset
@@ -2051,14 +2061,6 @@ class ZarrIO(HDMFIO):
         elif self._is_ref(dtype):
             # Array of references
             data = BuilderZarrReferenceDataset(data, self)
-        # Decode StringDType arrays to a numpy object array of native Python str so that
-        # HDMF's dtype machinery and other backends (e.g. HDF5IO) recognize them: numpy's
-        # StringDType (kind "T") is not understood by HDMF's convert_dtype, and a plain
-        # `list(...)` loses shape/dtype and breaks N-D indexing. Using an object ndarray
-        # preserves shape, dtype, and data[i, j] indexing.
-        # Must be after reference checks since references are also stored as StringDType.
-        elif isinstance(zarr_obj.dtype, np.dtypes.StringDType) and dtype != "scalar":
-            data = zarr_obj[:].astype(object)
 
         kwargs["data"] = data
         if name is None:

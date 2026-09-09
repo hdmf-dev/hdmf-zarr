@@ -19,6 +19,8 @@ class NWBZarrV2IO(ZarrV2IO):
     """Read-only NWB IO for zarr-v2 files, opened via :class:`ZarrV2IO`.
 
     Use this class when reading NWB files written by older hdmf-zarr versions.
+    Pickle-encoded datasets require ``allow_pickle=True`` and must only be read
+    from trusted files.
     """
 
     @docval(
@@ -37,11 +39,13 @@ class NWBZarrV2IO(ZarrV2IO):
         },
     )
     def __init__(self, **kwargs):
-        path, mode, manager, extensions, load_namespaces, storage_options = popargs(
-            "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
+        path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle = popargs(
+            "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", "allow_pickle", kwargs
         )
-        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
-        super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
+        manager = _build_nwb_manager(
+            type(self), path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle=allow_pickle
+        )
+        super().__init__(path, manager=manager, mode=mode, storage_options=storage_options, allow_pickle=allow_pickle)
 
     @docval(
         {
@@ -114,6 +118,12 @@ class NWBZarrV2IO(ZarrV2IO):
             "doc": "Zarr storage options for the destination store",
             "default": None,
         },
+        {
+            "name": "allow_pickle",
+            "type": bool,
+            "doc": "whether the trusted source file may decode unsafe pickle codecs",
+            "default": False,
+        },
         is_method=False,
     )
     def convert_to_v3(**kwargs):
@@ -136,8 +146,8 @@ class NWBZarrV2IO(ZarrV2IO):
 
             NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr")
         """
-        source_path, dest_path, write_args, storage_options = popargs(
-            "source_path", "dest_path", "write_args", "storage_options", kwargs
+        source_path, dest_path, write_args, storage_options, allow_pickle = popargs(
+            "source_path", "dest_path", "write_args", "storage_options", "allow_pickle", kwargs
         )
         if isinstance(source_path, Path):
             source_path = str(source_path)
@@ -145,7 +155,11 @@ class NWBZarrV2IO(ZarrV2IO):
         if isinstance(source_path, str) and source_path.startswith(("s3://")):
             source_storage_options = dict(anon=True)
         with NWBZarrV2IO(
-            path=source_path, mode="r", load_namespaces=True, storage_options=source_storage_options
+            path=source_path,
+            mode="r",
+            load_namespaces=True,
+            storage_options=source_storage_options,
+            allow_pickle=allow_pickle,
         ) as v2_io:
             v2_io.export_to_v3(path=dest_path, write_args=write_args, storage_options=storage_options)
 
@@ -155,6 +169,12 @@ class NWBZarrV2IO(ZarrV2IO):
             "name": "path",
             "type": (str, Path),
             "doc": "the path to the zarr v2 NWB file",
+        },
+        {
+            "name": "allow_pickle",
+            "type": bool,
+            "doc": "whether the trusted source file may decode unsafe pickle codecs",
+            "default": False,
         },
         is_method=False,
     )
@@ -167,11 +187,17 @@ class NWBZarrV2IO(ZarrV2IO):
         bucket, ``gs://``, etc.), construct :class:`NWBZarrV2IO` directly with the
         appropriate ``storage_options`` and call ``read()``.
         """
-        path = popargs("path", kwargs)
+        path, allow_pickle = popargs("path", "allow_pickle", kwargs)
         if isinstance(path, Path):
             path = str(path)
         storage_options = None
         if isinstance(path, str) and path.startswith(("s3://")):
             storage_options = dict(anon=True)
-        io = NWBZarrV2IO(path=path, mode="r", load_namespaces=True, storage_options=storage_options)
+        io = NWBZarrV2IO(
+            path=path,
+            mode="r",
+            load_namespaces=True,
+            storage_options=storage_options,
+            allow_pickle=allow_pickle,
+        )
         return io.read()
