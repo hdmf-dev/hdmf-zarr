@@ -25,6 +25,8 @@ import numpy as np
 from hdmf_zarr.backend import ZarrIO, ROOT_NAME
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
+from hdmf.build import GroupBuilder, DatasetBuilder
+from hdmf.backends.hdf5.h5tools import HDF5IO
 import os
 import shutil
 import warnings
@@ -446,3 +448,58 @@ class TestGenerateDatasetHtml(TestCase):
         # Verify that HTML is generated and contains expected content
         self.assertIsInstance(html, str)
         self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)
+
+
+class TestResolveCompoundDtype(ZarrStoreTestCase):
+    """
+    Tests for resolving spec dtypes, in particular the fields of a compound dtype.
+
+    A field dtype that the lookup table does not know resolves to None, which numpy reads
+    as "unspecified" and turns into float64. Unlike a plain dataset, a compound dtype
+    cannot fall back to inferring the type from the data, because the None is consumed
+    while the compound dtype is being built.
+    """
+
+    def test_resolve_integer_aliases(self):
+        """The spec aliases 'uint' and 'short' resolve to the same types HDF5IO uses."""
+        self.assertIs(ZarrIO.__resolve_dtype_helper__("uint"), np.uint32)
+        self.assertIs(ZarrIO.__resolve_dtype_helper__("short"), np.int16)
+
+    def test_resolve_compound_dtype_keeps_unsigned_field(self):
+        """A compound field declared 'uint' resolves to uint32 rather than float64."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "name", "dtype": "text"}]
+        resolved = ZarrIO.__resolve_dtype_helper__(spec)
+        self.assertEqual(resolved["idx"], np.dtype(np.uint32))
+
+    def test_resolve_compound_dtype_matches_hdf5(self):
+        """The integer fields of a compound dtype resolve the same way on both backends."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "count", "dtype": "short"}]
+        zarr_dtype = ZarrIO.__resolve_dtype_helper__(spec)
+        hdf5_dtype = HDF5IO.__resolve_dtype_helper__(spec)
+        for field in ("idx", "count"):
+            self.assertEqual(zarr_dtype[field], hdf5_dtype[field])
+
+    def test_resolve_unknown_compound_field_raises(self):
+        """An unresolvable field dtype raises instead of silently becoming float64."""
+        spec = [{"name": "idx", "dtype": "not_a_dtype"}]
+        with self.assertRaisesWith(ValueError, "Can't resolve dtype 'not_a_dtype' for compound field 'idx'"):
+            ZarrIO.__resolve_dtype_helper__(spec)
+
+    def test_resolve_unknown_scalar_dtype_still_falls_back(self):
+        """A plain dataset still infers its dtype from the data when the spec is unknown."""
+        data = np.array([1, 2, 3], dtype=np.uint32)
+        self.assertIs(ZarrIO.__resolve_dtype__("not_a_dtype", data), np.uint32)
+
+    def test_write_compound_dtype_preserves_unsigned_field(self):
+        """An unsigned field of a written compound dataset keeps its type on disk."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "value", "dtype": "float"}]
+        builder = GroupBuilder(
+            ROOT_NAME,
+            datasets={"tbl": DatasetBuilder("tbl", [(0, 1.5), (1, 2.5)], dtype=spec)},
+        )
+        with ZarrIO(self.store_path, mode="w") as io:
+            io.write_builder(builder)
+
+        written = zarr.open(os.path.join(self.store_path, "tbl"), mode="r")
+        self.assertEqual(written.dtype["idx"], np.dtype(np.uint32))
+        self.assertEqual(written["idx"].tolist(), [0, 1])
