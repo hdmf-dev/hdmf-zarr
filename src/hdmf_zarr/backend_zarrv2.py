@@ -500,6 +500,11 @@ class ZarrV2IO(ZarrIO):
         is_object = dtype == np.dtype("|O") or has_object_field
         result_dtype = dtype if has_object_field else (object if is_object else dtype)
         fill_value = zarray_meta.get("fill_value", None if is_object else 0)
+        if has_object_field and isinstance(fill_value, str):
+            # A structured fill for an object-codec array is stored as base64 of a pickled scalar.
+            # Reading it back would need the pickle codec this backend gates, and zarr v2 resolves
+            # the one hdmf-zarr writes to 0, which for a record means every field zeroed.
+            fill_value = 0
         ndim = len(shape)
         chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
 
