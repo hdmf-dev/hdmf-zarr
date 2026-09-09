@@ -414,7 +414,6 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
         writer.close()
 
     def test_write_references_roundtrip(self):
-        import json
         # Setup a file container with references
         num_bazs = 1
         bazs = []  # set up dataset of references
@@ -431,7 +430,7 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             read_container = reader.read()
             for i in range(num_bazs):
                 baz_name = "baz%d" % i
-                expected_container = read_container.bazs[baz_name]
+                self.assertIn(baz_name, read_container.bazs)
                 expected_path = "/bazs/" + baz_name
                 # References are stored as plain path strings
                 raw_ref = reader._file["baz_data"][i]

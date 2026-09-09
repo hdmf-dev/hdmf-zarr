@@ -1559,7 +1559,6 @@ class ZarrIO(HDMFIO):
 
     __reserve_attribute = (
         "_DTYPE", "_SCALAR", "_LINKS", "_REFERENCE_FIELDS",
-        "_COMPOUND_DTYPE",  # backward compat (no longer written)
         "zarr_dtype", "zarr_link",  # backward compat with old convention
         SPEC_LOC_ATTR,
     )
@@ -1852,16 +1851,14 @@ class ZarrIO(HDMFIO):
         dtype_attr = zarr_obj.attrs.get("_DTYPE", None)
         ref_fields = zarr_obj.attrs.get("_REFERENCE_FIELDS", None)
 
-        # Backward compat: old _COMPOUND_DTYPE attribute takes priority when present,
-        # since it has explicit reference field markers (e.g., "object" for ref fields).
-        compound_dtype = zarr_obj.attrs.get("_COMPOUND_DTYPE", None)
-        if compound_dtype is not None:
-            warnings.warn(
-                "Found deprecated '_COMPOUND_DTYPE' attribute on dataset '%s'. "
-                "Use _REFERENCE_FIELDS with zarr v3 structured data_type instead." % str(name),
-                DeprecationWarning,
+        if zarr_obj.attrs.get("_COMPOUND_DTYPE", None) is not None:
+            raise ValueError(
+                "_COMPOUND_DTYPE attribute is no longer supported on dataset '%s'. "
+                "Use zarr v3 structured data_type with _REFERENCE_FIELDS instead." % str(name)
             )
-        elif hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
+
+        compound_dtype = None
+        if hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
             # Reconstruct compound dtype descriptor from zarr v3 structured data_type
             compound_dtype = []
             for field_name in zarr_obj.dtype.names:
