@@ -49,14 +49,17 @@ class HDMFZarrArray(Array):
     Use of HDMFZarrArray will be removed in a future release once HDMF/PyNWB have
     been updated to:
     1) support np.dtypes.StringDType for strings. This can be removed on release
-       of hdmf#1576 and hdmf#1578
+    of hdmf#1576 and hdmf#1578
     2) not require __len__ and __iter__ on arrays. This can be removed on release
-       of hdmf#1580
+    of hdmf#1580
     3) not require unwrapping of scalars. This can be removed on release of
-       hdmf#1581, hdmf#1580, and NeurodataWithoutBorders/pynwb#2263
+    hdmf#1581, hdmf#1580, and NeurodataWithoutBorders/pynwb#2263
     """
 
     def _has_string_dtype(self):
+        """
+        Check if the array has a np.dtypes.StringDType string dtype.
+        """
         return isinstance(super().dtype, np.dtypes.StringDType)
 
     @property
