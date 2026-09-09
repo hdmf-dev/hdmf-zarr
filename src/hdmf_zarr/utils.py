@@ -40,6 +40,20 @@ class HDMFZarrArray(Array):
     A subclass of zarr.Array used by HDMF to provide compatibility with array-like
     interfaces expected by PyNWB and HDMF, including lazy decoding of variable-length
     strings, without monkey-patching the global zarr.Array class.
+
+    NOTE: Downstream codes should not rely on the use of HDMFZarrArray. This is an
+    intermediate approach to enable compatablity with downstream libraries that
+    depend on changes in the features of the Array class in Zarr V3, specificlally,
+    removal of __len__ and __iter__, unwrapping of scalar arrays, and use of the
+    new StringDType (kind "T") instead of object (kind "O") for representing strings.
+    Use of HDMFZarrArray will be removed in a future release once HDMF/PyNWB have
+    been updated to:
+    1) support np.dtypes.StringDType for strings. This can be removed on release
+       of hdmf#1576 and hdmf#1578
+    2) not require __len__ and __iter__ on arrays. This can be removed on release
+       of hdmf#1580
+    3) not require unwrapping of scalars. This can be removed on release of
+       hdmf#1581, hdmf#1580, and NeurodataWithoutBorders/pynwb#2263
     """
 
     def _has_string_dtype(self):
@@ -47,24 +61,43 @@ class HDMFZarrArray(Array):
 
     @property
     def dtype(self):
+        """
+        Return the dtype of the array.
+
+        For downstream compatability, this function returns object dtype for arrays
+        with StringDType.
+        """
         if self._has_string_dtype():
             # HDMF does not recognize StringDType (kind "T") when inferring generic
             # dataset types. Object arrays are inferred as variable-length UTF-8.
             return np.dtype(object)
         return super().dtype
 
-    #def __len__(self):
-    #    if self.ndim == 0:
-    #        raise TypeError("len() of unsized object")
-    #    return self.shape[0]
+    def __len__(self):
+        """
+        Return the length of the first dimension of the array.
+        """
+        if self.ndim == 0:
+            raise TypeError("len() of unsized object")
+        return self.shape[0]
 
-    #def __iter__(self):
-    #    if self.ndim == 0:
-    #        raise TypeError("iteration over a 0-d array")
-    #    for i in range(self.shape[0]):
-    #        yield self[i]
+    def __iter__(self):
+        """
+        Return an iterator over the elements of the first dimension of the array.
+        """
+        if self.ndim == 0:
+            raise TypeError("iteration over a 0-d array")
+        for i in range(self.shape[0]):
+            yield self[i]
 
     def __getitem__(self, key):
+        """
+        Get an item from the array.
+
+        For downstream compatability this functions:
+        - Changes the dtype of np.dtypes.StringDType to object
+        - Unwraps scalar arrays by returning result[()]
+        """
         result = super().__getitem__(key)
         if self._has_string_dtype() and isinstance(result, np.ndarray):
             result = result.astype(object)
@@ -73,6 +106,12 @@ class HDMFZarrArray(Array):
         return result
 
     def __array__(self, dtype=None, copy=None):
+        """
+        Return the array as a numpy array.
+
+        For downstream compatability this function provides custom handling of
+        np.dtypes.StringDType arrays.
+        """
         if not self._has_string_dtype():
             return super().__array__(dtype=dtype, copy=copy)
         if copy is False:
