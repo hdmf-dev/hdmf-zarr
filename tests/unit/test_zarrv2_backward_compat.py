@@ -115,6 +115,61 @@ class TestV2ObjectChunkDecoding(unittest.TestCase):
         self.assertEqual(result.dtype, np.dtype(object))
         np.testing.assert_array_equal(result, expected)
 
+    def test_compound_dtype_with_an_object_field(self):
+        """A compound holding an object field is pickled whole, like a plain object array.
+
+        hdmf-zarr wrote every reference column this way before v3. The dtype comes out of the
+        ``.zarray`` JSON as a list of lists, which ``np.dtype`` only takes as tuples, the chunk comes
+        back from the codec as an ndarray rather than a buffer to reinterpret, and the fill for the
+        missing chunk is stored as base64 of a pickled scalar.
+        """
+        from numcodecs import Pickle
+
+        from hdmf_zarr.utils import ZarrReference
+
+        dtype = [("idx_start", "<i4"), ("count", "<i4"), ("timeseries", "O")]
+        metadata = {
+            "shape": [6],
+            "chunks": [2],
+            "dtype": [["idx_start", "<i4"], ["count", "<i4"], ["timeseries", "|O"]],
+            "compressor": None,
+            "filters": [{"id": "pickle", "protocol": 5}],
+            "fill_value": "gAVLAC4=",  # base64 of a pickled 0, which is what zarr v2 writes here
+            "order": "C",
+            "dimension_separator": ".",
+        }
+        codec = Pickle(protocol=5)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            array_path = os.path.join(tmpdir, "array")
+            os.makedirs(array_path)
+            with open(os.path.join(array_path, ".zarray"), "w") as f:
+                json.dump(metadata, f)
+            # Two chunks written and the third left missing, so the fill value is used.
+            for chunk_index in (0, 1):
+                values = np.array(
+                    [
+                        (index, index * 2, ZarrReference(source=".", path=f"/acquisition/s{index}"))
+                        for index in (2 * chunk_index, 2 * chunk_index + 1)
+                    ],
+                    dtype=dtype,
+                )
+                with open(os.path.join(array_path, str(chunk_index)), "wb") as f:
+                    f.write(codec.encode(values))
+
+            result = ZarrV2IO._decode_v2_dataset(
+                store=LocalStore(tmpdir),
+                dataset_key="array",
+                zarray_meta=metadata,
+                allow_pickle=True,
+            )
+
+        self.assertTupleEqual(result.dtype.names, ("idx_start", "count", "timeseries"))
+        np.testing.assert_array_equal(result["idx_start"][:4], [0, 1, 2, 3])
+        self.assertEqual(result["timeseries"][3]["path"], "/acquisition/s3")
+        self.assertEqual(tuple(result[4]), (0, 0, 0))
+        self.assertEqual(tuple(result[5]), (0, 0, 0))
+
     def test_missing_object_chunk_uses_declared_fill_value(self):
         """Missing object chunks are initialized from v2 ``fill_value`` metadata."""
         from numcodecs import VLenUTF8

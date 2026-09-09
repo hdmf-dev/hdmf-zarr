@@ -41,6 +41,17 @@ def _v2_codec(codec_config, allow_pickle):
     return numcodecs.get_codec(codec_config)
 
 
+def _v2_dtype(dtype_spec):
+    """Build the numpy dtype a v2 `.zarray` declares.
+
+    A compound dtype comes out of JSON as a list of lists, and `np.dtype` only accepts tuples for
+    structured fields, so the fields are converted before handing them over.
+    """
+    if isinstance(dtype_spec, list):
+        return np.dtype([tuple(field) for field in dtype_spec])
+    return np.dtype(dtype_spec)
+
+
 def _read_store_bytes(store, key):
     """Read raw bytes for *key* from a Zarr store, returning ``None`` if absent.
 
@@ -473,7 +484,7 @@ class ZarrV2IO(ZarrIO):
         """
         shape = tuple(zarray_meta["shape"])
         chunks = tuple(zarray_meta["chunks"])
-        dtype = np.dtype(zarray_meta.get("dtype", "f8"))
+        dtype = _v2_dtype(zarray_meta.get("dtype", "f8"))
         order = zarray_meta.get("order", "C")
         dimension_separator = zarray_meta.get("dimension_separator", ".")
 
@@ -483,9 +494,17 @@ class ZarrV2IO(ZarrIO):
         filters_config = zarray_meta.get("filters") or []
         filters = [_v2_codec(filter_config, allow_pickle) for filter_config in filters_config]
 
-        is_object = dtype == np.dtype("|O")
-        result_dtype = object if is_object else dtype
+        # A compound holding an object field is pickled whole, exactly like a plain object array,
+        # so it comes back from the codec as an ndarray instead of a buffer to reinterpret.
+        has_object_field = dtype.names is not None and any(dtype[name].kind == "O" for name in dtype.names)
+        is_object = dtype == np.dtype("|O") or has_object_field
+        result_dtype = dtype if has_object_field else (object if is_object else dtype)
         fill_value = zarray_meta.get("fill_value", None if is_object else 0)
+        if has_object_field and isinstance(fill_value, str):
+            # A structured fill for an object-codec array is stored as base64 of a pickled scalar.
+            # Reading it back would need the pickle codec this backend gates, and zarr v2 resolves
+            # the one hdmf-zarr writes to 0, which for a record means every field zeroed.
+            fill_value = 0
         ndim = len(shape)
         chunk_grid = tuple((s + c - 1) // c for s, c in zip(shape, chunks))
 
