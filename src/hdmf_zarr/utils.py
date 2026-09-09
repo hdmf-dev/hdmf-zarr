@@ -42,7 +42,7 @@ class HDMFZarrArray(Array):
     strings, without monkey-patching the global zarr.Array class.
 
     NOTE: Downstream codes should not rely on the use of HDMFZarrArray. This is an
-    intermediate approach to enable compatablity with downstream libraries that
+    intermediate approach to enable compatibility with downstream libraries that
     depend on changes in the features of the Array class in Zarr V3, specificlally,
     removal of __len__ and __iter__, unwrapping of scalar arrays, and use of the
     new StringDType (kind "T") instead of object (kind "O") for representing strings.
@@ -64,7 +64,7 @@ class HDMFZarrArray(Array):
         """
         Return the dtype of the array.
 
-        For downstream compatability, this function returns object dtype for arrays
+        For downstream compatibility, this function returns object dtype for arrays
         with StringDType.
         """
         if self._has_string_dtype():
@@ -94,7 +94,7 @@ class HDMFZarrArray(Array):
         """
         Get an item from the array.
 
-        For downstream compatability this functions:
+        For downstream compatibility this functions:
         - Changes the dtype of np.dtypes.StringDType to object
         - Unwraps scalar arrays by returning result[()]
         """
@@ -109,7 +109,7 @@ class HDMFZarrArray(Array):
         """
         Return the array as a numpy array.
 
-        For downstream compatability this function provides custom handling of
+        For downstream compatibility this function provides custom handling of
         np.dtypes.StringDType arrays.
         """
         if not self._has_string_dtype():
