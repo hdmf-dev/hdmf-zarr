@@ -17,7 +17,7 @@ from warnings import warn
 import zarr
 import numpy as np
 from zarr import Group
-from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec
+from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec, ArrayBytesCodec
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -440,10 +440,10 @@ class ZarrDataIO(DataIO):
             "default": None,
         },
         {
-            "name": "compressor",
-            "type": (BytesBytesCodec, list, bool),
+            "name": "compressors",
+            "type": (BytesBytesCodec, list, tuple, bool),
             "doc": (
-                "Zarr compressor codec (BytesBytesCodec) to be used. Can be a single codec or list of codecs. "
+                "Zarr compressor codecs (BytesBytesCodec) to be used. Can be a single codec or list of codecs. "
                 "Set to True to use Zarr default. Set to False to disable compression. "
                 "Use zarr.codecs (e.g., zarr.codecs.BloscCodec()) or zarr.codecs.numcodecs wrappers."
             ),
@@ -453,8 +453,17 @@ class ZarrDataIO(DataIO):
             "name": "filters",
             "type": (list, tuple),
             "doc": (
-                "One or more Zarr-supported codecs (ArrayArrayCodec) used to transform data prior to compression. "
-                "Use zarr.codecs or zarr.codecs.numcodecs wrappers."
+                "One or more Zarr-supported codecs (ArrayArrayCodec) used to transform the array before it is "
+                "serialized to bytes. Use zarr.codecs or zarr.codecs.numcodecs wrappers."
+            ),
+            "default": None,
+        },
+        {
+            "name": "serializer",
+            "type": ArrayBytesCodec,
+            "doc": (
+                "Zarr codec (ArrayBytesCodec) used to serialize the array to bytes, e.g., zarr.codecs.BytesCodec(). "
+                "Zarr chooses a default for the dtype when this is not given."
             ),
             "default": None,
         },
@@ -470,8 +479,8 @@ class ZarrDataIO(DataIO):
     )
     def __init__(self, **kwargs):
         # TODO Need to add error checks and warnings to ZarrDataIO to check for parameter collisions and add tests
-        data, chunks, fill_value, compressor, filters, self.__link_data = getargs(
-            "data", "chunks", "fillvalue", "compressor", "filters", "link_data", kwargs
+        data, chunks, fill_value, compressors, filters, serializer, self.__link_data = getargs(
+            "data", "chunks", "fillvalue", "compressors", "filters", "serializer", "link_data", kwargs
         )
         # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
         #       These parameters are used to create empty data to allocate the data but
@@ -484,19 +493,21 @@ class ZarrDataIO(DataIO):
             self.__iosettings["chunks"] = chunks
         if fill_value is not None:
             self.__iosettings["fill_value"] = fill_value
-        if compressor is not None:
-            if isinstance(compressor, bool):
+        if compressors is not None:
+            if isinstance(compressors, bool):
                 # Disable compression by setting compressors to empty list
-                if not compressor:
+                if not compressors:
                     self.__iosettings["compressors"] = None
                 # To use default settings simply do not specify any compressor settings
                 else:
                     pass
             # use the user-specified compressor(s)
             else:
-                self.__iosettings["compressors"] = compressor
+                self.__iosettings["compressors"] = compressors
         if filters is not None:
             self.__iosettings["filters"] = list(filters)
+        if serializer is not None:
+            self.__iosettings["serializer"] = serializer
 
     @property
     def link_data(self) -> bool:
@@ -538,15 +549,9 @@ class ZarrDataIO(DataIO):
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
-        if len(compressors) == 1:
-            compressor = compressors[0]
-        elif len(compressors) > 1:
-            compressor = compressors
-        else:
-            compressor = None
         re = ZarrDataIO(
             data=h5dataset,
-            compressor=compressor,
+            compressors=compressors if compressors else None,
             filters=filters if filters else None,
             fillvalue=fillval,
             chunks=chunks,

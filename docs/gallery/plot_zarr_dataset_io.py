@@ -47,7 +47,7 @@ data_with_data_io = ZarrDataIO(
     data=data * 3,
     chunks=(10, 10),
     fillvalue=0,
-    compressor=BloscCodec(cname='zstd', clevel=1, shuffle='shuffle')
+    compressors=BloscCodec(cname='zstd', clevel=1, shuffle='shuffle')
 )
 
 ###############################################################################
@@ -62,7 +62,7 @@ test_table.add_column(
 # Next we add a column where we explicitly disable compression
 data_without_compression = ZarrDataIO(
     data=data*5,
-    compressor=False)
+    compressors=False)
 test_table.add_column(
     name='test_data_nocompression',
     description='Some 2D test data',
