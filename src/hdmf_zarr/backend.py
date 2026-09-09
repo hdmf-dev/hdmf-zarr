@@ -1613,9 +1613,7 @@ class ZarrIO(HDMFIO):
             for field in dtype:
                 field_dtype = cls.__resolve_dtype_helper__(field["dtype"])
                 if field_dtype is None:
-                    raise ValueError(
-                        f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}"
-                    )
+                    raise ValueError(f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}")
                 fields.append((field["name"], field_dtype))
             return np.dtype(fields)
         else:
