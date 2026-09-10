@@ -7,6 +7,7 @@
 - Added a clear error when reading a Zarr v2 file with the Zarr v3 `ZarrIO`/`NWBZarrIO` that directs the user to `ZarrV2IO`/`NWBZarrV2IO`, replacing an opaque zarr-python parse error. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 
 ### Changed
+- Bumped minimum required Python version from 3.11 to 3.12 and Zarr dependency to `>=3.3.0` due to backwards-incompatible changes in Zarr v3 structured data types. [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373)
 - Aligned `ZarrDataIO` with the zarr v3 codec API: `compressor` is renamed to `compressors`, the `serializer` (`ArrayBytesCodec`) slot is now reachable, and `filters` keeps its name for `ArrayArrayCodec` only. @h-mayorquin [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369)
 
 ### Fixed
