@@ -7,6 +7,7 @@ import math
 import json
 import logging
 import os
+from itertools import product
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple, Dict, Any
@@ -229,25 +230,6 @@ class ZarrIODataChunkIteratorQueue(deque):
                     )
                     continue
 
-                # GenericDataChunkIterator tiles from zero in buffer_shape steps. Each
-                # task must own whole shards, except at the outer array boundary.
-                # Inspect the created array because Zarr may have chosen shards="auto".
-                shards = zarr_dataset.shards
-                if shards is not None and any(
-                    buffer_size % shard_size != 0 and buffer_size != array_size
-                    for buffer_size, shard_size, array_size in zip(iterator.buffer_shape, shards, zarr_dataset.shape)
-                ):
-                    warn(
-                        f"Writing dataset '{zarr_dataset.path}' sequentially: iterator buffer shape "
-                        f"{iterator.buffer_shape} is not aligned with shard shape {shards}. "
-                        "Parallel writes could update the same shard and lose data. "
-                        "Use a buffer shape that is a multiple of the shard shape, "
-                        "or covers the entire array dimension.",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-                    continue
-
                 # Add this entry to a running list to remove after initial pass (cannot mutate during iteration)
                 parallelizable_iterators.append((zarr_dataset, iterator))
 
@@ -262,7 +244,15 @@ class ZarrIODataChunkIteratorQueue(deque):
                 progress_bar_options.update(**per_iterator_progress_options)
 
                 iterator_itemsize = iterator.dtype.itemsize
-                for buffer_selection in iterator.buffer_selection_generator:
+                # Preserve whole buffers when they own complete shards. Otherwise,
+                # give each shard one task, using Zarr's resolved layout for auto.
+                selections = (
+                    self._iter_shard_selections(zarr_dataset.shape, zarr_dataset.shards)
+                    if zarr_dataset.shards is not None
+                    and not self._buffers_contain_shards(zarr_dataset.shape, zarr_dataset.shards, iterator.buffer_shape)
+                    else iterator.buffer_selection_generator
+                )
+                for buffer_selection in selections:
                     store = zarr_dataset.store
                     store_path = str(store.root) if hasattr(store, "root") else str(store)
                     buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
@@ -392,6 +382,33 @@ class ZarrIODataChunkIteratorQueue(deque):
         _operation_to_run = operation_to_run
 
     @staticmethod
+    def _buffers_contain_shards(shape, shards, buffers):
+        """Return whether buffer boundaries avoid splitting destination shards."""
+        return all(buffer == size or buffer % shard == 0 for size, shard, buffer in zip(shape, shards, buffers))
+
+    @staticmethod
+    def _iter_shard_selections(shape, shards):
+        """Yield one non-overlapping task selection per destination shard."""
+        for start in product(*(range(0, size, shard) for size, shard in zip(shape, shards))):
+            yield tuple(slice(pos, min(pos + shard, size)) for pos, shard, size in zip(start, shards, shape))
+
+    @staticmethod
+    def _iter_shard_buffer_selections(shard_selection, buffer_shape):
+        """Intersect a shard with the iterator buffer grid without loading a full shard.
+
+        A buffer crossing shard boundaries is read in separate pieces by the shard
+        owners. Each requested piece is no larger than the iterator buffer shape.
+        """
+        starts = (
+            range(part.start // size * size, part.stop, size) for part, size in zip(shard_selection, buffer_shape)
+        )
+        for start in product(*starts):
+            yield tuple(
+                slice(max(pos, part.start), min(pos + size, part.stop))
+                for pos, size, part in zip(start, buffer_shape, shard_selection)
+            )
+
+    @staticmethod
     def _write_buffer_zarr(
         worker_context: Dict[str, Any],
         zarr_store_path: str,
@@ -403,12 +420,21 @@ class ZarrIODataChunkIteratorQueue(deque):
         zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
         zarr_dataset = zarr_store[relative_dataset_path]
 
-        data = iterator._get_data(selection=buffer_selection)
-        zarr_dataset[buffer_selection] = data
+        if zarr_dataset.shards is None:
+            selections = (buffer_selection,)
+        else:
+            # Whole-buffer tasks yield one read; shard tasks may yield several.
+            # Finish each write before updating another part of the owned shard.
+            selections = ZarrIODataChunkIteratorQueue._iter_shard_buffer_selections(
+                buffer_selection, iterator.buffer_shape
+            )
+        for selection in selections:
+            data = iterator._get_data(selection=selection)
+            zarr_dataset[selection] = data
+            del data
 
         # An issue detected in cloud usage by the SpikeInterface team
         # Fix memory leak by forcing garbage collection
-        del data
         gc.collect()
 
     @staticmethod
@@ -582,8 +608,8 @@ class ZarrDataIO(DataIO):
                 "Shard shape in array elements, or 'auto' to let Zarr choose the shape. Each shard is a single object "
                 "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
                 "number of store objects and can improve performance for large arrays. ``chunks`` defines the "
-                "inner chunk shape. Parallel iterator writes require buffers aligned with the resulting "
-                "shard shape, otherwise the dataset is written sequentially with a warning."
+                "inner chunk shape. Parallel iterator writes assign each shard to one task. Each task reads "
+                "and writes buffer-sized pieces sequentially within its shard."
             ),
             "default": None,
         },

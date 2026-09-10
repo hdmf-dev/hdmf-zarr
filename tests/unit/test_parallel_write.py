@@ -1,6 +1,7 @@
 """Module for testing the parallel write feature for the ZarrIO."""
 
 import unittest
+from itertools import product
 import platform
 import warnings
 from concurrent.futures import ProcessPoolExecutor
@@ -287,19 +288,29 @@ def test_extra_keyword_argument_propagation(tmpdir):
 
 
 @pytest.mark.parametrize(
-    "shape,chunks,shards,buffers,parallel",
+    "shape,chunks,shards,buffers",
     [
-        ((8,), (2,), (8,), (4,), False),
-        ((18,), (2,), (8,), (8,), True),
-        ((34,), (2,), (8,), (16,), True),
-        ((6,), (2,), (8,), (6,), True),
-        ((16, 12), (2, 2), (8, 8), (8, 4), False),
-        ((18, 6), (2, 2), (8, 8), (8, 6), True),
-        ((16,), (2,), None, (4,), True),
+        ((8,), (2,), (8,), (4,)),
+        ((22,), (2,), (8,), (6,)),
+        ((22, 14), (2, 2), (8, 8), (6, 10)),
+        ((18,), (2,), (8,), (8,)),
+        ((34,), (2,), (8,), (16,)),
+        ((6,), (2,), (8,), (6,)),
+        ((16, 12), (2, 2), (8, 8), (8, 4)),
+        ((18, 6), (2, 2), (8, 8), (8, 6)),
+        ((16,), (2,), None, (4,)),
     ],
 )
-def test_sharded_iterator_write_routing(tmp_path, shape, chunks, shards, buffers, parallel):
+def test_sharded_iterator_write_routing(tmp_path, shape, chunks, shards, buffers):
     """Check data and executor admission, without relying on a race occurring."""
+
+    tasks = []
+
+    class RecordingExecutor(ProcessPoolExecutor):
+        def map(self, fn, iterable, **kwargs):
+            items = list(iterable)
+            tasks.extend(items)
+            return super().map(fn, items, **kwargs)
 
     data = np.arange(1, np.prod(shape) + 1, dtype="int32").reshape(shape)
     iterator = PickleableDataChunkIterator(data, chunk_shape=chunks, buffer_shape=buffers)
@@ -308,19 +319,39 @@ def test_sharded_iterator_write_routing(tmp_path, shape, chunks, shards, buffers
     store = str(tmp_path / "data.zarr")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=ProcessPoolExecutor) as executor:
+        with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=RecordingExecutor) as executor:
             with ZarrIO(store, manager=get_manager(), mode="w") as io:
                 io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
-    assert executor.called == parallel
+    assert executor.called
     fallback_warnings = [w for w in caught if "Writing dataset 'values' sequentially" in str(w.message)]
-    assert len(fallback_warnings) == (0 if parallel else 1)
+    assert not fallback_warnings
     array = zarr.open_group(store, mode="r")["values"]
     assert array.shards == shards
     assert_array_equal(array[:], data)
 
+    # Inspect actual submitted tasks: every cell is owned once, and no shard is
+    # touched by two tasks, even when the source buffers cross shard boundaries.
+    coverage = np.zeros(shape, dtype="int32")
+    shard_owners = set()
+    for _, path, _, selection in tasks:
+        assert path == "values"
+        coverage[selection] += 1
+        if shards is not None:
+            for shard_id in product(
+                *(range(part.start // size, (part.stop - 1) // size + 1) for part, size in zip(selection, shards))
+            ):
+                assert shard_id not in shard_owners
+                shard_owners.add(shard_id)
+    if shards is None or ZarrIODataChunkIteratorQueue._buffers_contain_shards(shape, shards, buffers):
+        expected = list(
+            PickleableDataChunkIterator(data, chunk_shape=chunks, buffer_shape=buffers).buffer_selection_generator
+        )
+        assert [task[3] for task in tasks] == expected
+    assert_array_equal(coverage, np.ones(shape, dtype="int32"))
+
 
 def test_mixed_shard_alignment(tmp_path):
-    """An unsafe dataset stays sequential while aligned datasets use workers."""
+    """Both aligned and misaligned buffers use shard-owned tasks."""
 
     data = np.arange(1, 17, dtype="int32")
     columns = [
@@ -343,11 +374,10 @@ def test_mixed_shard_alignment(tmp_path):
             "__write_chunk__",
             wraps=ZarrIODataChunkIteratorQueue.__write_chunk__,
         ) as sequential_write:
-            with pytest.warns(UserWarning, match="Writing dataset 'unsafe' sequentially"):
-                with ZarrIO(store, manager=get_manager(), mode="w") as io:
-                    io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
+            with ZarrIO(store, manager=get_manager(), mode="w") as io:
+                io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
     assert executor.called
-    assert {call.args[0].path for call in sequential_write.call_args_list} == {"unsafe"}
+    sequential_write.assert_not_called()
     group = zarr.open_group(store, mode="r")
     for name in ("unsafe", "safe"):
         assert_array_equal(group[name][:], data)
@@ -372,7 +402,23 @@ def test_auto_shards_iterator(tmp_path):
                 io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
     array = zarr.open_group(store, mode="r")["values"]
     assert array.shards is not None
-    assert executor.called == (array.shards == (2,))
+    assert executor.called
     fallback = [w for w in caught if "Writing dataset 'values' sequentially" in str(w.message)]
-    assert len(fallback) == (0 if executor.called else 1)
+    assert not fallback
     assert_array_equal(array[:], data)
+
+
+@pytest.mark.parametrize(
+    "shape,shards,buffers",
+    [((22,), (8,), (6,)), ((22, 14), (8, 8), (6, 10)), ((18, 6), (8, 8), (8, 6))],
+)
+def test_shard_buffer_pieces(shape, shards, buffers):
+    """Source reads partition the data and never exceed the buffer dimensions."""
+    coverage = np.zeros(shape, dtype="int32")
+    for shard in ZarrIODataChunkIteratorQueue._iter_shard_selections(shape, shards):
+        for piece in ZarrIODataChunkIteratorQueue._iter_shard_buffer_selections(shard, buffers):
+            for selection, owner, limit in zip(piece, shard, buffers):
+                assert owner.start <= selection.start < selection.stop <= owner.stop
+                assert selection.stop - selection.start <= limit
+            coverage[piece] += 1
+    assert_array_equal(coverage, np.ones(shape, dtype="int32"))
