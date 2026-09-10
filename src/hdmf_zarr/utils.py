@@ -517,7 +517,10 @@ class ZarrDataIO(DataIO):
         {
             "name": "chunks",
             "type": (list, tuple),
-            "doc": "Chunk shape",
+            "doc": (
+                "Chunk shape. When ``shards`` is also specified, ``chunks`` defines the inner chunk shape "
+                "within each shard (i.e. the fine-grained I/O unit)."
+            ),
             "default": None,
         },
         {
@@ -555,6 +558,17 @@ class ZarrDataIO(DataIO):
             "default": None,
         },
         {
+            "name": "shards",
+            "type": (list, tuple),
+            "doc": (
+                "Shard shape for use with Zarr's sharding storage transformer. Each shard is a single object "
+                "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
+                "number of store objects and can improve performance for large arrays. Requires ``chunks`` to "
+                "define the inner chunk shape within each shard."
+            ),
+            "default": None,
+        },
+        {
             "name": "link_data",
             "type": bool,
             "doc": (
@@ -566,8 +580,8 @@ class ZarrDataIO(DataIO):
     )
     def __init__(self, **kwargs):
         # TODO Need to add error checks and warnings to ZarrDataIO to check for parameter collisions and add tests
-        data, chunks, fill_value, compressors, filters, serializer, self.__link_data = getargs(
-            "data", "chunks", "fillvalue", "compressors", "filters", "serializer", "link_data", kwargs
+        data, chunks, fill_value, compressors, filters, serializer, shards, self.__link_data = getargs(
+            "data", "chunks", "fillvalue", "compressors", "filters", "serializer", "shards", "link_data", kwargs
         )
         # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
         #       These parameters are used to create empty data to allocate the data but
@@ -595,6 +609,27 @@ class ZarrDataIO(DataIO):
             self.__iosettings["filters"] = list(filters)
         if serializer is not None:
             self.__iosettings["serializer"] = serializer
+        if shards is not None:
+            self.__iosettings["shards"] = tuple(shards)
+        if shards is not None and chunks is None:
+            warn(
+                "Specifying 'shards' without 'chunks' is not recommended. "
+                "When using sharding, 'chunks' defines the inner chunk shape within each shard.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif shards is not None and chunks is not None:
+            if len(shards) != len(chunks):
+                raise ValueError(
+                    f"'shards' and 'chunks' must have the same number of dimensions, "
+                    f"but got len(shards)={len(shards)} and len(chunks)={len(chunks)}."
+                )
+            for i, (s, c) in enumerate(zip(shards, chunks)):
+                if s % c != 0:
+                    raise ValueError(
+                        f"Shard shape dimension {i} (shards[{i}]={s}) must be a multiple of "
+                        f"the chunk shape dimension {i} (chunks[{i}]={c})."
+                    )
 
     @property
     def link_data(self) -> bool:

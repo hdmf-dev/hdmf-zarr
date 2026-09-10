@@ -869,6 +869,26 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(len(dset.filters), len(filters))
         tempIO.close()
 
+    def test_write_dataset_list_sharded(self):
+        """Test that ZarrDataIO with shards writes a sharded Zarr array and data round-trips correctly."""
+        from zarr.codecs import ShardingCodec
+
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        a = ZarrDataIO(data, chunks=(10, 5), shards=(50, 10))
+        tempIO = ZarrIO(self.store_path, mode="w")
+        tempIO.open()
+        tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
+        dset = tempIO._file["test_dataset"]
+        # Data round-trip is correct
+        self.assertTrue(np.all(dset[:] == data))
+        # The inner chunk shape (exposed via dset.chunks in zarr v3) matches chunks=
+        self.assertEqual(tuple(dset.chunks), (10, 5))
+        # ShardingCodec is present in the codec pipeline; shard shape is the outer chunk grid
+        codec_list = list(dset.metadata.codecs)
+        self.assertTrue(any(isinstance(c, ShardingCodec) for c in codec_list))
+        self.assertEqual(tuple(dset.metadata.chunk_grid.chunk_shape), (50, 10))
+        tempIO.close()
+
     ##########################################
     #  write_dataset tests: Iterable
     ##########################################
