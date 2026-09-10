@@ -285,3 +285,30 @@ class TestZarrDataIO(TestCase):
         z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype="int32")
         io = ZarrDataIO(z, link_data=True)
         assert io.get_io_params().get("link_data")
+
+
+class TestZarrDataIOSharding(TestCase):
+    """Unit tests for ZarrDataIO sharding parameter validation."""
+
+    def test_shards_and_chunks_stored_in_io_settings(self):
+        """Test that valid shards+chunks are stored in io_settings without error."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        io = ZarrDataIO(data, chunks=(10, 5), shards=(50, 10))
+        self.assertEqual(io.io_settings["shards"], (50, 10))
+        self.assertEqual(io.io_settings["chunks"], (10, 5))
+
+    def test_shards_without_chunks_warns(self):
+        """Test that a UserWarning is raised when shards is set without chunks."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        msg = (
+            "Specifying 'shards' without 'chunks' is not recommended. "
+            "When using sharding, 'chunks' defines the inner chunk shape within each shard."
+        )
+        with self.assertWarnsWith(UserWarning, msg):
+            ZarrDataIO(data, shards=(50, 10))
+
+    def test_shards_not_multiple_of_chunks_raises(self):
+        """Test that ValueError is raised when a shard dimension is not a multiple of the chunk dimension."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        with self.assertRaises(ValueError):
+            ZarrDataIO(data, chunks=(10, 3), shards=(50, 10))
