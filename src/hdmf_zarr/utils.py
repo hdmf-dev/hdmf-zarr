@@ -25,7 +25,6 @@ from hdmf.utils import docval, getargs
 
 from hdmf.spec import SpecWriter, SpecReader
 
-
 # Necessary definitions to avoid parallelization bugs, Inherited from SpikeInterface experience
 # see
 # https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool
@@ -227,6 +226,25 @@ class ZarrIODataChunkIteratorQueue(deque):
                 if not is_iterator_pickleable:
                     self.logger.debug(
                         f"Dataset {zarr_dataset.path} was not pickleable during parallel write.\n\nReason: {reason}"
+                    )
+                    continue
+
+                # GenericDataChunkIterator tiles from zero in buffer_shape steps. Each
+                # task must own whole shards, except at the outer array boundary.
+                # Inspect the created array because Zarr may have chosen shards="auto".
+                shards = zarr_dataset.shards
+                if shards is not None and any(
+                    buffer_size % shard_size != 0 and buffer_size != array_size
+                    for buffer_size, shard_size, array_size in zip(iterator.buffer_shape, shards, zarr_dataset.shape)
+                ):
+                    warn(
+                        f"Writing dataset '{zarr_dataset.path}' sequentially: iterator buffer shape "
+                        f"{iterator.buffer_shape} is not aligned with shard shape {shards}. "
+                        "Parallel writes could update the same shard and lose data. "
+                        "Use a buffer shape that is a multiple of the shard shape, "
+                        "or covers the entire array dimension.",
+                        UserWarning,
+                        stacklevel=2,
                     )
                     continue
 
@@ -559,12 +577,13 @@ class ZarrDataIO(DataIO):
         },
         {
             "name": "shards",
-            "type": (list, tuple),
+            "type": (list, tuple, str),
             "doc": (
-                "Shard shape for use with Zarr's sharding storage transformer. Each shard is a single object "
+                "Shard shape in array elements, or 'auto' to let Zarr choose the shape. Each shard is a single object "
                 "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
-                "number of store objects and can improve performance for large arrays. Requires ``chunks`` to "
-                "define the inner chunk shape within each shard."
+                "number of store objects and can improve performance for large arrays. ``chunks`` defines the "
+                "inner chunk shape. Parallel iterator writes require buffers aligned with the resulting "
+                "shard shape, otherwise the dataset is written sequentially with a warning."
             ),
             "default": None,
         },
@@ -609,16 +628,20 @@ class ZarrDataIO(DataIO):
             self.__iosettings["filters"] = list(filters)
         if serializer is not None:
             self.__iosettings["serializer"] = serializer
-        if shards is not None:
+        if isinstance(shards, str):
+            if shards != "auto":
+                raise ValueError("'shards' must be a shape or 'auto'.")
+            self.__iosettings["shards"] = shards
+        elif shards is not None:
             self.__iosettings["shards"] = tuple(shards)
-        if shards is not None and chunks is None:
+        if shards is not None and not isinstance(shards, str) and chunks is None:
             warn(
                 "Specifying 'shards' without 'chunks' is not recommended. "
                 "When using sharding, 'chunks' defines the inner chunk shape within each shard.",
                 UserWarning,
                 stacklevel=2,
             )
-        elif shards is not None and chunks is not None:
+        elif shards is not None and not isinstance(shards, str) and chunks is not None:
             if len(shards) != len(chunks):
                 raise ValueError(
                     f"'shards' and 'chunks' must have the same number of dimensions, "
@@ -717,7 +740,7 @@ class ZarrDataIO(DataIO):
                 _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
                 if filter_id_str == "32001":
                     blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
-                    (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
+                    _1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor = properties
                     pars = dict(
                         blocksize=total_bytes,
                         clevel=clevel,
