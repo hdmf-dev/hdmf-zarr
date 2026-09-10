@@ -608,8 +608,14 @@ class ZarrDataIO(DataIO):
                 "Shard shape in array elements, or 'auto' to let Zarr choose the shape. Each shard is a single object "
                 "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
                 "number of store objects and can improve performance for large arrays. ``chunks`` defines the "
-                "inner chunk shape. Parallel iterator writes assign each shard to one task. Each task reads "
-                "and writes buffer-sized pieces sequentially within its shard."
+                "inner chunk shape. For efficient parallel iterator writes, prefer a ``buffer_shape`` equal to "
+                "the shard shape or an integer multiple along each axis, so each buffer contains complete shards. "
+                "Buffers spanning a full array axis may include a partial edge shard. Aligned buffers are written "
+                "as whole-buffer tasks. Other buffer shapes are supported safely by assigning each shard to one "
+                "task and reading the portions of iterator buffers inside it. Multiple partial writes to a shard "
+                "can repeatedly read and rewrite its existing contents. ``buffer_shape`` bounds source reads, "
+                "not Zarr's additional internal memory. With 'auto', scheduling uses the shard shape chosen by "
+                "Zarr; buffer-shard alignment is not required."
             ),
             "default": None,
         },
