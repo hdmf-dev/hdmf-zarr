@@ -27,7 +27,7 @@ from hdmf_zarr.backend import ZarrIO, ROOT_NAME
 from hdmf_zarr.utils import HDMFZarrArray
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
-from hdmf.build import GroupBuilder, DatasetBuilder
+from hdmf.build import GroupBuilder, DatasetBuilder, ReferenceBuilder
 from hdmf.backends.hdf5.h5tools import HDF5IO
 import os
 import shutil
@@ -595,6 +595,52 @@ class TestCopyArray(TestCase):
         dest = ZarrIO._copy_array(source, self._dest_group(), "z")
         self.assertEqual(dest[()], 3.14)
         self.assertEqual(dest.shape, ())
+
+
+class TestCompoundStringWidthCheck(ZarrStoreTestCase):
+    """
+    Writing into an existing compound dataset whose fixed-length string fields are narrower than the
+    data raises instead of letting numpy truncate the values silently.
+    """
+
+    def _write_text_compound(self, name, mode):
+        spec = [{"name": "id", "dtype": "int"}, {"name": "name", "dtype": "text"}]
+        builder = GroupBuilder(ROOT_NAME, datasets={"tbl": DatasetBuilder("tbl", [(0, name), (1, "b")], dtype=spec)})
+        with ZarrIO(self.store_path, mode=mode) as io:
+            io.write_builder(builder)
+
+    def test_text_field_wider_than_existing_raises(self):
+        self._write_text_compound("a", mode="w")
+        with self.assertRaisesRegex(ValueError, "compound dataset 'tbl': a value in field 'name' needs 600 characters"):
+            self._write_text_compound("x" * 600, mode="a")
+
+    def test_text_field_that_fits_is_written(self):
+        self._write_text_compound("a", mode="w")
+        self._write_text_compound("x" * 100, mode="a")
+        written = zarr.open(os.path.join(self.store_path, "tbl"), mode="r")
+        self.assertEqual(len(str(written[:]["name"][0])), 100)
+
+    def _write_reference_compound(self, name, mode):
+        dataset_1 = DatasetBuilder("dataset_1", np.arange(10))
+        spec = [
+            {"name": "id", "dtype": "int"},
+            {"name": "name", "dtype": str},
+            {"name": "reference", "dtype": "object"},
+        ]
+        rows = [(0, name, ReferenceBuilder(dataset_1))]
+        builder = GroupBuilder(
+            ROOT_NAME,
+            datasets={"dataset_1": dataset_1, "ref_dataset": DatasetBuilder("ref_dataset", rows, dtype=spec)},
+        )
+        with ZarrIO(self.store_path, mode=mode) as io:
+            io.write_builder(builder)
+
+    def test_reference_compound_field_wider_than_existing_raises(self):
+        self._write_reference_compound("a", mode="w")
+        expected = "compound dataset 'ref_dataset': a value in field 'name' needs 600 characters"
+        with self.assertRaisesRegex(ValueError, expected):
+            self._write_reference_compound("x" * 600, mode="a")
+
 
 class TestResolveCompoundDtype(ZarrStoreTestCase):
     """

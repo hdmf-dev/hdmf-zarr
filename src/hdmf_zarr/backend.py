@@ -73,6 +73,29 @@ Minimum fixed-length Unicode string size (in characters) for string and referenc
 dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
 """
 
+
+def _check_compound_string_widths(dset, dtype):
+    """
+    Raise if a fixed-length string field of an existing compound dataset is narrower than the data
+    needs. ``require_array`` returns the existing dataset and ignores the requested dtype, and numpy
+    truncates silently on assignment into a narrower ``U`` field.
+
+    :param dset: The compound zarr array returned by ``require_array``
+    :param dtype: The structured numpy dtype sized to the data being written
+    """
+    for field_name in dtype.names:
+        want = dtype[field_name]
+        have = dset.dtype[field_name]
+        if want.kind == "U" and have.kind == "U" and have.itemsize < want.itemsize:
+            raise ValueError(
+                f"Cannot write to the compound dataset '{dset.path}': a value in field '{field_name}' "
+                f"needs {want.itemsize // 4} characters but the existing dataset stores at most "
+                f"{have.itemsize // 4} in that field. The width of string and reference fields in a "
+                "compound dataset is fixed when the dataset is first written, so the data cannot be "
+                "written in place without truncation. Export the file to a new location to rewrite "
+                "the dataset with wider fields."
+            )
+
 SUPPORTED_ZARR_STORES = (
     (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE
     else (LocalStore, FsspecStore, _ZarrStoreABC)
@@ -1523,6 +1546,7 @@ class ZarrIO(HDMFIO):
                     dtype=dtype_v3,
                     **options["io_settings"],
                 )
+                _check_compound_string_widths(dset, dtype_v3)
                 # Mark which fields contain references
                 ref_field_names = [
                     dts["name"] for dts in type_str
@@ -1804,6 +1828,8 @@ class ZarrIO(HDMFIO):
         # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
         zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
         dset = parent.require_array(name, shape=data_shape, dtype=zarr_dtype, **io_settings)
+        if isinstance(dtype, np.dtype) and dtype.names is not None:
+            _check_compound_string_widths(dset, dtype)
         # Zarr v3's structured data_type carries compound field info natively,
         # so no _COMPOUND_DTYPE attribute is needed. Only set _DTYPE for non-compound types.
         if not isinstance(type_str, list):
