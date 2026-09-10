@@ -150,8 +150,9 @@ added on any Group or Dataset in the file.
 
 .. note::
 
-    For backward compatibility, the old attribute names ``zarr_link`` and ``zarr_dtype`` are still
-    recognized on read with a deprecation warning.
+    Files written with hdmf-zarr < 0.14 (Zarr v2) use the attribute names ``zarr_link`` and ``zarr_dtype``
+    instead. These are still recognized on read so that legacy files can be opened with
+    :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO`. See :ref:`sec-zarr-storage-legacy` for the old definitions.
 
 In addition, the following reserved attributes are added to the root Group of the file only:
 
@@ -324,7 +325,7 @@ The mappings of data types is as follows
 .. note::
 
     Compound data types use zarr v3's native ``structured`` data_type, which carries full field
-    information (names and types). No ``_COMPOUND_DTYPE`` attribute is needed.
+    information (names and types).
 
     String and reference fields within compound dtypes are stored as fixed-length Unicode strings
     (``FixedLengthUTF32``). The string length is dynamically sized to fit the actual data, with a
@@ -377,3 +378,45 @@ operations when retrieving certain metadata in read mode.
     When updating a file, the consolidated metadata will also need to be updated via
     `zarr.consolidate_metadata(path)` to ensure the consolidated metadata is consistent
     with the file.
+
+.. _sec-zarr-storage-legacy:
+
+Legacy Zarr v2 Convention
+=========================
+
+Files written with hdmf-zarr < 0.14 use Zarr v2 and an older attribute convention. These files are
+read-only in hdmf-zarr >= 0.14 via :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` and
+:py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO`, and can be converted to the current convention with
+:py:meth:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO.convert_to_v3`. The old definitions are recorded here for
+reference when debugging legacy data.
+
+    ============================  ======================================================================================
+    Legacy Attribute Name         Usage
+    ============================  ======================================================================================
+    ``zarr_link``                 Attribute on Groups used to store links. Each entry is a dict with ``name``,
+                                  ``source``, ``path``, ``object_id``, and ``source_object_id`` keys. Replaced by
+                                  ``_LINKS`` (which drops the two object id keys).
+    ``zarr_dtype``                Attribute on Datasets specifying the data type. Set to ``"object"`` for reference
+                                  datasets, ``"scalar"`` for scalar datasets, and to a list of ``{"name", "dtype"}``
+                                  dicts for compound datasets. Replaced by ``_DTYPE``, ``_SCALAR``, and the native
+                                  zarr v3 ``structured`` data_type together with ``_REFERENCE_FIELDS``.
+    ============================  ======================================================================================
+
+Object references in datasets were stored as dicts with ``source``, ``path``, ``object_id``, and
+``source_object_id`` keys, written to an object-dtype array (Zarr v2) or as JSON strings. Object
+references in attributes were stored as a dict with a ``zarr_dtype`` key set to ``"object"`` and a
+``value`` key holding the reference dict:
+
+.. code-block:: json
+
+    "table": {
+        "value": {
+            "source": ".",
+            "path": "/general/extracellular_ephys/electrodes",
+            "object_id": "f6685427-3919-4e06-b195-ccb7ab42f0fa",
+            "source_object_id": "6224bb89-578a-4839-b31c-83f11009292c"
+        },
+        "zarr_dtype": "object"
+    }
+
+In the current convention this is written as ``{"_REFERENCE": {"source": ".", "path": "..."}}``.

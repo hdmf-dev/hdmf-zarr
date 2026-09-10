@@ -2050,11 +2050,8 @@ class ZarrIO(HDMFIO):
         if "_LINKS" in zarr_obj.attrs:
             links = zarr_obj.attrs["_LINKS"]
         elif "zarr_link" in zarr_obj.attrs:
+            # Zarr v2 convention (hdmf-zarr < 0.14). Read-only support via ZarrV2IO.
             links = zarr_obj.attrs["zarr_link"]
-            warnings.warn(
-                "Found deprecated 'zarr_link' attribute. Use '_LINKS' instead.",
-                DeprecationWarning,
-            )
         else:
             links = None
         if links is not None:
@@ -2106,13 +2103,9 @@ class ZarrIO(HDMFIO):
         elif is_scalar:
             zarr_dtype = "scalar"
         elif "zarr_dtype" in zarr_obj.attrs:
-            # Backward compat: old convention stored everything in zarr_dtype
+            # Zarr v2 convention (hdmf-zarr < 0.14) stored everything in zarr_dtype.
+            # Read-only support via ZarrV2IO.
             zarr_dtype = zarr_obj.attrs["zarr_dtype"]
-            warnings.warn(
-                "Found deprecated 'zarr_dtype' attribute on dataset '%s'. "
-                "Use '_DTYPE' or '_SCALAR' instead." % str(name),
-                DeprecationWarning,
-            )
         elif hasattr(zarr_obj, "dtype"):  # Fallback for invalid files
             zarr_dtype = zarr_obj.dtype
             warnings.warn(
@@ -2182,13 +2175,8 @@ class ZarrIO(HDMFIO):
                         ret[k] = self.__read_group(target_zarr_obj, target_name)
                     else:
                         ret[k] = self.__read_dataset(target_zarr_obj, target_name)
-                # Backward compat: old convention with zarr_dtype wrapper
+                # Zarr v2 convention (hdmf-zarr < 0.14): reference wrapped in zarr_dtype dict
                 elif isinstance(v, dict) and "zarr_dtype" in v:
-                    warnings.warn(
-                        "Found deprecated 'zarr_dtype' reference format in attribute '%s'. "
-                        "Use '_REFERENCE' wrapper instead." % k,
-                        DeprecationWarning,
-                    )
                     if v["zarr_dtype"] == "object":
                         target_name, target_zarr_obj = self.resolve_ref(v["value"])
                         if isinstance(target_zarr_obj, Group):

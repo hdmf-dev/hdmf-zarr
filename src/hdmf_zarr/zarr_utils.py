@@ -71,7 +71,8 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self.__inverted
 
     def _get_ref(self, ref):
-        # In zarr v3, references may be stored as JSON strings
+        # References are stored as plain path strings; JSON strings are accepted for files
+        # written by pre-release versions of the zarr v3 backend
         if isinstance(ref, str):
             try:
                 ref = json.loads(ref)
@@ -108,9 +109,8 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
 
         # Create ZarrReference
         ref = self.io._create_ref(builder)
-        # In zarr v3, serialize as JSON string
-        ref_str = json.dumps(dict(ref))
-        append_data(self.dataset, ref_str)
+        # Store the reference as a plain target path string (see storage.rst, "Storing object references in Datasets")
+        append_data(self.dataset, ref["path"])
 
 
 class BuilderResolverMixin(BuilderResolver):  # refactor to backend/utils.py
