@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # tags are required to determine the version
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -27,7 +27,7 @@ jobs:
 
       - name: Run tox tests
         run: |
-          tox -e py313
+          tox -e py314
 
       - name: Build wheel and source distribution
         run: |

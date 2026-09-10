@@ -728,6 +728,10 @@ class BuildDatasetShapeMixin(TestCase, metaclass=ABCMeta):
         )
         namespace_catalog = NamespaceCatalog()
         namespace_catalog.add_namespace(CORE_NAMESPACE, namespace)
+        # HDMF >= 5.0 requires explicit spec resolution after manual catalog construction.
+        # On older HDMF versions, inc-spec fields fall back to the def-spec at build time.
+        if hasattr(namespace_catalog, "resolve_all_specs"):
+            namespace_catalog.resolve_all_specs()
         type_map = TypeMap(namespace_catalog)
         type_map.register_container_type(CORE_NAMESPACE, "BarData", BarData)
         type_map.register_container_type(CORE_NAMESPACE, "BarDataHolder", BarDataHolder)

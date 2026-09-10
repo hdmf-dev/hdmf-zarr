@@ -9,6 +9,50 @@ from hdmf.build import BuildManager, TypeMap
 from pynwb import get_manager, get_type_map
 
 
+def _build_nwb_manager(
+    io_cls, path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle=None
+):
+    """Resolve the NWB BuildManager from IO constructor arguments.
+
+    :param io_cls: IO class used to load cached namespaces.
+    :param path: Source Zarr path or store.
+    :param mode: Requested IO mode; write modes do not load namespaces.
+    :param manager: Explicit manager, when supplied instead of extensions.
+    :param extensions: Namespace extension path(s) or TypeMap.
+    :param load_namespaces: Whether to load cached namespaces from *path*.
+    :param storage_options: Options used to open a remote source store.
+    :param allow_pickle: Whether a v2 reader may decode unsafe pickle codecs.
+        ``None`` omits this v2-only option for v3 readers.
+
+    Centralizes the namespace-loading and manager-selection logic shared by
+    :class:`NWBZarrIO` and :class:`NWBZarrV2IO`.
+    """
+    io_modes_that_create_file = ["w", "w-", "x"]
+    if mode in io_modes_that_create_file or manager is not None or extensions is not None:
+        load_namespaces = False
+
+    if load_namespaces:
+        tm = get_type_map()
+        if allow_pickle is None:
+            io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        else:
+            io_cls.load_namespaces(
+                namespace_catalog=tm,
+                path=path,
+                storage_options=storage_options,
+                allow_pickle=allow_pickle,
+            )
+        return BuildManager(tm)
+
+    if manager is not None and extensions is not None:
+        raise ValueError("'manager' and 'extensions' cannot be specified together")
+    if extensions is not None:
+        return get_manager(extensions=extensions)
+    if manager is None:
+        return get_manager()
+    return manager
+
+
 class NWBZarrIO(ZarrIO):
     """
     IO backend for PyNWB for writing NWB files
@@ -17,6 +61,15 @@ class NWBZarrIO(ZarrIO):
     is to perform default setup for BuildManager, loading or namespaces etc., in the context
     of the NWB format.
     """
+
+    _zarr_v2_backend_name = "NWBZarrV2IO"
+
+    @classmethod
+    def _zarr_v2_read_error_message(cls, source):
+        """Extend the base v2 read-error message with the NWB convert helper."""
+        return super()._zarr_v2_read_error_message(source) + (
+            " Or convert it to Zarr v3 with NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
+        )
 
     @docval(
         *get_docval(ZarrIO.__init__),
@@ -37,22 +90,7 @@ class NWBZarrIO(ZarrIO):
         path, mode, manager, extensions, load_namespaces, storage_options = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
         )
-
-        io_modes_that_create_file = ["w", "w-", "x"]
-        if mode in io_modes_that_create_file or manager is not None or extensions is not None:
-            load_namespaces = False
-
-        if load_namespaces:
-            tm = get_type_map()
-            super().load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
-            manager = BuildManager(tm)
-        else:
-            if manager is not None and extensions is not None:
-                raise ValueError("'manager' and 'extensions' cannot be specified together")
-            elif extensions is not None:
-                manager = get_manager(extensions=extensions)
-            elif manager is None:
-                manager = get_manager()
+        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(
@@ -81,7 +119,7 @@ class NWBZarrIO(ZarrIO):
     )
     def read_nwb(**kwargs):
         """
-        Helper factory method for reading an NWB file and return the NWBFile object
+        Helper factory method for reading an NWB file and return the NWBFile object.
         """
         # Retrieve the filepath
         path = popargs("path", kwargs)

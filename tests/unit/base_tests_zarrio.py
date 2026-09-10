@@ -528,6 +528,31 @@ class BaseTestZarrWriter(BaseZarrWriterTestCase):
             self.assertEqual(v[1], builder["data"][i][1])  # Compare string value from compound tuple
             self.assertTrue(np.all(v[2]["data"][:] == builder["data"][i][2]["builder"]["data"][:]))
 
+    def test_read_reference_compound_resolves_to_a_record(self):
+        """The resolved rows must come back as a structured array, not a list of lists.
+
+        test_read_reference_compound above compares rows by position, which a list also satisfies,
+        so it cannot see a regression here.
+        """
+        self.test_write_reference_compound()
+        self.read()
+        builder = self.createReferenceCompoundBuilder()["ref_dataset"]
+        read_builder = self.root["ref_dataset"]
+
+        rows = read_builder["data"][:]
+        self.assertIsInstance(rows, np.ndarray)
+        self.assertTupleEqual(rows.dtype.names, ("id", "name", "reference"))
+        self.assertIsInstance(read_builder["data"][0], np.void)
+
+        # Field access is what breaks when the rows come back as lists
+        np.testing.assert_array_equal(rows["id"], [entry[0] for entry in builder["data"]])
+        np.testing.assert_array_equal(rows["name"], [entry[1] for entry in builder["data"]])
+
+        # The reference field holds the resolved builder rather than the JSON string on disk
+        self.assertEqual(rows.dtype["reference"], np.dtype(object))
+        for i, reference in enumerate(rows["reference"]):
+            self.assertTrue(np.all(reference["data"][:] == builder["data"][i][2]["builder"]["data"][:]))
+
     def test_read_reference_compound_buf(self):
         data_1 = np.arange(100, 200, 10).reshape(2, 5)
         data_2 = np.arange(0, 200, 10).reshape(4, 5)
@@ -579,13 +604,13 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     #############################################
     def test_zarrdataio_enable_default_compressor(self):
         """Default compression simply means not specifying any compressor and using Zarr defaults"""
-        dataio = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=True)
+        dataio = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressors=True)
         self.assertEqual(len(dataio.io_settings), 0)
 
     def test_zarrdataio_disable_compressor(self):
         """Test that ZarrDataIO.__array__ is working when wrapping an ndarray"""
         test_speed = np.array([10.0, 20.0])
-        data = ZarrDataIO((test_speed), compressor=False)
+        data = ZarrDataIO((test_speed), compressors=False)
         self.assertIsNone(data.io_settings["compressors"])
 
     def test_zarrdataio_array_conversion_numpy(self):
@@ -659,7 +684,10 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
             if isinstance(value, (list, tuple, set)):
                 self.assertTupleEqual(read_val, tuple(value))
             elif isinstance(value, np.ndarray):
-                self.assertListEqual(list(read_val), value.tolist())
+                if value.ndim == 0:
+                    self.assertEqual(read_val, value.item())
+                else:
+                    self.assertListEqual(list(read_val), value.tolist())
             else:
                 self.assertEqual(testgroup.attrs[name], value)
         tempIO.close()
@@ -676,6 +704,11 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_attributes_write_scalar_str(self):
         self.__write_attribute_test_helper("strattr", "a")
         self.__write_attribute_test_helper("strattr", "Hello World")
+
+    def test_write_attributes_write_scalar_ndarray(self):
+        self.__write_attribute_test_helper("intattr", np.array(5))
+        val = self.__write_attribute_test_helper("bytesattr", np.array(b"Hello World"), assert_value=False)
+        self.assertEqual(val, "Hello World")
 
     def test_write_attributes_write_unsupported_scalar_type(self):
         with self.assertRaises(TypeError):
@@ -813,7 +846,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress(self):
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
-        a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressor=compressor)
+        a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressors=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
@@ -826,7 +859,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_dataset_list_compress_and_filter(self):
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         filters = [TransposeCodec(order=(2, 1, 0))]
-        a = ZarrDataIO(np.arange(30, dtype="i4").reshape(5, 2, 3), compressor=compressor, filters=filters)
+        a = ZarrDataIO(np.arange(30, dtype="i4").reshape(5, 2, 3), compressors=compressor, filters=filters)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", a, attributes={}))
@@ -911,7 +944,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         aiter = iter(a)
         daiter = DataChunkIterator.from_iterable(aiter, buffer_size=2)
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
-        wrapped_daiter = ZarrDataIO(data=daiter, compressor=compressor)
+        wrapped_daiter = ZarrDataIO(data=daiter, compressors=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_daiter, attributes={}))
@@ -933,7 +966,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
     def test_write_dataset_data_chunk_iterator_with_compression(self):
         dci = DataChunkIterator(data=np.arange(10), buffer_size=2)
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
-        wrapped_dci = ZarrDataIO(data=dci, compressor=compressor, chunks=(2,))
+        wrapped_dci = ZarrDataIO(data=dci, compressors=compressor, chunks=(2,))
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))
@@ -951,7 +984,7 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
 
         dci = DC(data=np.arange(30).reshape(5, 2, 3))
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
-        wrapped_dci = ZarrDataIO(data=dci, compressor=compressor)
+        wrapped_dci = ZarrDataIO(data=dci, compressors=compressor)
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_dataset(tempIO._file, DatasetBuilder("test_dataset", wrapped_dci, attributes={}))

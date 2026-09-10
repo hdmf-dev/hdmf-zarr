@@ -11,6 +11,7 @@ need to implement the tests separately for the different backends.
 """
 
 from unittest import TestCase
+from unittest.mock import patch
 from tests.unit.base_tests_zarrio import (
     BaseTestZarrWriter,
     ZarrStoreTestCase,
@@ -22,9 +23,12 @@ from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanag
 
 import zarr
 import numpy as np
-from hdmf_zarr.backend import ZarrIO
+from hdmf_zarr.backend import ZarrIO, ROOT_NAME
+from hdmf_zarr.utils import HDMFZarrArray
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
+from hdmf.build import GroupBuilder, DatasetBuilder
+from hdmf.backends.hdf5.h5tools import HDF5IO
 import os
 import shutil
 import warnings
@@ -158,15 +162,15 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
     def test_get_store_path_shallow(self):
         self.create_zarr(consolidate_metadata=False)
         store = LocalStore(self.store_path)
-        path = ZarrIO._ZarrIO__get_store_path(store)
-        # In zarr v3, __get_store_path returns str(store) which is the LocalStore repr
+        path = ZarrIO._get_store_path(store)
+        # In zarr v3, _get_store_path returns str(store) which is the LocalStore repr
         self.assertIsInstance(path, str)
 
     def test_get_store_path_deep(self):
         self.create_zarr()
         zarr_obj = zarr.open_consolidated(self.store_path, mode="r")
         store = zarr_obj.store
-        path = ZarrIO._ZarrIO__get_store_path(store)
+        path = ZarrIO._get_store_path(store)
         self.assertIsInstance(path, str)
 
     def test_force_open_without_consolidated(self):
@@ -183,7 +187,7 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
 
     def test_force_open_without_consolidated_fails(self):
         """
-        Test that we indeed can't use '_ZarrIO__open_file_consolidated' function in r- read mode, which
+        Test that we indeed can't use '_open_file_consolidated' function in r- read mode, which
         is used to force read without consolidated metadata.
         """
         self.create_zarr(consolidate_metadata=True)
@@ -191,12 +195,12 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
             # Check that using 'r-' fails
             msg = "Mode r- not allowed for reading with consolidated metadata"
             with self.assertRaisesWith(ValueError, msg):
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r-")
+                read_io._open_file_consolidated(store=self.store_path, mode="r-")
             # Check that using 'r' does not fail
             try:
-                read_io._ZarrIO__open_file_consolidated(store=self.store_path, mode="r")
+                read_io._open_file_consolidated(store=self.store_path, mode="r")
             except ValueError as e:
-                self.fail("ZarrIO.__open_file_consolidated raised an unexpected ValueError: {}".format(e))
+                self.fail("ZarrIO._open_file_consolidated raised an unexpected ValueError: {}".format(e))
 
     def test_is_remote_local_with_consolidated(self):
         """Test that is_remote() returns False for local stores with consolidated metadata."""
@@ -211,6 +215,40 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
         with ZarrIO(self.store_path, mode="r-") as read_io:
             read_io.open()
             self.assertFalse(read_io.is_remote())
+
+
+class TestResolveRef(ZarrStoreTestCase):
+    """
+    Tests for ``ZarrIO.resolve_ref``, focusing on the ``source == "."`` self-reference
+    short-circuit that reuses the already-open file instead of re-opening the store.
+    """
+
+    def test_resolve_self_reference_to_object(self):
+        """A self-reference to an object returns that object and its name."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": "/dataset_1"})
+            self.assertEqual(target_name, "dataset_1")
+            self.assertEqual(target_obj.name, "/dataset_1")
+            np.testing.assert_array_equal(target_obj[:], read_io._file["/dataset_1"][:])
+
+    def test_resolve_self_reference_to_root(self):
+        """A self-reference with no path returns the root group named ROOT_NAME."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            target_name, target_obj = read_io.resolve_ref({"source": ".", "path": None})
+            self.assertEqual(target_name, ROOT_NAME)
+            self.assertIs(target_obj, read_io._file)
+
+    def test_resolve_self_reference_bad_path(self):
+        """A self-reference to a nonexistent path raises a descriptive ValueError."""
+        self.create_zarr()
+        with ZarrIO(self.store_path, mode="r") as read_io:
+            read_io.open()
+            with self.assertRaisesRegex(ValueError, "Found bad link to object /does_not_exist"):
+                read_io.resolve_ref({"source": ".", "path": "/does_not_exist"})
 
 
 class TestOverwriteExistingFile(ZarrStoreTestCase):
@@ -324,10 +362,10 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_basic(self):
         """Test basic HTML generation for a Zarr array"""
         from zarr.codecs import BloscCodec
+
         # Create a test zarr array
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4",
-                              compressors=[BloscCodec()])
+        z = zarr.create_array(store, shape=(100, 100), chunks=(10, 10), dtype="f4", compressors=[BloscCodec()])
         z[:] = np.random.random((100, 100))
 
         # Generate HTML representation
@@ -342,10 +380,12 @@ class TestGenerateDatasetHtml(TestCase):
     def test_generate_dataset_html_with_compression(self):
         """Test HTML generation includes compression information"""
         from zarr.codecs import BloscCodec
+
         # Create a zarr array with specific compression
         store = zarr.storage.MemoryStore()
-        z = zarr.create_array(store, shape=(50, 50), chunks=(25, 25), dtype="i4",
-                              compressors=[BloscCodec(cname="zstd", clevel=9)])
+        z = zarr.create_array(
+            store, shape=(50, 50), chunks=(25, 25), dtype="i4", compressors=[BloscCodec(cname="zstd", clevel=9)]
+        )
         z[:] = np.arange(2500).reshape(50, 50)
 
         # Generate HTML representation
@@ -367,3 +407,245 @@ class TestGenerateDatasetHtml(TestCase):
         # Verify basic info is present
         self.assertIn("Zarr Array", html)
         self.assertIn("Float64", html)
+        self.assertIn("(10, 10)", html)
+
+    def test_generate_dataset_html_non_zarr_object(self):
+        """Test that passing a non-Zarr object returns an empty info dict in HTML"""
+        non_zarr_array = np.float64(5)  # Just a float, not a Zarr array
+        html = ZarrIO.generate_dataset_html(non_zarr_array)
+
+        # Verify that HTML is generated and contains expected content
+        self.assertIsInstance(html, str)
+        self.assertIn("Array Read from ZarrIO (not a Zarr Array)", html)
+
+
+class TestStringDatasetRead(TestCase):
+    """
+    StringDType (zarr v3 variable-length string) datasets remain lazy on read. Their
+    HDMF-compatible wrapper exposes object dtype and decodes accessed arrays to native
+    Python strings so HDMF can infer ``utf8`` and export them correctly.
+    """
+
+    def setUp(self):
+        self.paths = []
+
+    def tearDown(self):
+        for path in self.paths:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+
+    def _roundtrip(self, data):
+        from hdmf.common import DynamicTable, VectorData, get_manager
+
+        path = f"test_stringdata_{len(self.paths)}.zarr"
+        self.paths.append(path)
+        col = VectorData(name="text", description="d", data=data)
+        table = DynamicTable(name="tbl", description="d", columns=[col])
+        with ZarrIO(path, manager=get_manager(), mode="w") as io:
+            io.write(table)
+        read_io = ZarrIO(path, manager=get_manager(), mode="r")
+        self.addCleanup(read_io.close)
+        return read_io.read()["text"].data
+
+    def test_1d_is_lazily_decoded_to_object_str(self):
+        data = self._roundtrip(["alpha", "beta", "gamma"])
+        self.assertIsInstance(data, HDMFZarrArray)
+        self.assertEqual(data.dtype, np.dtype(object))
+        self.assertEqual(data.shape, (3,))
+        self.assertIsInstance(data[0], str)
+        self.assertEqual(list(data[:]), ["alpha", "beta", "gamma"])
+        self.assertEqual(np.asarray(data).dtype, np.dtype(object))
+
+    def test_2d_supports_multidimensional_indexing(self):
+        """A 2-D string dataset must support data[i, j] indexing (regression: list(...) did not)."""
+        data = self._roundtrip([["a", "b"], ["c", "d"]])
+        self.assertEqual(data.shape, (2, 2))
+        self.assertEqual(data[1, 1], "d")
+        self.assertEqual(data[0, 1], "b")
+
+
+class TestHDMFZarrArray(TestCase):
+    """Unit tests for the Zarr array compatibility wrapper."""
+
+    @staticmethod
+    def _make_array(shape, values, dtype):
+        array = zarr.create_array(
+            zarr.storage.MemoryStore(),
+            shape=shape,
+            dtype=dtype,
+        )
+        array[:] = np.array(values, dtype=dtype)
+        array.__class__ = HDMFZarrArray
+        return array
+
+    def _make_string_array(self, shape, values):
+        return self._make_array(shape, values, np.dtypes.StringDType())
+
+    def test_numeric_array_preserves_zarr_array_behavior(self):
+        array = self._make_array((2, 2), [[1, 2], [3, 4]], dtype="i4")
+
+        self.assertEqual(array.dtype, np.dtype("i4"))
+        self.assertEqual(array.shape[0], 2)
+        np.testing.assert_array_equal(list(array), [[1, 2], [3, 4]])
+        np.testing.assert_array_equal(np.asarray(array), [[1, 2], [3, 4]])
+
+    def test_zero_dimensional_result_is_unwrapped(self):
+        array = self._make_array((2,), [1, 2], dtype="i4")
+
+        self.assertEqual(array[0], 1)
+        self.assertNotIsInstance(array[0], np.ndarray)
+
+    def test_string_array_is_not_materialized_when_wrapped(self):
+        """Applying the wrapper must not access a string array's data."""
+        array = zarr.create_array(
+            zarr.storage.MemoryStore(),
+            shape=(3,),
+            dtype=np.dtypes.StringDType(),
+        )
+        array[:] = np.array(["alpha", "beta", "gamma"], dtype=np.dtypes.StringDType())
+        original_getitem = zarr.Array.__getitem__
+        reads = []
+
+        def record_read(zarr_array, key):
+            reads.append(key)
+            return original_getitem(zarr_array, key)
+
+        with patch.object(zarr.Array, "__getitem__", record_read):
+            array.__class__ = HDMFZarrArray
+            self.assertEqual(reads, [])
+            self.assertEqual(array[0], "alpha")
+            self.assertEqual(reads, [0])
+
+    def test_string_array_decodes_lazily_and_preserves_dimensions(self):
+        array = self._make_string_array((2, 2), [["a", "b"], ["c", "d"]])
+
+        self.assertEqual(array.dtype, np.dtype(object))
+        self.assertEqual(array.shape, (2, 2))
+        self.assertEqual(array[1, 1], "d")
+        self.assertEqual(array[:].dtype, np.dtype(object))
+        self.assertEqual(array[:].shape, (2, 2))
+        self.assertEqual(np.asarray(array).dtype, np.dtype(object))
+        self.assertEqual(np.asarray(array).shape, (2, 2))
+
+    def test_string_array_rejects_copy_false_array_conversion(self):
+        array = self._make_string_array((2,), ["a", "b"])
+
+        with self.assertRaisesRegex(ValueError, "`copy=False` is not supported"):
+            np.asarray(array, copy=False)
+
+
+class TestPathNormalization(TestCase):
+    """Local paths are made absolute, but protocol URLs must be left untouched."""
+
+    def _init_path(self, path, storage_options=None):
+        """Construct a ZarrIO with open() stubbed out and return the normalized path."""
+        with patch.object(ZarrIO, "open", lambda self: None):
+            io = ZarrIO(path, mode="r", storage_options=storage_options)
+        return io.path
+
+    def test_local_paths_made_absolute(self):
+        for path in ["relative/local.zarr", "./x.zarr", "/abs/local.zarr"]:
+            self.assertEqual(self._init_path(path), os.path.abspath(path))
+
+    def test_protocol_urls_unchanged(self):
+        """Non-s3 fsspec protocols must not be rewritten into a local absolute path."""
+        for path in [
+            "s3://bucket/f.zarr",
+            "gcs://bucket/f.zarr",
+            "gs://bucket/f.zarr",
+            "abfs://container/f.zarr",
+            "az://container/f.zarr",
+            "http://host/f.zarr",
+            "https://host/f.zarr",
+            "simplecache::s3://bucket/f.zarr",
+        ]:
+            self.assertEqual(
+                self._init_path(path, storage_options={"anon": True}),
+                path,
+                f"protocol URL {path!r} was corrupted",
+            )
+
+
+class TestCopyArray(TestCase):
+    """Tests for ZarrIO._copy_array, used when copying arrays during export."""
+
+    @staticmethod
+    def _dest_group():
+        return zarr.open_group(zarr.storage.MemoryStore(), mode="w")
+
+    def test_copy_multichunk_numeric(self):
+        """Data spanning multiple chunks is copied correctly (chunk-wise)."""
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(5, 4), chunks=(2, 3), dtype="i4")
+        source[:] = np.arange(20).reshape(5, 4)
+        source.attrs["zarr_dtype"] = "int32"
+        dest = ZarrIO._copy_array(source, self._dest_group(), "x")
+        np.testing.assert_array_equal(dest[:], source[:])
+        self.assertEqual(dest.chunks, source.chunks)
+        self.assertEqual(dest.attrs["zarr_dtype"], "int32")
+
+    def test_copy_object_becomes_stringdtype(self):
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(3,), chunks=(2,), dtype=np.dtypes.StringDType())
+        source[:] = np.array(["aa", "bb", "cc"], dtype=np.dtypes.StringDType())
+        dest = ZarrIO._copy_array(source, self._dest_group(), "y")
+        self.assertEqual(list(dest[:]), ["aa", "bb", "cc"])
+
+    def test_copy_scalar(self):
+        source = zarr.create_array(zarr.storage.MemoryStore(), shape=(), dtype="f8")
+        source[...] = 3.14
+        dest = ZarrIO._copy_array(source, self._dest_group(), "z")
+        self.assertEqual(dest[()], 3.14)
+        self.assertEqual(dest.shape, ())
+
+class TestResolveCompoundDtype(ZarrStoreTestCase):
+    """
+    Tests for resolving spec dtypes, in particular the fields of a compound dtype.
+
+    A field dtype that the lookup table does not know resolves to None, which numpy reads
+    as "unspecified" and turns into float64. Unlike a plain dataset, a compound dtype
+    cannot fall back to inferring the type from the data, because the None is consumed
+    while the compound dtype is being built.
+    """
+
+    def test_resolve_integer_aliases(self):
+        """The spec aliases 'uint' and 'short' resolve to the same types HDF5IO uses."""
+        self.assertIs(ZarrIO.__resolve_dtype_helper__("uint"), np.uint32)
+        self.assertIs(ZarrIO.__resolve_dtype_helper__("short"), np.int16)
+
+    def test_resolve_compound_dtype_keeps_unsigned_field(self):
+        """A compound field declared 'uint' resolves to uint32 rather than float64."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "name", "dtype": "text"}]
+        resolved = ZarrIO.__resolve_dtype_helper__(spec)
+        self.assertEqual(resolved["idx"], np.dtype(np.uint32))
+
+    def test_resolve_compound_dtype_matches_hdf5(self):
+        """The integer fields of a compound dtype resolve the same way on both backends."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "count", "dtype": "short"}]
+        zarr_dtype = ZarrIO.__resolve_dtype_helper__(spec)
+        hdf5_dtype = HDF5IO.__resolve_dtype_helper__(spec)
+        for field in ("idx", "count"):
+            self.assertEqual(zarr_dtype[field], hdf5_dtype[field])
+
+    def test_resolve_unknown_compound_field_raises(self):
+        """An unresolvable field dtype raises instead of silently becoming float64."""
+        spec = [{"name": "idx", "dtype": "not_a_dtype"}]
+        with self.assertRaisesWith(ValueError, "Can't resolve dtype 'not_a_dtype' for compound field 'idx'"):
+            ZarrIO.__resolve_dtype_helper__(spec)
+
+    def test_resolve_unknown_scalar_dtype_still_falls_back(self):
+        """A plain dataset still infers its dtype from the data when the spec is unknown."""
+        data = np.array([1, 2, 3], dtype=np.uint32)
+        self.assertIs(ZarrIO.__resolve_dtype__("not_a_dtype", data), np.uint32)
+
+    def test_write_compound_dtype_preserves_unsigned_field(self):
+        """An unsigned field of a written compound dataset keeps its type on disk."""
+        spec = [{"name": "idx", "dtype": "uint"}, {"name": "value", "dtype": "float"}]
+        builder = GroupBuilder(
+            ROOT_NAME,
+            datasets={"tbl": DatasetBuilder("tbl", [(0, 1.5), (1, 2.5)], dtype=spec)},
+        )
+        with ZarrIO(self.store_path, mode="w") as io:
+            io.write_builder(builder)
+
+        written = zarr.open(os.path.join(self.store_path, "tbl"), mode="r")
+        self.assertEqual(written.dtype["idx"], np.dtype(np.uint32))
+        self.assertEqual(written[:]["idx"].tolist(), [0, 1])

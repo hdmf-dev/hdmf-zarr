@@ -21,7 +21,7 @@ Supported features
 - Links
 - Object references
 - Writing/loading namespaces/specifications
-- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator` 
+- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator`
 - Parallel write with :py:class:`~hdmf.data_utils.GenericDataChunkIterator` (since v0.4)
 - Lazy load of datasets
 - Lazy load of datasets containing object references (since v0.4)
@@ -30,7 +30,7 @@ Known Limitations
 -----------------
 
 - The Zarr backend is currently experimental and may still change.
-- **Zarr v3 only:** This version of hdmf-zarr writes zarr v3 format only and cannot read files written in zarr v2 format. To read zarr v2 files, use hdmf-zarr 0.x with zarr-python v2. The `zarr CLI migration tool <https://zarr.readthedocs.io/en/stable/user-guide/cli/>`_ may also be used to convert v2 files to v3 format.
+- **Zarr v2 read-only:** Zarr v2 folders can only be read in read-only mode with the :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` and corresponding :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO` classes. Writing of new Zarr v2 files is not supported, i.e., new files can only be written in Zarr v3 via :py:class:`~hdmf_zarr.backend.ZarrIO` and :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. Zarr v2 folders can be converted to v3 using the :py:meth:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO.convert_to_v3` function. (since v0.14)
 - Attributes are stored as JSON documents in Zarr (using the :py:class:`~zarr.storage.LocalStore`). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
 - Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's :py:class:`~zarr.storage.LocalStore` for local storage and :py:class:`~zarr.storage.FsspecStore` for remote read-only access. Other `Zarr stores <https://zarr.readthedocs.io/en/stable/user-guide/storage/>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_).
 - **Compound dtypes with strings:** String and reference fields in compound data types are stored as fixed-length Unicode strings (``FixedLengthUTF32``) in zarr v3. The ``FixedLengthUTF32`` data type is currently not part of the Zarr V3 specification and may not be supported by other zarr implementations.
