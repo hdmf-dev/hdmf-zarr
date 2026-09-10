@@ -32,18 +32,18 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 
 ### Related Pull Requests
 
-- [#374](https://github.com/hdmf-dev/hdmf-zarr/pull/374) : Support automatic shards and guard parallel iterator writes
-- [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373) : Increase Zarr and Python minimum versions
-- [#372](https://github.com/hdmf-dev/hdmf-zarr/pull/372) : Add support for custom sharding properties
-- [#370](https://github.com/hdmf-dev/hdmf-zarr/pull/370) : Raise instead of truncating when a compound string field is narrower than the data
-- [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369) : Align `ZarrDataIO` with the new zarr version 3 codec API
-- [#368](https://github.com/hdmf-dev/hdmf-zarr/pull/368) : Decode a zarr v2 compound that holds an object field
-- [#367](https://github.com/hdmf-dev/hdmf-zarr/pull/367) : Rebuild a resolved compound row as a record instead of a list
-- [#366](https://github.com/hdmf-dev/hdmf-zarr/pull/366) : Review and propose changes to v3 integration
-- [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365) : Resolve compound fields declared `uint` instead of writing them as float64
-- [#363](https://github.com/hdmf-dev/hdmf-zarr/pull/363) : Fix Zarr-to-HDF5 export deadlock
-- [#336](https://github.com/hdmf-dev/hdmf-zarr/pull/336) : Adopt unified Zarr v3 convention for hdmf-zarr/Zindi interop
 - [#325](https://github.com/hdmf-dev/hdmf-zarr/pull/325) : Migrate hdmf-zarr from zarr-python v2 to v3
+- [#336](https://github.com/hdmf-dev/hdmf-zarr/pull/336) : Adopt unified Zarr v3 convention for hdmf-zarr/Zindi interop
+- [#363](https://github.com/hdmf-dev/hdmf-zarr/pull/363) : Fix Zarr-to-HDF5 export deadlock
+- [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365) : Resolve compound fields declared `uint` instead of writing them as float64
+- [#366](https://github.com/hdmf-dev/hdmf-zarr/pull/366) : Review and propose changes to v3 integration
+- [#367](https://github.com/hdmf-dev/hdmf-zarr/pull/367) : Rebuild a resolved compound row as a record instead of a list
+- [#368](https://github.com/hdmf-dev/hdmf-zarr/pull/368) : Decode a zarr v2 compound that holds an object field
+- [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369) : Align `ZarrDataIO` with the new zarr version 3 codec API
+- [#370](https://github.com/hdmf-dev/hdmf-zarr/pull/370) : Raise instead of truncating when a compound string field is narrower than the data
+- [#372](https://github.com/hdmf-dev/hdmf-zarr/pull/372) : Add support for custom sharding properties
+- [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373) : Increase Zarr and Python minimum versions
+- [#374](https://github.com/hdmf-dev/hdmf-zarr/pull/374) : Support automatic shards and guard parallel iterator writes
 
 
 ## 0.13.0 (June 22, 2026)
