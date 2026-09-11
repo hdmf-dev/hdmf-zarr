@@ -7,6 +7,7 @@ import math
 import json
 import logging
 import os
+from itertools import product
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple, Dict, Any
@@ -24,7 +25,6 @@ from hdmf.query import HDMFDataset
 from hdmf.utils import docval, getargs
 
 from hdmf.spec import SpecWriter, SpecReader
-
 
 # Necessary definitions to avoid parallelization bugs, Inherited from SpikeInterface experience
 # see
@@ -244,7 +244,17 @@ class ZarrIODataChunkIteratorQueue(deque):
                 progress_bar_options.update(**per_iterator_progress_options)
 
                 iterator_itemsize = iterator.dtype.itemsize
-                for buffer_selection in iterator.buffer_selection_generator:
+                # Preserve whole buffers when they own complete shards. Otherwise,
+                # give each shard one task, using Zarr's resolved layout for auto.
+                # When a shard spans multiple iterator buffers, their intersections
+                # are read and written sequentially within the same task.
+                selections = (
+                    self._iter_shard_selections(zarr_dataset.shape, zarr_dataset.shards)
+                    if zarr_dataset.shards is not None
+                    and not self._buffers_contain_shards(zarr_dataset.shape, zarr_dataset.shards, iterator.buffer_shape)
+                    else iterator.buffer_selection_generator
+                )
+                for buffer_selection in selections:
                     store = zarr_dataset.store
                     store_path = str(store.root) if hasattr(store, "root") else str(store)
                     buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
@@ -374,6 +384,33 @@ class ZarrIODataChunkIteratorQueue(deque):
         _operation_to_run = operation_to_run
 
     @staticmethod
+    def _buffers_contain_shards(shape, shards, buffers):
+        """Return whether buffer boundaries avoid splitting destination shards."""
+        return all(buffer == size or buffer % shard == 0 for size, shard, buffer in zip(shape, shards, buffers))
+
+    @staticmethod
+    def _iter_shard_selections(shape, shards):
+        """Yield one non-overlapping task selection per destination shard."""
+        for start in product(*(range(0, size, shard) for size, shard in zip(shape, shards))):
+            yield tuple(slice(pos, min(pos + shard, size)) for pos, shard, size in zip(start, shards, shape))
+
+    @staticmethod
+    def _iter_shard_buffer_selections(shard_selection, buffer_shape):
+        """Intersect a shard with the iterator buffer grid without loading a full shard.
+
+        A buffer crossing shard boundaries is read in separate pieces by the shard
+        owners. Each requested piece is no larger than the iterator buffer shape.
+        """
+        starts = (
+            range(part.start // size * size, part.stop, size) for part, size in zip(shard_selection, buffer_shape)
+        )
+        for start in product(*starts):
+            yield tuple(
+                slice(max(pos, part.start), min(pos + size, part.stop))
+                for pos, size, part in zip(start, buffer_shape, shard_selection)
+            )
+
+    @staticmethod
     def _write_buffer_zarr(
         worker_context: Dict[str, Any],
         zarr_store_path: str,
@@ -385,12 +422,21 @@ class ZarrIODataChunkIteratorQueue(deque):
         zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
         zarr_dataset = zarr_store[relative_dataset_path]
 
-        data = iterator._get_data(selection=buffer_selection)
-        zarr_dataset[buffer_selection] = data
+        if zarr_dataset.shards is None:
+            selections = (buffer_selection,)
+        else:
+            # Whole-buffer tasks yield one read; shard tasks may yield several.
+            # Finish each write before updating another part of the owned shard.
+            selections = ZarrIODataChunkIteratorQueue._iter_shard_buffer_selections(
+                buffer_selection, iterator.buffer_shape
+            )
+        for selection in selections:
+            data = iterator._get_data(selection=selection)
+            zarr_dataset[selection] = data
+            del data
 
         # An issue detected in cloud usage by the SpikeInterface team
         # Fix memory leak by forcing garbage collection
-        del data
         gc.collect()
 
     @staticmethod
@@ -559,12 +605,22 @@ class ZarrDataIO(DataIO):
         },
         {
             "name": "shards",
-            "type": (list, tuple),
+            "type": (list, tuple, str),
             "doc": (
-                "Shard shape for use with Zarr's sharding storage transformer. Each shard is a single object "
+                "Shard shape in array elements, or 'auto' to let Zarr choose the shape. Each shard is a single object "
                 "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
-                "number of store objects and can improve performance for large arrays. Requires ``chunks`` to "
-                "define the inner chunk shape within each shard."
+                "number of store objects and can improve performance for large arrays. ``chunks`` defines the "
+                "inner chunk shape. For efficient parallel iterator writes, prefer a ``buffer_shape`` equal to "
+                "the shard shape or an integer multiple along each axis, so each buffer contains complete shards. "
+                "Buffers spanning a full array axis may include a partial edge shard. Aligned buffers are written "
+                "as whole-buffer tasks. Other buffer shapes are supported safely by assigning each shard to one "
+                "task and sequentially reading and writing the portions of iterator buffers inside it. Partial "
+                "shard updates read the entire existing encoded shard and assemble its replacement. When "
+                "shards span multiple buffers, this repeats for successive buffer pieces and can use substantially "
+                "more memory than the source buffer. ``buffer_shape`` limits source read sizes, not total write "
+                "memory, including Zarr's encoded shard buffers and codec workspace. With 'auto', scheduling uses "
+                "the shard shape chosen by "
+                "Zarr; buffer-shard alignment is not required."
             ),
             "default": None,
         },
@@ -609,16 +665,20 @@ class ZarrDataIO(DataIO):
             self.__iosettings["filters"] = list(filters)
         if serializer is not None:
             self.__iosettings["serializer"] = serializer
-        if shards is not None:
+        if isinstance(shards, str):
+            if shards != "auto":
+                raise ValueError("'shards' must be a shape or 'auto'.")
+            self.__iosettings["shards"] = shards
+        elif shards is not None:
             self.__iosettings["shards"] = tuple(shards)
-        if shards is not None and chunks is None:
+        if shards is not None and not isinstance(shards, str) and chunks is None:
             warn(
                 "Specifying 'shards' without 'chunks' is not recommended. "
                 "When using sharding, 'chunks' defines the inner chunk shape within each shard.",
                 UserWarning,
                 stacklevel=2,
             )
-        elif shards is not None and chunks is not None:
+        elif shards is not None and not isinstance(shards, str) and chunks is not None:
             if len(shards) != len(chunks):
                 raise ValueError(
                     f"'shards' and 'chunks' must have the same number of dimensions, "
@@ -717,7 +777,7 @@ class ZarrDataIO(DataIO):
                 _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
                 if filter_id_str == "32001":
                     blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
-                    (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
+                    _1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor = properties
                     pars = dict(
                         blocksize=total_bytes,
                         clevel=clevel,

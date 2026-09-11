@@ -869,6 +869,18 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(len(dset.filters), len(filters))
         tempIO.close()
 
+    def test_write_dataset_auto_shards(self):
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        for name, chunks in (("inferred", None), ("explicit", (10, 5))):
+            with ZarrIO(self.store_path, mode="w") as io:
+                wrapped = ZarrDataIO(data, chunks=chunks, shards="auto")
+                io.write_dataset(io._file, DatasetBuilder(name, wrapped, attributes={}))
+                array = io._file[name]
+                self.assertIsNotNone(array.shards)
+                if chunks is not None:
+                    self.assertEqual(array.chunks, chunks)
+                np.testing.assert_array_equal(array[:], data)
+
     def test_write_dataset_list_sharded(self):
         """Test that ZarrDataIO with shards writes a sharded Zarr array and data round-trips correctly."""
         from zarr.codecs import ShardingCodec
