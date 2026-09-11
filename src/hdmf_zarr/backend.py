@@ -436,8 +436,11 @@ class ZarrIO(HDMFIO):
             "name": "number_of_jobs",
             "type": int,
             "doc": (
-                "Number of jobs to use in parallel during write "
-                "(only works with GenericDataChunkIterator-wrapped datasets)."
+                "Number of worker processes to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets). For sharded arrays, "
+                "parallel tasks own separate shards. Shard and iterator buffer shapes therefore affect "
+                "the number of independent tasks and available parallelism. See the ZarrDataIO ``shards`` parameter for "
+                "buffer alignment and memory guidance."
             ),
             "default": 1,
         },
@@ -517,8 +520,11 @@ class ZarrIO(HDMFIO):
             "name": "number_of_jobs",
             "type": int,
             "doc": (
-                "Number of jobs to use in parallel during write "
-                "(only works with GenericDataChunkIterator-wrapped datasets)."
+                "Number of worker processes to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets). For sharded arrays, "
+                "parallel tasks own separate shards. Shard and iterator buffer shapes therefore affect "
+                "the number of independent tasks and available parallelism. See the ZarrDataIO ``shards`` parameter for "
+                "buffer alignment and memory guidance."
             ),
             "default": 1,
         },

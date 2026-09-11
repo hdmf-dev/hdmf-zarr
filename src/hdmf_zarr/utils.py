@@ -246,6 +246,8 @@ class ZarrIODataChunkIteratorQueue(deque):
                 iterator_itemsize = iterator.dtype.itemsize
                 # Preserve whole buffers when they own complete shards. Otherwise,
                 # give each shard one task, using Zarr's resolved layout for auto.
+                # When a shard spans multiple iterator buffers, their intersections
+                # are read and written sequentially within the same task.
                 selections = (
                     self._iter_shard_selections(zarr_dataset.shape, zarr_dataset.shards)
                     if zarr_dataset.shards is not None
@@ -612,9 +614,12 @@ class ZarrDataIO(DataIO):
                 "the shard shape or an integer multiple along each axis, so each buffer contains complete shards. "
                 "Buffers spanning a full array axis may include a partial edge shard. Aligned buffers are written "
                 "as whole-buffer tasks. Other buffer shapes are supported safely by assigning each shard to one "
-                "task and reading the portions of iterator buffers inside it. Multiple partial writes to a shard "
-                "can repeatedly read and rewrite its existing contents. ``buffer_shape`` bounds source reads, "
-                "not Zarr's additional internal memory. With 'auto', scheduling uses the shard shape chosen by "
+                "task and sequentially reading and writing the portions of iterator buffers inside it. Partial "
+                "shard updates read the entire existing encoded shard and assemble its replacement. When "
+                "shards span multiple buffers, this repeats for successive buffer pieces and can use substantially "
+                "more memory than the source buffer. ``buffer_shape`` limits source read sizes, not total write "
+                "memory, including Zarr's encoded shard buffers and codec workspace. With 'auto', scheduling uses "
+                "the shard shape chosen by "
                 "Zarr; buffer-shard alignment is not required."
             ),
             "default": None,
