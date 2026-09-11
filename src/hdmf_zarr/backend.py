@@ -1,23 +1,38 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 
 # Python imports
+import itertools
+import json
 import os
 import shutil
 import warnings
 import numpy as np
-import tempfile
 from typing import Union, Optional
 import logging
 
 # Zarr imports
 import zarr
-from zarr.hierarchy import Group
-from zarr.core import Array
-from zarr.storage import DirectoryStore, TempStore, NestedDirectoryStore, ConsolidatedMetadataStore
-import numcodecs
+from zarr import Group, Array
+from zarr.abc.codec import Codec as ZarrV3Codec
+from zarr.registry import get_codec_class
+from zarr.storage import LocalStore
+
+try:
+    from zarr.storage import FsspecStore
+
+    FSSPECSTORE_AVAILABLE = True
+except ImportError:
+    FSSPECSTORE_AVAILABLE = False
 
 # HDMF-ZARR imports
-from .utils import ZarrDataIO, ZarrReference, ZarrSpecWriter, ZarrSpecReader, ZarrIODataChunkIteratorQueue
+from .utils import (
+    HDMFZarrArray,
+    ZarrDataIO,
+    ZarrReference,
+    ZarrSpecWriter,
+    ZarrSpecReader,
+    ZarrIODataChunkIteratorQueue,
+)
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 # HDMF imports
@@ -50,13 +65,49 @@ DEFAULT_SPEC_LOC_DIR = "specifications"
 Default name of the group where specifications should be cached
 """
 
-SUPPORTED_ZARR_STORES = (DirectoryStore, TempStore, NestedDirectoryStore)
+COMPOUND_DTYPE_MIN_STRING_LENGTH = 512
+"""
+Minimum fixed-length Unicode string size (in characters) for string and reference fields in compound
+dtypes. This provides headroom for appending rows with longer values without rewriting the dataset.
+"""
+
+
+def _check_compound_string_widths(dset, dtype):
+    """
+    Raise if a fixed-length string field of an existing compound dataset is narrower than the data
+    needs. ``require_array`` returns the existing dataset and ignores the requested dtype, and numpy
+    truncates silently on assignment into a narrower ``U`` field.
+
+    :param dset: The compound zarr array returned by ``require_array``
+    :param dtype: The structured numpy dtype sized to the data being written
+    """
+    for field_name in dtype.names:
+        want = dtype[field_name]
+        have = dset.dtype[field_name]
+        if want.kind == "U" and have.kind == "U" and have.itemsize < want.itemsize:
+            raise ValueError(
+                f"Cannot write to the compound dataset '{dset.path}': a value in field '{field_name}' "
+                f"needs {want.itemsize // 4} characters but the existing dataset stores at most "
+                f"{have.itemsize // 4} in that field. The width of string and reference fields in a "
+                "compound dataset is fixed when the dataset is first written, so the data cannot be "
+                "written in place without truncation. Export the file to a new location to rewrite "
+                "the dataset with wider fields."
+            )
+
+SUPPORTED_ZARR_STORES = (LocalStore,) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
 
 
 class ZarrIO(HDMFIO):
+    #: Whether this backend reads Zarr v2 files. False for the Zarr v3 ``ZarrIO``;
+    #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
+    _reads_zarr_v2 = False
+
+    #: Name of the read-only Zarr v2 backend recommended when this v3 backend is pointed at a
+    #: Zarr v2 file. NWB-layer subclasses override it so the hint names their own class.
+    _zarr_v2_backend_name = "ZarrV2IO"
 
     @staticmethod
     def can_read(path):
@@ -72,24 +123,26 @@ class ZarrIO(HDMFIO):
         """
         Generates an HTML representation for a dataset for the ZarrIO class.
 
-        This method extracts metadata from a Zarr array using its info_items() method
+        This method extracts metadata from a Zarr array using its info object
         and formats it as an HTML table for display in Jupyter notebooks and other
         HTML-based interfaces.
 
-        Parameters
-        ----------
-        dataset : zarr.core.Array
-            The Zarr array for which to generate an HTML representation
-
-        Returns
-        -------
-        str
-            HTML representation of the dataset
+        :param dataset: The Zarr array for which to generate an HTML representation
+        :type dataset: zarr.Array
+        :returns: HTML representation of the dataset
+        :rtype: str
         """
         # Get info from zarr array and generate html repr
         # Safeguard in case the function is called with a non-Zarr object
         if isinstance(dataset, Array):
-            zarr_info_dict = dict(dataset.info_items())
+            # In zarr v3, .info is a property that returns an object, not info_items()
+            # Build a dict from the info string representation
+            info_str = str(dataset.info)
+            zarr_info_dict = {}
+            for line in info_str.strip().split("\n"):
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    zarr_info_dict[key.strip()] = value.strip()
             repr_html = generate_array_html_repr(zarr_info_dict, dataset, "Zarr Array")
         else:
             repr_html = generate_array_html_repr({}, dataset, "Array Read from ZarrIO (not a Zarr Array)")
@@ -116,21 +169,6 @@ class ZarrIO(HDMFIO):
             ),
         },
         {
-            "name": "synchronizer",
-            "type": (zarr.ProcessSynchronizer, zarr.ThreadSynchronizer, bool),
-            "doc": "Zarr synchronizer to use for parallel I/O. If set to True a ProcessSynchronizer is used.",
-            "default": None,
-        },
-        {
-            "name": "object_codec_class",
-            "type": None,
-            "doc": (
-                "Set the numcodec object codec class to be used to encode objects."
-                "Use numcodecs.pickles.Pickle by default."
-            ),
-            "default": None,
-        },
-        {
             "name": "storage_options",
             "type": dict,
             "doc": "Zarr storage options to read remote folders",
@@ -148,49 +186,47 @@ class ZarrIO(HDMFIO):
     )
     def __init__(self, **kwargs):
         self.logger = logging.getLogger("%s.%s" % (self.__class__.__module__, self.__class__.__qualname__))
-        path, manager, mode, synchronizer, object_codec_class, storage_options, force_overwrite = popargs(
+        path, manager, mode, storage_options, force_overwrite = popargs(
             "path",
             "manager",
             "mode",
-            "synchronizer",
-            "object_codec_class",
             "storage_options",
             "force_overwrite",
             kwargs,
         )
         if manager is None:
             manager = BuildManager(TypeMap(NamespaceCatalog()))
-        if isinstance(synchronizer, bool):
-            if synchronizer:
-                sync_path = tempfile.mkdtemp()
-                self.__synchronizer = zarr.ProcessSynchronizer(sync_path)
-            else:
-                self.__synchronizer = None
-        else:
-            self.__synchronizer = synchronizer
-        self.__mode = mode
         self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
             path = str(path)
+        # Convert local paths to absolute for consistent path resolution. Leave protocol
+        # URLs (e.g. s3://, gcs://, gs://, abfs://, az://, http(s)://, or chained fsspec
+        # protocols like simplecache::s3://) untouched so their URLs are not corrupted.
+        if isinstance(path, str) and "://" not in path:
+            path = os.path.abspath(path)
+        # FsspecStore is read-only; enforce read mode for remote paths
+        if storage_options is not None and mode != "r":
+            raise ValueError(
+                f"FsspecStore (remote storage) only supports read mode ('r'), but mode='{mode}' was specified."
+            )
+        self.__mode = mode
         self.__path = path
         self.__file = None
         self.__storage_options = storage_options
         self.__built = dict()
         self._written_builders = WriteStatusTracker()  # track which builders were written (or read) by this IO object
         self.__dci_queue = None  # Will be initialized on call to io.write
-        # Codec class to be used. Alternates, e.g., =numcodecs.JSON
-        self.__codec_cls = numcodecs.pickles.Pickle if object_codec_class is None else object_codec_class
         # Cache for consolidated metadata to avoid repeated opening of the same files
-        self.__consolidated_cache = {}
+        self._consolidated_cache = {}
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
-            source_path = self.__path.path
+            source_path = self._get_store_path(self.__path)
         super().__init__(manager, source=source_path)
 
     @property
     def _file(self):
         """
-        The Zarr zarr.hierarchy.Group (or zarr.core.Array) opened by the backend.
+        The Zarr Group (or Array) opened by the backend.
         May be None in case open has not been called yet, e.g., if no data has been
         read or written yet via this instance.
         """
@@ -207,19 +243,11 @@ class ZarrIO(HDMFIO):
         return os.path.abspath(self.source)
 
     @property
-    def synchronizer(self):
-        return self.__synchronizer
-
-    @property
-    def object_codec_class(self):
-        return self.__codec_cls
-
-    @property
     def mode(self):
         """
         The mode specified by the user when creating the ZarrIO instance.
 
-        NOTE: The Zarr library may not honor the mode. E.g., DirectoryStore in Zarr uses
+        NOTE: The Zarr library may not honor the mode. E.g., LocalStore in Zarr uses
         append mode and does not allow setting a file to read-only mode.
         """
         return self.__mode
@@ -238,26 +266,27 @@ class ZarrIO(HDMFIO):
 
             # Within zarr, open_consolidated only allows the mode to be 'r' or 'r+'.
             # As a result, when in other modes, the file will not use consolidated metadata.
-            if self.mode != "r":
-                # When we consolidate metadata, we use ConsolidatedMetadataStore.
-                # This interface does not allow for setting items.
-                # In the doc string, it says it is "read only". As a result, we cannot use r+ with consolidate_metadata.
-                # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
-                # use the regular mode r when r- is specified
-                mode_to_use = self.mode if self.mode != "r-" else "r"
-                self.__file = zarr.open(
-                    store=self.path,
-                    mode=mode_to_use,
-                    synchronizer=self.__synchronizer,
-                    storage_options=self.__storage_options,
-                )
-            else:
-                self.__file = self.__open_file_consolidated(
-                    store=self.path,
-                    mode=self.mode,
-                    synchronizer=self.__synchronizer,
-                    storage_options=self.__storage_options,
-                )
+            try:
+                if self.mode != "r":
+                    # r- is only an internal mode in ZarrIO to force the use of regular open. For Zarr we need to
+                    # use the regular mode r when r- is specified
+                    mode_to_use = self.mode if self.mode != "r-" else "r"
+                    self.__file = self._open_file(
+                        store=self.path,
+                        mode=mode_to_use,
+                        storage_options=self.__storage_options,
+                    )
+                else:
+                    self.__file = self._open_file_consolidated(
+                        store=self.path,
+                        mode=self.mode,
+                        storage_options=self.__storage_options,
+                    )
+            except Exception as e:
+                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a cryptic
+                # error. Point the user at the Zarr v2 backend instead.
+                self._raise_if_zarr_v2(e)
+                raise
 
     def close(self):
         """Close the Zarr file"""
@@ -266,12 +295,9 @@ class ZarrIO(HDMFIO):
 
     def is_remote(self):
         """Return True if the file is remote, False otherwise"""
-        from zarr.storage import FSStore
-
-        store = self.__file.store
-        if isinstance(store, ConsolidatedMetadataStore):
-            store = store.store
-        return isinstance(store, FSStore)
+        if FSSPECSTORE_AVAILABLE and isinstance(self.__file.store, FsspecStore):
+            return True
+        return False
 
     @classmethod
     @docval(
@@ -313,11 +339,26 @@ class ZarrIO(HDMFIO):
             raise ValueError("Only one of 'path' and 'file' must be provided.")
 
         if path is not None:
-            # TODO: how to use storage_options here?
-            f = zarr.open(path, mode="r", storage_options=storage_options)
+            store = cls._resolve_store(path, storage_options)
+            try:
+                f = cls._open_for_namespaces(store)
+            except Exception as e:
+                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a
+                # cryptic error. Point the user at the Zarr v2 backend instead.
+                if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
+                    raise ValueError(cls._zarr_v2_read_error_message(path)) from e
+                raise
         else:
             f = file
-        return cls.__load_namespaces(namespace_catalog, namespaces, f)
+        return cls._load_namespaces(namespace_catalog, namespaces, f)
+
+    @classmethod
+    def _open_for_namespaces(cls, store):
+        """Hook: open *store* read-only for the namespace-loading step.
+
+        Subclasses may override to add backend-specific fallbacks.
+        """
+        return zarr.open(store, mode="r")
 
     @docval(
         {
@@ -337,14 +378,25 @@ class ZarrIO(HDMFIO):
         namespace_catalog, namespaces = getargs("namespace_catalog", "namespaces", kwargs)
         if not self.__file:
             raise UnsupportedOperation("Cannot load namespaces from closed Zarr file '%s'" % self.source)
-        return self.__load_namespaces(namespace_catalog, namespaces, self.__file)
+        return self._load_namespaces(namespace_catalog, namespaces, self.__file)
 
     @classmethod
-    def __load_namespaces(
+    def _load_namespaces(
         cls, namespace_catalog: Union[NamespaceCatalog, TypeMap], namespaces: Optional[list[str]], f: Group
     ) -> dict:
+        """
+        Load cached namespaces from a Zarr group.
+
+        Subclasses may override to provide backend-specific functionality, e.g., using a different spec reader.
+
+        :param namespace_catalog: The NamespaceCatalog or TypeMap to load namespaces into.
+        :param namespaces: The namespaces to load.
+        :param f: The Zarr group from which to load the namespaces.
+        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping 
+        included namespace names and the included data types.
+        """
         if SPEC_LOC_ATTR not in f.attrs:
-            msg = "No cached namespaces found in %s" % cls.__get_store_path(f.store)
+            msg = "No cached namespaces found in %s" % cls._get_store_path(f.store)
             warnings.warn(msg)
             return {}
 
@@ -384,8 +436,11 @@ class ZarrIO(HDMFIO):
             "name": "number_of_jobs",
             "type": int,
             "doc": (
-                "Number of jobs to use in parallel during write "
-                "(only works with GenericDataChunkIterator-wrapped datasets)."
+                "Number of worker processes to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets). For sharded arrays, "
+                "parallel tasks own separate shards. Shard and iterator buffer shapes therefore affect "
+                "the number of independent tasks and available parallelism. See the ZarrDataIO ``shards`` parameter "
+                "for buffer alignment and memory guidance."
             ),
             "default": 1,
         },
@@ -407,7 +462,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "doc": ("Consolidate metadata into the root group's zarr.json to accelerate read."),
             "default": True,
         },
     )
@@ -465,8 +520,11 @@ class ZarrIO(HDMFIO):
             "name": "number_of_jobs",
             "type": int,
             "doc": (
-                "Number of jobs to use in parallel during write "
-                "(only works with GenericDataChunkIterator-wrapped datasets)."
+                "Number of worker processes to use in parallel during write "
+                "(only works with GenericDataChunkIterator-wrapped datasets). For sharded arrays, "
+                "parallel tasks own separate shards. Shard and iterator buffer shapes therefore affect "
+                "the number of independent tasks and available parallelism. See the ZarrDataIO ``shards`` parameter "
+                "for buffer alignment and memory guidance."
             ),
             "default": 1,
         },
@@ -488,7 +546,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": ("Consolidate metadata into a single .zmetadata file in the root group to accelerate read."),
+            "doc": ("Consolidate metadata into the root group's zarr.json to accelerate read."),
             "default": True,
         },
     )
@@ -516,7 +574,7 @@ class ZarrIO(HDMFIO):
 
         if not isinstance(src_io, ZarrIO) and write_args.get("link_data", True):
             raise UnsupportedOperation(
-                f"Cannot export from non-Zarr backend { src_io.__class__.__name__} "
+                f"Cannot export from non-Zarr backend {src_io.__class__.__name__} "
                 "to Zarr with write argument link_data=True. "
                 "Set write_args={'link_data': False}"
             )
@@ -605,7 +663,7 @@ class ZarrIO(HDMFIO):
         {
             "name": "consolidate_metadata",
             "type": bool,
-            "doc": "Consolidate metadata into a single .zmetadata file in the root group to accelerate read.",
+            "doc": "Consolidate metadata into the root group's zarr.json to accelerate read.",
             "default": True,
         },
     )
@@ -642,20 +700,35 @@ class ZarrIO(HDMFIO):
             zarr.consolidate_metadata(store=self.path)
 
     @staticmethod
-    def __get_store_path(store):
+    def _get_store_path(store):
         """
         Method to retrieve the path from the Zarr storage.
-        ConsolidatedMetadataStore wraps around other Zarr Store objects, requiring a check to
-        retrieve the path.
+
+        For local stores, this returns the resolved absolute filesystem path.
+        For remote stores, this returns the string representation.
         """
-        if isinstance(store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = store.store.path
-        else:
-            fpath = store.path
+        if isinstance(store, LocalStore):
+            return str(store.root.resolve())
+        return str(store)
 
-        return fpath
+    @staticmethod
+    def _resolve_store(store, storage_options=None):
+        """Resolve a store path to a Zarr store, using FsspecStore for remote paths."""
+        if storage_options is not None:
+            if not FSSPECSTORE_AVAILABLE:
+                raise ImportError(
+                    "FsspecStore is required for remote storage but is not available. "
+                    "Install fsspec to use remote storage options."
+                )
+            return FsspecStore.from_url(str(store), storage_options=storage_options)
+        return store
 
-    def __open_file_consolidated(self, store, mode, synchronizer=None, storage_options=None):
+    def _open_file(self, store, mode, storage_options=None):
+        """Open a zarr file without consolidated metadata."""
+        store = self._resolve_store(store, storage_options)
+        return zarr.open(store=store, mode=mode)
+
+    def _open_file_consolidated(self, store, mode, storage_options=None):
         """
         This method will check to see if the metadata has been consolidated.
         If so, use open_consolidated. Uses caching to avoid repeated opening of the same files.
@@ -665,33 +738,31 @@ class ZarrIO(HDMFIO):
             raise ValueError("Mode r- not allowed for reading with consolidated metadata")
 
         # Create a cache key based on the store path and parameters
-        store_path = getattr(store, "path", str(store))
+        store_path = str(store)
 
         # Create a cache key that includes relevant parameters
-        cache_key = (store_path, mode, str(synchronizer), str(storage_options))
+        cache_key = (store_path, mode, str(storage_options))
 
         # Check if we already have this file cached
-        if cache_key in self.__consolidated_cache:
-            return self.__consolidated_cache[cache_key]
+        if cache_key in self._consolidated_cache:
+            return self._consolidated_cache[cache_key]
 
         # Open the file and cache the result
+        open_store = self._resolve_store(store, storage_options)
+
         try:
             zarr_obj = zarr.open_consolidated(
-                store=store,
+                store=open_store,
                 mode=mode,
-                synchronizer=synchronizer,
-                storage_options=storage_options,
             )
-        except KeyError:  # A KeyError is raised when the '/.zmetadata' does not exist
+        except Exception:  # Catches errors when consolidated metadata doesn't exist
             zarr_obj = zarr.open(
-                store=store,
+                store=open_store,
                 mode=mode,
-                synchronizer=synchronizer,
-                storage_options=storage_options,
             )
 
         # Cache the result
-        self.__consolidated_cache[cache_key] = zarr_obj
+        self._consolidated_cache[cache_key] = zarr_obj
         return zarr_obj
 
     @docval(
@@ -792,7 +863,9 @@ class ZarrIO(HDMFIO):
                                 (
                                     i.item()
                                     if (isinstance(i, np.generic) and not isinstance(i, np.bytes_))
-                                    else i.decode("utf-8") if isinstance(i, (bytes, np.bytes_)) else i
+                                    else i.decode("utf-8")
+                                    if isinstance(i, (bytes, np.bytes_))
+                                    else i
                                 )
                                 for i in value
                             ]
@@ -803,7 +876,10 @@ class ZarrIO(HDMFIO):
             # Case 2: References
             elif isinstance(value, (Builder, ReferenceBuilder)):
                 refs = self._create_ref(value, ref_link_source=self.path)
-                tmp = {"zarr_dtype": "object", "value": refs}
+                # Convert ZarrReference to plain dict for JSON serialization.
+                # ZarrReference's __init__ uses docval which prevents reconstruction
+                # by zarr's attribute serialization (dataclasses._asdict_inner).
+                tmp = {"zarr_dtype": "object", "value": dict(refs)}
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
             else:
@@ -813,12 +889,14 @@ class ZarrIO(HDMFIO):
                 # Numpy scalars and bytes are not JSON serializable. Try to convert to a serializable type instead
                 except TypeError as e:
                     try:
-                        val = value.item if isinstance(value, np.ndarray) else value
+                        val = value.item() if isinstance(value, np.ndarray) else value
                         # TODO: refactor this to be more readable
                         val = (
-                            value.item()
-                            if (isinstance(value, np.generic) and not isinstance(value, np.bytes_))
-                            else val.decode("utf-8") if isinstance(value, (bytes, np.bytes_)) else val
+                            val.item()
+                            if (isinstance(val, np.generic) and not isinstance(val, np.bytes_))
+                            else val.decode("utf-8")
+                            if isinstance(val, (bytes, np.bytes_))
+                            else val
                         )
                         obj.attrs[key] = val
                     except:  # noqa: E722
@@ -854,9 +932,9 @@ class ZarrIO(HDMFIO):
         parent_path = "/" + os.path.dirname(zarr_object.path).replace("\\", "/")
         return parent_path
 
-    def __is_ref(self, dtype):
+    def _is_ref(self, dtype):
         if isinstance(dtype, DtypeSpec):
-            return self.__is_ref(dtype.dtype)
+            return self._is_ref(dtype.dtype)
         elif isinstance(dtype, RefSpec):
             return True
         elif isinstance(dtype, np.dtype):
@@ -868,12 +946,21 @@ class ZarrIO(HDMFIO):
         """
         Get the full path to the object linked to by the zarr reference
 
-        The function only constructs the links to the targe object, but it does not check if the object exists
+        The function only constructs the links to the target object, but it does not check if the object exists
 
-        :param zarr_ref: Dict with `source` and `path` keys or a `ZarrReference` object
+        :param zarr_ref: A reference to resolve. Can be a dict with `source` and `path` keys,
+            a `ZarrReference` object, a JSON string, or a scalar ``np.ndarray`` of ``StringDType``.
         :return: 1) name of the target object
                  2) the target zarr object within the target file
         """
+        # In zarr v3, references may be stored as JSON strings or numpy StringDType scalars
+        if isinstance(zarr_ref, np.ndarray):
+            if zarr_ref.ndim != 0:
+                raise ValueError(f"Expected scalar np.ndarray for zarr_ref, got shape {zarr_ref.shape}")
+            zarr_ref = zarr_ref[()]
+        if isinstance(zarr_ref, str):
+            zarr_ref = json.loads(zarr_ref)
+
         # Self-reference (`source == "."`): the target lives in this same store. Reuse
         # the already-open file directly. Without this guard, the remote branch below
         # would re-open the same URL via __open_file_consolidated, which fails over
@@ -899,8 +986,7 @@ class ZarrIO(HDMFIO):
             if isinstance(self.source, str) and self.source.startswith(("s3://")):
                 source_file = self.source
             else:
-                # Join with source_file to resolve the relative path
-                source_file = os.path.normpath(os.path.join(self.source, source_file))
+                source_file = self._resolve_ref_source(source_file)
         else:
             # get rid of extra "/" and "./" in the path root and source_file
             root_path = str(self.path).rstrip("/")
@@ -913,7 +999,7 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
 
-        target_zarr_obj = self.__open_file_consolidated(
+        target_zarr_obj = self._open_file_consolidated(
             store=source_file,
             mode="r",
             storage_options=self.__storage_options,
@@ -970,12 +1056,14 @@ class ZarrIO(HDMFIO):
                 builder.source if (builder.source is not None and os.path.isdir(builder.source)) else self.source
             )
 
-        if not isinstance(ref_link_source, str):
-            # self.path is sometimes given as the ref_link_source. It can
-            # be either a (str, Path, *SUPPORTED_ZARR_STORES). That being said,
-            # when self.path is a Path, it is converted to a str in __init__.
-            # We only have to deal with *SUPPORTED_ZARR_STORES and strings.
-            ref_link_source = ref_link_source.path
+        # self.path is sometimes given as the ref_link_source. It can
+        # be either a (str, Path, *SUPPORTED_ZARR_STORES). That being said,
+        # when self.path is a Path, it is converted to a str in __init__.
+        # We only have to deal with *SUPPORTED_ZARR_STORES and strings.
+        if isinstance(ref_link_source, SUPPORTED_ZARR_STORES):
+            ref_link_source = self._get_store_path(ref_link_source)
+        elif not isinstance(ref_link_source, str):
+            ref_link_source = str(ref_link_source)
 
         # Note: We want want to construct the relative path with
         # os.path.relpath(<absolute_path_to_the_target>, <absolute_path_to_the_file_that_is_being_exported_to>)
@@ -985,11 +1073,17 @@ class ZarrIO(HDMFIO):
 
         # Note: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
-        if not isinstance(self.path, str):
-            str_path = self.path.path
+        if isinstance(self.path, SUPPORTED_ZARR_STORES):
+            str_path = self._get_store_path(self.path)
+        elif not isinstance(self.path, str):
+            str_path = str(self.path)
         else:
             str_path = self.path
-        rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.abspath(str_path))
+        try:
+            rel_source = os.path.relpath(os.path.abspath(ref_link_source), os.path.abspath(str_path))
+        except ValueError:
+            # On Windows, relpath raises ValueError when paths span different drives.
+            rel_source = os.path.abspath(ref_link_source)
 
         # Return the ZarrReference object
         ref = ZarrReference(
@@ -1004,7 +1098,7 @@ class ZarrIO(HDMFIO):
         """
         Add a link to the file
         :param parent: The parent Zarr group containing the link
-        :type parent: zarr.hierarchy.Group
+        :type parent: zarr.Group
         :param target_source: Source path within the Zarr file to the linked object
         :type target_source: str
         :param target_path: Path to the Zarr file containing the linked object
@@ -1015,7 +1109,7 @@ class ZarrIO(HDMFIO):
             parent.attrs["zarr_link"] = []
         zarr_link = list(parent.attrs["zarr_link"])
         if not isinstance(target_source, str):  # a store
-            target_source = target_source.path
+            target_source = self._get_store_path(target_source)
         zarr_link.append({"source": target_source, "path": target_path, "name": link_name})
         parent.attrs["zarr_link"] = zarr_link
 
@@ -1035,7 +1129,7 @@ class ZarrIO(HDMFIO):
 
         target_builder = builder.builder
 
-        group_filename = self.__get_store_path(parent.store)
+        group_filename = self._get_store_path(parent.store)
         if export_source is not None:
             if target_builder.source in (group_filename, export_source):
                 # Case 1:
@@ -1085,12 +1179,16 @@ class ZarrIO(HDMFIO):
         # Define the chunking options if the user has not set them explicitly. We need chunking for the iterative write.
         if "chunks" not in io_settings:
             recommended_chunks = data.recommended_chunk_shape()
-            io_settings["chunks"] = True if recommended_chunks is None else recommended_chunks
+            if recommended_chunks is not None:
+                io_settings["chunks"] = recommended_chunks
+            else:
+                # omit chunking option to use zarr defaults. Similar to chunks=True in HDF5.
+                pass
         # Define the shape of the data if not provided by the user
         if "shape" not in io_settings:
             io_settings["shape"] = data.recommended_data_shape()
         if "dtype" not in io_settings:
-            if (options is not None) and ("dtype" in options):
+            if (options is not None) and ("dtype" in options) and options["dtype"] is not None:
                 io_settings["dtype"] = options["dtype"]
             else:
                 io_settings["dtype"] = data.dtype
@@ -1098,11 +1196,95 @@ class ZarrIO(HDMFIO):
                 # map to real dtype if we were given a string
                 io_settings["dtype"] = cls.__dtypes.get(io_settings["dtype"])
         try:
-            dset = parent.create_dataset(name, **io_settings)
+            dset = parent.create_array(name, **io_settings)
             dset.attrs["zarr_dtype"] = np.dtype(io_settings["dtype"]).str
         except Exception as exc:
             raise Exception("Could not create dataset %s in %s" % (name, parent.name)) from exc
         return dset
+
+    @staticmethod
+    def _to_v3_codecs(codecs):
+        """Convert a list of source codecs to zarr v3-compatible codecs.
+
+        zarr v3 arrays can only be created with zarr v3 codecs. A zarr v2 source
+        (read via :class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO`) exposes numcodecs codecs
+        (e.g. ``numcodecs.Blosc``). These are mapped to their ``numcodecs.zarr3``
+        wrappers via the zarr codec registry so the original compression/filters are
+        preserved on export. Codecs that are already zarr v3 codecs are kept as-is,
+        and codecs that cannot be mapped are dropped (with a warning) so that the
+        zarr v3 defaults apply.
+        """
+        converted = []
+        for codec in codecs:
+            if isinstance(codec, ZarrV3Codec):
+                converted.append(codec)
+                continue
+            get_config = getattr(codec, "get_config", None)
+            config = get_config() if callable(get_config) else None
+            codec_id = config.get("id") if config else None
+            if codec_id is None:
+                warnings.warn(f"Dropping incompatible codec {codec!r} during zarr v3 export.")
+                continue
+            try:
+                v3_cls = get_codec_class(f"numcodecs.{codec_id}")
+                converted.append(v3_cls(**{k: v for k, v in config.items() if k != "id"}))
+            except Exception:
+                warnings.warn(
+                    f"Could not map codec '{codec_id}' to a zarr v3 codec during export; "
+                    "falling back to zarr v3 defaults."
+                )
+        return converted
+
+    @staticmethod
+    def _copy_array(source, dest_group, name):
+        """
+        Copy a zarr Array from source to dest_group with the given name.
+        This replaces zarr.copy() which is not implemented in zarr v3.
+        """
+        # Create the new array with the same properties
+        source_dtype = source.dtype
+        # zarr v3 cannot create arrays with object dtype - convert to StringDType
+        if source_dtype == np.dtype("O"):
+            source_dtype = np.dtypes.StringDType()
+
+        kwargs = {
+            "name": name,
+            "shape": source.shape,
+            "chunks": source.chunks,
+            "dtype": source_dtype,
+        }
+
+        # Copy compressors/codecs if available (zarr v3 uses 'compressors' plural).
+        # v2 sources expose numcodecs codecs (e.g. numcodecs.Blosc) which zarr v3
+        # rejects, so map them to their numcodecs.zarr3 wrappers (see _to_v3_codecs)
+        # to preserve the original compression/filters on v2 -> v3 export.
+        if hasattr(source, "compressors") and source.compressors:
+            compressors = ZarrIO._to_v3_codecs(source.compressors)
+            if compressors:
+                kwargs["compressors"] = compressors
+        if hasattr(source, "filters") and source.filters:
+            filters = ZarrIO._to_v3_codecs(source.filters)
+            if filters:
+                kwargs["filters"] = filters
+        if hasattr(source, "fill_value"):
+            kwargs["fill_value"] = source.fill_value
+
+        dest = dest_group.create_array(**kwargs)
+
+        # Copy the data one chunk region at a time so that peak memory is bounded to a
+        # single chunk rather than decompressing the entire (possibly multi-GB) array into
+        # a single in-memory ndarray, which would risk OOM when exporting large datasets.
+        chunks = dest.chunks
+        chunk_ranges = [range(0, dim, max(cs, 1)) for dim, cs in zip(source.shape, chunks)]
+        for start in itertools.product(*chunk_ranges):
+            region = tuple(slice(s, min(s + cs, dim)) for s, cs, dim in zip(start, chunks, source.shape))
+            dest[region] = source[region]
+
+        # Copy attributes
+        for k, v in source.attrs.items():
+            dest.attrs[k] = v
+
+        return dest
 
     @docval(
         {"name": "parent", "type": Group, "doc": "the parent Zarr object"},  # noqa: C901
@@ -1171,11 +1353,15 @@ class ZarrIO(HDMFIO):
         dset = None
         if isinstance(data, Array):
             # copy the dataset
-            data_filename = self.__get_store_path(data.store)
+            data_filename = self._get_store_path(data.store)
             str_path = self.path
             if not isinstance(str_path, str):  # a store
-                str_path = self.path.path
-            rel_data_filename = os.path.relpath(os.path.abspath(data_filename), os.path.abspath(str_path))
+                str_path = str(self.path)
+            try:
+                rel_data_filename = os.path.relpath(os.path.abspath(data_filename), os.path.abspath(str_path))
+            except ValueError:
+                # On Windows, relpath raises ValueError when paths span different drives.
+                rel_data_filename = os.path.abspath(data_filename)
             if link_data:
                 if export_source is None:  # not exporting
                     self.__add_link__(parent, rel_data_filename, data.name, name)
@@ -1184,31 +1370,21 @@ class ZarrIO(HDMFIO):
                 else:  # exporting
                     data_parent = "/".join(data.name.split("/")[:-1])
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
-                    # I have three files, FileA, FileB, FileC. I want to export FileA to FileB. FileA has an
-                    # EXTERNAL link to a dataset in Filec. This case preserves the link to FileC to also be in FileB.
                     if data_filename != export_source:
                         self.__add_link__(parent, rel_data_filename, data.name, name)
                         linked = True
                         dset = None
                     # Case 2: If the dataset is in the export source and has a DIFFERENT path as the builder,
                     # then create a link.
-                    # I have two files: FileA and FileB. I want to export FileA to FileB. FileA has an
-                    # INTERNAL link. This case preserves the link to also be in FileB.
-                    ###############
                     elif parent.name != data_parent:
                         self.__add_link__(parent, ".", data.name, name)
                         linked = True
                         dset = None
-
-                    ###############
                     # Case 3: The dataset is in the export source and has the SAME path as the builder, so copy.
-                    ###############
                     else:
-                        zarr.copy(data, parent, name=name)
-                        dset = parent[name]
+                        dset = self._copy_array(data, parent, name)
             else:
-                zarr.copy(data, parent, name=name)
-                dset = parent[name]
+                dset = self._copy_array(data, parent, name)
         # When converting data between backends we may see an HDMFDataset, e.g., a H55ReferenceDataset, with references
         elif isinstance(data, HDMFDataset):
             # If we have a dataset of containers we need to make the references to the containers
@@ -1216,25 +1392,20 @@ class ZarrIO(HDMFIO):
                 ref_data = [self._create_ref(data[i], ref_link_source=self.path) for i in range(len(data))]
                 shape = (len(data),)
                 type_str = "object"
-                dset = parent.require_dataset(
+                # Serialize references as JSON strings
+                json_refs = [json.dumps(dict(r)) for r in ref_data]
+                dset = parent.require_array(
                     name,
                     shape=shape,
-                    dtype=object,
-                    object_codec=self.__codec_cls(),
+                    dtype=np.dtypes.StringDType(),
                     **options["io_settings"],
                 )
                 dset.attrs["zarr_dtype"] = type_str
-                dset[:] = ref_data
+                for i, jr in enumerate(json_refs):
+                    dset[i] = jr
                 self._written_builders.set_written(builder)  # record that the builder has been written
             # If we have a regular dataset, then load the data and write the builder after load
             else:
-                # TODO This code path is also exercised when data is a
-                # hdmf.backends.hdf5.h5_utils.BuilderH5ReferenceDataset (aka.  ReferenceResolver)
-                # check that this is indeed the right thing to do here
-
-                # We can/should not update the data in the builder itself so we load the data here and instead
-                # force write_dataset when we call it recursively to use the data we loaded, rather than the
-                # dataset that is set on the builder
                 dset = self.write_dataset(
                     parent=parent,
                     builder=builder,
@@ -1248,7 +1419,7 @@ class ZarrIO(HDMFIO):
             refs = list()
             type_str = list()
             for i, dts in enumerate(options["dtype"]):
-                if self.__is_ref(dts["dtype"]):
+                if self._is_ref(dts["dtype"]):
                     refs.append(i)
                     type_str.append({"name": dts["name"], "dtype": "object"})
                 else:
@@ -1259,7 +1430,6 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
-
                 self._written_builders.set_written(builder)  # record that the builder has been written
 
                 # gather items to write
@@ -1270,12 +1440,7 @@ class ZarrIO(HDMFIO):
                         new_item[i] = self._create_ref(item[i], ref_link_source=self.path)
                     new_items.append(tuple(new_item))
 
-                # Create dtype for storage, replacing values to match hdmf's hdf5 behavior
-                # ---
-                # TODO: Replace with a simple one-liner once __resolve_dtype_helper__ is
-                # compatible with zarr's need for fixed-length string dtypes.
-                # dtype = self.__resolve_dtype_helper__(options['dtype'])
-
+                # Create dtype for storage - in zarr v3 we use str for object fields
                 new_dtype = []
                 for field in options["dtype"]:
                     if field["dtype"] is str or field["dtype"] in (
@@ -1286,12 +1451,8 @@ class ZarrIO(HDMFIO):
                         "utf-8",
                         "isodatetime",
                     ):
-                        # Zarr does not support variable length strings
                         new_dtype.append((field["name"], "O"))
                     elif isinstance(field["dtype"], dict):
-                        # eg. for some references, dtype will be of the form
-                        # {'target_type': 'Baz', 'reftype': 'object'}
-                        # which should just get serialized as an object
                         new_dtype.append((field["name"], "O"))
                     else:
                         new_dtype.append((field["name"], self.__resolve_dtype_helper__(field["dtype"])))
@@ -1299,20 +1460,64 @@ class ZarrIO(HDMFIO):
 
                 # cast and store compound dataset
                 arr = np.array(new_items, dtype=dtype)
-                dset = parent.require_dataset(
+                # For compound datasets with refs, serialize ref fields as JSON strings
+                # and use a string-compatible compound dtype.
+                # First, convert object fields to string values so we can determine the
+                # max string length needed for each field dynamically.
+                str_fields = {}  # field_name -> list of string values
+                for field in options["dtype"]:
+                    field_name = field["name"]
+                    is_str_field = (
+                        field["dtype"] is str
+                        or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime", "object")
+                        or isinstance(field["dtype"], dict)
+                    )
+                    if is_str_field:
+                        str_vals = []
+                        for idx in range(len(arr)):
+                            val = arr[field_name][idx]
+                            if isinstance(val, dict):
+                                str_vals.append(json.dumps(val))
+                            else:
+                                str_vals.append(str(val) if val is not None else "")
+                        str_fields[field_name] = str_vals
+
+                # Build dtype with string lengths sized to fit actual data, with a minimum
+                # length to support appending rows with longer values
+                new_dtype_v3 = []
+                for field in options["dtype"]:
+                    field_name = field["name"]
+                    if field_name in str_fields:
+                        max_len = max((len(s) for s in str_fields[field_name]), default=1)
+                        max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
+                        new_dtype_v3.append((field_name, f"U{max_len}"))
+                    else:
+                        new_dtype_v3.append((field_name, self.__resolve_dtype_helper__(field["dtype"])))
+                dtype_v3 = np.dtype(new_dtype_v3)
+
+                # Fill the array with converted values
+                new_arr = np.empty(len(arr), dtype=dtype_v3)
+                for field_name in dtype.names:
+                    if field_name in str_fields:
+                        for idx, val in enumerate(str_fields[field_name]):
+                            new_arr[field_name][idx] = val
+                    else:
+                        new_arr[field_name] = arr[field_name]
+
+                dset = parent.require_array(
                     name,
-                    shape=(len(arr),),
-                    dtype=dtype,
-                    object_codec=self.__codec_cls(),
+                    shape=(len(new_arr),),
+                    dtype=dtype_v3,
                     **options["io_settings"],
                 )
+                _check_compound_string_widths(dset, dtype_v3)
                 dset.attrs["zarr_dtype"] = type_str
-                dset[...] = arr
+                dset[...] = new_arr
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
-        elif self.__is_ref(options["dtype"]):
+        elif self._is_ref(options["dtype"]):
             # Note: ref_link_source is set to self.path because we do not do external references
             # We only support external links.
             if isinstance(data, ReferenceBuilder):
@@ -1324,19 +1529,21 @@ class ZarrIO(HDMFIO):
                 type_str = "object"
                 refs = [self._create_ref(item, ref_link_source=self.path) for item in data]
 
-            dset = parent.require_dataset(
+            # Serialize references as JSON strings
+            dset = parent.require_array(
                 name,
                 shape=shape,
-                dtype=object,
-                object_codec=self.__codec_cls(),
+                dtype=np.dtypes.StringDType(),
                 **options["io_settings"],
             )
             self._written_builders.set_written(builder)  # record that the builder has been written
             dset.attrs["zarr_dtype"] = type_str
-            if hasattr(refs, "__len__"):
-                dset[:] = np.array(refs)
+            if self._is_collection(refs) and not isinstance(refs, dict):
+                json_refs = [json.dumps(dict(r)) for r in refs]
+                for i, jr in enumerate(json_refs):
+                    dset[i] = jr
             else:
-                dset[0] = refs
+                dset[0] = json.dumps(dict(refs))
         # write a 'regular' dataset without DatasetIO info
         else:
             if isinstance(data, (str, bytes)):
@@ -1345,7 +1552,7 @@ class ZarrIO(HDMFIO):
             elif isinstance(data, AbstractDataChunkIterator):
                 dset = self.__setup_chunked_dataset__(parent, name, data, options)
                 self.__dci_queue.append(dataset=dset, data=data)
-            elif hasattr(data, "__len__"):
+            elif self._is_collection(data):
                 dset = self.__list_fill__(parent, name, data, options)
             else:
                 dset = self.__scalar_fill__(parent, name, data, options)
@@ -1379,11 +1586,11 @@ class ZarrIO(HDMFIO):
         "utf": str,
         "utf8": str,
         "utf-8": str,
-        "ascii": bytes,
-        "bytes": bytes,
+        "ascii": str,
+        "bytes": str,
         "str": str,
         "isodatetime": str,
-        "string_": bytes,
+        "string_": str,
         "uint32": np.uint32,
         "uint16": np.uint16,
         "uint8": np.uint8,
@@ -1437,9 +1644,7 @@ class ZarrIO(HDMFIO):
             for field in dtype:
                 field_dtype = cls.__resolve_dtype_helper__(field["dtype"])
                 if field_dtype is None:
-                    raise ValueError(
-                        f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}"
-                    )
+                    raise ValueError(f"Can't resolve dtype {field['dtype']!r} for compound field {field['name']!r}")
                 fields.append((field["name"], field_dtype))
             return np.dtype(fields)
         else:
@@ -1451,12 +1656,38 @@ class ZarrIO(HDMFIO):
             return cls.__dtypes.get("str")
         elif isinstance(data, bytes):
             return cls.__dtypes.get("bytes")
-        elif not hasattr(data, "__len__"):
+        elif isinstance(data, np.ndarray) and data.ndim == 0:
+            return type(data.item())
+        elif not cls._is_collection(data):
             return type(data)
         else:
-            if len(data) == 0:
+            if cls._get_length(data) == 0:
                 raise ValueError("cannot determine type for empty data")
             return cls.get_type(data[0])
+
+    @staticmethod
+    def _is_collection(data):
+        """Check if data is a collection (array-like with elements) vs a scalar.
+
+        Uses ndim for array-like objects (numpy, zarr, h5py, dask) and falls back
+        to __len__ for plain Python containers (list, tuple). Strings and bytes
+        are treated as scalars.
+        """
+        if isinstance(data, (str, bytes)):
+            return False
+        if hasattr(data, "ndim"):
+            return data.ndim > 0
+        return hasattr(data, "__len__")
+
+    @staticmethod
+    def _get_length(data):
+        """Get the length of the first dimension of a collection.
+
+        Uses shape[0] for array-like objects and len() for plain containers.
+        """
+        if hasattr(data, "shape") and data.shape is not None:
+            return data.shape[0]
+        return len(data)
 
     __reserve_attribute = ("zarr_dtype", "zarr_link", SPEC_LOC_ATTR)
 
@@ -1468,6 +1699,9 @@ class ZarrIO(HDMFIO):
             if options.get("io_settings") is not None:
                 io_settings = options.get("io_settings")
         # Determine the dtype
+        # np.ndarray as a type is not a valid dtype - force re-resolution from data
+        if dtype is np.ndarray:
+            dtype = None
         if not isinstance(dtype, type):
             try:
                 dtype = self.__resolve_dtype__(dtype, data)
@@ -1483,12 +1717,8 @@ class ZarrIO(HDMFIO):
             data_shape = io_settings.pop("shape")
         # If we have a numeric numpy-like array (e.g., numpy.array or h5py.Dataset) then use its shape
         elif isinstance(dtype, np.dtype) and np.issubdtype(dtype, np.number) or dtype == np.bool_:
-            # HDMF's get_data_shape may return the maxshape of an HDF5 dataset which can include None values
-            # which Zarr does not allow for dataset shape. Check for the shape attribute first before falling
-            # back on get_data_shape
             if hasattr(data, "shape") and data.shape is not None:
                 data_shape = data.shape
-            # This is a fall-back just in case. However this should not happen for standard numpy and h5py arrays
             else:  # pragma: no cover
                 data_shape = get_data_shape(data)  # pragma: no cover
         # Deal with object dtype
@@ -1497,36 +1727,68 @@ class ZarrIO(HDMFIO):
             data_shape = (len(data),)
             # if we have a compound data type
             if dtype.names:
-                # If strings are part of our compound type then we need to use Object type instead
-                # otherwise we try to keep the native compound datatype that numpy is using
+                # If strings are part of our compound type then we need to handle them
+                has_strings = False
                 for substype in dtype.fields.items():
                     if np.issubdtype(substype[1][0], np.flexible) or np.issubdtype(substype[1][0], np.object_):
-                        dtype = object
-                        io_settings["object_codec"] = self.__codec_cls()
+                        has_strings = True
                         break
+                if has_strings:
+                    # Convert data to numpy array so we can index by field name.
+                    # Use object dtype for string/flexible fields to avoid truncation
+                    # when the original dtype has zero-length strings (e.g. <U0).
+                    if not isinstance(data, np.ndarray):
+                        obj_dtype = np.dtype(
+                            [
+                                (
+                                    (fn, "O")
+                                    if (np.issubdtype(dtype[fn], np.flexible) or np.issubdtype(dtype[fn], np.object_))
+                                    else (fn, dtype[fn])
+                                )
+                                for fn in dtype.names
+                            ]
+                        )
+                        data = np.array(data, dtype=obj_dtype)
+                    # In zarr v3, convert string fields to fixed-length strings
+                    # with lengths dynamically sized to fit the actual data, with a minimum
+                    # length to support appending rows with longer values
+                    new_fields = []
+                    for field_name in dtype.names:
+                        field_dtype = dtype[field_name]
+                        # Check if this is a nested struct dtype (has .names attribute)
+                        if field_dtype.names is not None:
+                            new_fields.append((field_name, field_dtype))
+                        elif np.issubdtype(field_dtype, np.flexible) or np.issubdtype(field_dtype, np.object_):
+                            max_len = max((len(str(v)) for v in data[field_name]), default=1)
+                            max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
+                            new_fields.append((field_name, f"U{max_len}"))
+                        else:
+                            new_fields.append((field_name, field_dtype))
+                    dtype = np.dtype(new_fields)
             # sometimes bytes and strings can hide as object in numpy array so lets try
             # to write those as strings and bytes rather than as objects
             elif len(data) > 0 and isinstance(data, np.ndarray):
-                if isinstance(data.item(0), bytes):
-                    dtype = bytes
-                    data_shape = get_data_shape(data)
-                elif isinstance(data.item(0), str):
+                if isinstance(data.item(0), (bytes, str)):
+                    # In zarr v3, use str dtype for both bytes and string data
                     dtype = str
                     data_shape = get_data_shape(data)
-            # Set encoding for objects
+            # For generic object arrays, use str dtype instead
             else:
-                dtype = object
-                io_settings["object_codec"] = self.__codec_cls()
+                dtype = str
         # Determine the shape from the data if all other cases have not been hit
         else:
             data_shape = get_data_shape(data)
 
         # Create the dataset
-        dset = parent.require_dataset(name, shape=data_shape, dtype=dtype, **io_settings)
+        # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
+        zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
+        dset = parent.require_array(name, shape=data_shape, dtype=zarr_dtype, **io_settings)
+        if isinstance(dtype, np.dtype) and dtype.names is not None:
+            _check_compound_string_widths(dset, dtype)
         dset.attrs["zarr_dtype"] = type_str
 
         # Write the data to file
-        if dtype == object:  # noqa: E721
+        if dtype == str:  # noqa: E721
             for c in np.ndindex(data_shape):
                 o = data
                 for i in c:
@@ -1561,16 +1823,25 @@ class ZarrIO(HDMFIO):
             io_settings = options.get("io_settings")
             if io_settings is None:
                 io_settings = dict()
+        # np.ndarray as a type is not a valid dtype - force re-resolution from data
+        if dtype is np.ndarray:
+            dtype = None
         if not isinstance(dtype, type):
             try:
                 dtype = self.__resolve_dtype__(dtype, data)
             except Exception as exc:
                 msg = "cannot add %s to %s - could not determine type" % (name, parent.name)
                 raise Exception(msg) from exc
+        # In zarr v3, no object codec needed - use str for object types
         if dtype == object:  # noqa: E721
-            io_settings["object_codec"] = self.__codec_cls()
+            dtype = str
 
-        dset = parent.require_dataset(name, shape=(1,), dtype=dtype, **io_settings)
+        # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
+        zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
+        dset = parent.require_array(name, shape=(1,), dtype=zarr_dtype, **io_settings)
+        # Decode bytes to str for StringDType arrays (bytes are not handled correctly by StringDType)
+        if isinstance(data, (bytes, np.bytes_)):
+            data = data.decode("utf-8")
         dset[:] = data
         type_str = "scalar"
         dset.attrs["zarr_dtype"] = type_str
@@ -1583,11 +1854,56 @@ class ZarrIO(HDMFIO):
         specloc = self.__file.attrs.get(SPEC_LOC_ATTR)
         if specloc is not None:
             ignore_groups.add(self.__file[specloc].name)
-        f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
+        try:
+            f_builder = self.__read_group(self.__file, ROOT_NAME, ignore_groups=ignore_groups)
+        except Exception as e:
+            # A Zarr v2 file read with the Zarr v3 backend fails here with a cryptic
+            # zarr-python error deep in the read. Convert that to a message pointing at
+            # the Zarr v2 backend; any other error is re-raised unchanged.
+            self._raise_if_zarr_v2(e)
+            raise
         return f_builder
 
+    @classmethod
+    def _zarr_v2_read_error_message(cls, source):
+        """Build the error shown when a Zarr v2 file is opened with the Zarr v3 backend."""
+        return (
+            f"Failed to read '{source}' with {cls.__name__}, which reads Zarr v3 files, but this "
+            f"path is a Zarr v2 file. Open it read-only with {cls._zarr_v2_backend_name}."
+        )
+
+    @classmethod
+    def _looks_like_zarr_v2_path(cls, path, storage_options=None):
+        """Best-effort check of whether *path* is a Zarr v2 hierarchy.
+
+        Used only on the read-error path to produce a helpful message. Any failure of
+        the check itself is swallowed so it never masks the original read error.
+        """
+        try:
+            from .backend_zarrv2 import is_zarr_v2_file
+
+            return is_zarr_v2_file(path, storage_options)
+        except Exception:
+            return False
+
+    def _raise_if_zarr_v2(self, exc):
+        """Convert a read failure caused by a Zarr v2 file into a helpful error.
+
+        Reading a Zarr v2 file with the Zarr v3 backend fails with a cryptic
+        zarr-python error. When this read-only backend is pointed at a path that is
+        in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
+        v2 backend, chaining *exc* as the cause. Otherwise return without raising so
+        the caller can re-raise *exc* unchanged.
+        """
+        if (
+            not self._reads_zarr_v2
+            and self.mode in ("r", "r-")
+            and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
+        ):
+            raise ValueError(self._zarr_v2_read_error_message(self.source)) from exc
+
     def __set_built(self, zarr_obj, builder):
-        fpath = self.__get_store_path(zarr_obj.store)
+        fpath = self._get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
@@ -1629,15 +1945,39 @@ class ZarrIO(HDMFIO):
     def __get_built(self, zarr_obj):
         """
         Look up a builder for the given zarr object
-        :param zarr_obj: The Zarr object to be built
-        :type zarr_obj: Zarr Group or Dataset
-        :return: Builder in the self.__built cache or None
         """
-
-        fpath = self.__get_store_path(zarr_obj.store)
+        fpath = self._get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
+
+    def _resolve_ref_source(self, source_file):
+        """Resolve the *source_file* of a Zarr reference to an absolute filesystem path.
+
+        Hook for subclasses to alter the resolution policy. The default resolves
+        *source_file* relative to ``self.source``: this matches what the current
+        hdmf-zarr writer produces (self-references stored as ``"."``).
+
+        This method is only called for **local** files. Remote files (any store
+        backed by :class:`~zarr.storage.FsspecStore`, including S3 / GCS / HTTP)
+        are handled by the ``is_remote()`` branch in the reference-reading path and
+        never reach this method. S3 URLs that are opened without ``storage_options``
+        are likewise caught by the ``self.source.startswith("s3://")`` guard before
+        this method is invoked.
+        """
+        return os.path.abspath(os.path.normpath(os.path.join(self.source, source_file)))
+
+    def _iter_children(self, zarr_obj):
+        """Yield ``(name, child)`` pairs for the children of *zarr_obj*.
+
+        *child* is a :class:`zarr.Group` or :class:`zarr.Array`. Subclasses may
+        yield a pre-built :class:`~hdmf.build.DatasetBuilder` instead when they
+        need to bypass the standard zarr read path.
+        """
+        for sub_name, sub_group in zarr_obj.groups():
+            yield sub_name, sub_group
+        for sub_name, sub_array in zarr_obj.arrays():
+            yield sub_name, sub_array
 
     def __read_group(self, zarr_obj, name=None, ignore_groups=set()):
         # NOTE: ignore_groups is a set of group names to skip when reading and only
@@ -1651,27 +1991,28 @@ class ZarrIO(HDMFIO):
 
         # Note: The source should be from the zarr object and not assumed to be
         # from the file being read.
-        if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
-            source = zarr_obj.store.store.path
-        else:
-            source = zarr_obj.store.path
+        source = self._get_store_path(zarr_obj.store)
 
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
         ret = GroupBuilder(name=name, source=source, attributes=attributes)
         ret.location = ZarrIO.get_zarr_parent_path(zarr_obj)
 
-        # read sub groups
-        for sub_name, sub_group in zarr_obj.groups():
-            if sub_group.name in ignore_groups:
-                continue
-            sub_builder = self.__read_group(sub_group, sub_name)
-            ret.set_group(sub_builder)
-
-        # read sub datasets
-        for sub_name, sub_array in zarr_obj.arrays():
-            sub_builder = self.__read_dataset(sub_array, sub_name)
-            ret.set_dataset(sub_builder)
+        for sub_name, child in self._iter_children(zarr_obj):
+            if isinstance(child, DatasetBuilder):
+                # ZarrV2IO._iter_children yields pre-built DatasetBuilders for
+                # arrays that zarr-python v3 cannot parse (e.g. object-dtype arrays
+                # with v2-only codecs such as pickle/json2/vlen-utf8). Groups are
+                # never pre-built because zarr v3 can always open v2 groups.
+                ret.set_dataset(child)
+            elif isinstance(child, Group):
+                if child.name in ignore_groups:
+                    continue
+                sub_builder = self.__read_group(child, sub_name)
+                ret.set_group(sub_builder)
+            elif isinstance(child, Array):
+                sub_builder = self.__read_dataset(child, sub_name)
+                ret.set_dataset(sub_builder)
 
         # read the links
         self.__read_links(zarr_obj=zarr_obj, parent=ret)
@@ -1683,10 +2024,6 @@ class ZarrIO(HDMFIO):
     def __read_links(self, zarr_obj, parent):
         """
         Read the links associated with a zarr group
-        :param zarr_obj: The Zarr group we should read links from
-        :type zarr_obj: zarr.hierarchy.Group
-        :param parent: GroupBuilder with which the links need to be associated
-        :type parent: GroupBuilder
         """
         # read links
         if "zarr_link" in zarr_obj.attrs:
@@ -1719,10 +2056,7 @@ class ZarrIO(HDMFIO):
         else:
             raise ValueError("Dataset missing zarr_dtype: " + str(name) + "   " + str(zarr_obj))
 
-        if isinstance(zarr_obj.store, ConsolidatedMetadataStore):
-            source = zarr_obj.store.store.path
-        else:
-            source = zarr_obj.store.path
+        source = self._get_store_path(zarr_obj.store)
 
         kwargs = {
             "attributes": self.__read_attrs(zarr_obj),
@@ -1733,7 +2067,13 @@ class ZarrIO(HDMFIO):
         }
         dtype = kwargs["dtype"]
 
-        # By default, use the zarr.core.Array as data for lazy data load
+        # By default, use the zarr Array as data for lazy data load. HDMFZarrArray
+        # is a subclass of zarr.Array and provides additional functionality. In particular,
+        # it exposes StringDType arrays as object dtype and decodes them on access, so
+        # HDMF recognizes them as UTF-8 without materializing them during this read,
+        # enabling lazy loading of variable-length strings. It further adds __len__,
+        # __iter__ methods that are missing on Zarr arrays.
+        zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
         # Read scalar dataset
@@ -1750,7 +2090,7 @@ class ZarrIO(HDMFIO):
             retrieved_dtypes = [dtype_dict["dtype"] for dtype_dict in dtype]
             if has_reference:
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
-        elif self.__is_ref(dtype):
+        elif self._is_ref(dtype):
             # Array of references
             data = BuilderZarrReferenceDataset(data, self)
 
@@ -1771,7 +2111,7 @@ class ZarrIO(HDMFIO):
                 if isinstance(v, dict) and "zarr_dtype" in v:
                     if v["zarr_dtype"] == "object":
                         target_name, target_zarr_obj = self.resolve_ref(v["value"])
-                        if isinstance(target_zarr_obj, zarr.hierarchy.Group):
+                        if isinstance(target_zarr_obj, Group):
                             ret[k] = self.__read_group(target_zarr_obj, target_name)
                         else:
                             ret[k] = self.__read_dataset(target_zarr_obj, target_name)

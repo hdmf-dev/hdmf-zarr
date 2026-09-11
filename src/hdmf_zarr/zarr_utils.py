@@ -4,44 +4,17 @@ e.g., for wrapping Zarr arrays on read, wrapping arrays for configuring write, o
 writing the spec among others
 """
 
+import json
 from abc import ABCMeta, abstractmethod
 from copy import copy
 import numpy as np
 
 from zarr import Array
-from zarr.storage import ConsolidatedMetadataStore, getsize as zarr_getsize
 
 from hdmf.build import DatasetBuilder
 from hdmf.data_utils import append_data
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
 from hdmf.utils import docval, popargs, get_docval
-
-
-# Monkey-patch ConsolidatedMetadataStore.getsize to fix compression info display
-# This is a workaround for zarr issue where ConsolidatedMetadataStore.getsize() returns -1
-# because it checks only the metadata store (which is a KVStore containing metadata as dicts)
-# instead of the underlying chunk store.
-# Without this fix, the array .info property does not display "No. bytes stored" and "Storage ratio".
-
-
-def _fixed_consolidated_getsize(self, path):
-    """
-    Fixed getsize method that delegates to the underlying store for chunk data.
-    
-    This fixes the issue where consolidated metadata stores return -1 for nbytes_stored,
-    which causes the array .info to not display "No. bytes stored" and "Storage ratio".
-    
-    Note: We only use the chunk size from the underlying store because the metadata
-    store (KVStore) stores metadata as dictionaries which cannot be sized by zarr's
-    getsize function (it returns -1).
-    """
-    # Get size from the underlying store (for actual chunk data)
-    # The meta_store is a KVStore that stores metadata as dicts, so zarr_getsize
-    # always returns -1 for it.
-    return zarr_getsize(self.store, path)
-
-
-ConsolidatedMetadataStore.getsize = _fixed_consolidated_getsize
 
 
 class ZarrDataset(HDMFDataset):
@@ -60,6 +33,10 @@ class ZarrDataset(HDMFDataset):
     @property
     def io(self):
         return self.__io
+
+    def __len__(self):
+        # In zarr v3, Array does not implement __len__
+        return self.dataset.shape[0]
 
     @property
     def shape(self):
@@ -94,6 +71,12 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
         return self.__inverted
 
     def _get_ref(self, ref):
+        # In zarr v3, references may be stored as JSON strings
+        if isinstance(ref, str):
+            try:
+                ref = json.loads(ref)
+            except (json.JSONDecodeError, TypeError):
+                pass
         name, zarr_obj = self.io.resolve_ref(ref)  # ref is a json dict containing the path to the object
         return self.get_object(zarr_obj)
 
@@ -125,7 +108,9 @@ class DatasetOfReferences(ZarrDataset, ReferenceResolver, metaclass=ABCMeta):
 
         # Create ZarrReference
         ref = self.io._create_ref(builder)
-        append_data(self.dataset, ref)
+        # In zarr v3, serialize as JSON string
+        ref_str = json.dumps(dict(ref))
+        append_data(self.dataset, ref_str)
 
 
 class BuilderResolverMixin(BuilderResolver):  # refactor to backend/utils.py
@@ -143,7 +128,7 @@ class BuilderResolverMixin(BuilderResolver):  # refactor to backend/utils.py
 
 class ContainerResolverMixin(ContainerResolver):  # refactor to backend/utils.py
     """
-    A mixin for adding to Zarr reference-resolvinAbstractZarrReferenceDatasetg types
+    A mixin for adding to Zarr reference-resolving types
     the get_object method that returns Containers
     """
 
@@ -173,9 +158,6 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             if t == DatasetBuilder.OBJECT_REF_TYPE:
                 self.__refgetters[i] = self._get_ref
             elif t is str:
-                # we need this for when we read compound data types
-                # that have unicode sub-dtypes since Zarrpy does not
-                # store UTF-8 in compound dtypes
                 self.__refgetters[i] = self._get_utf
         self.__types = types
         tmp = list()
@@ -183,7 +165,11 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             sub = self.dataset.dtype[i]
             if np.issubdtype(sub, np.dtype("O")):
                 tmp.append("object")
-            if sub.metadata:
+            elif np.issubdtype(sub, np.str_):
+                # In zarr v3, string fields in compound dtypes use fixed-length Unicode
+                # Check if this field holds JSON-serialized references
+                tmp.append("object" if types[i] == DatasetBuilder.OBJECT_REF_TYPE else "utf")
+            elif sub.metadata:
                 if "vlen" in sub.metadata:
                     t = sub.metadata["vlen"]
                     if t is str:
@@ -193,6 +179,16 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             else:
                 tmp.append(sub.type.__name__)
         self.__dtype = tmp
+
+        # The dtype a resolved row has in memory. Zarr v3 stores a reference inside a compound as a
+        # fixed-width string, which cannot hold the resolved Container or Builder, so the reference
+        # fields are widened to object here. This is also the dtype the HDF5 backend hands back.
+        self.__resolved_dtype = np.dtype(
+            [
+                (name, object if types[index] == DatasetBuilder.OBJECT_REF_TYPE else self.dataset.dtype[index])
+                for index, name in enumerate(self.dataset.dtype.names)
+            ]
+        )
 
     @property
     def types(self):
@@ -205,11 +201,21 @@ class AbstractZarrTableDataset(DatasetOfReferences):
     def __getitem__(self, arg):
         rows = copy(super().__getitem__(arg))
         if np.issubdtype(type(arg), np.integer):
-            self.__swap_refs(rows)
-        else:
-            for row in rows:
-                self.__swap_refs(row)
-        return rows
+            resolved = np.empty((), dtype=self.__resolved_dtype)
+            resolved[()] = tuple(self.__resolve_row(rows))
+            return resolved[()]
+
+        rows = np.asarray(rows)
+        resolved = np.empty(rows.shape, dtype=self.__resolved_dtype)
+        for index, row in enumerate(rows):
+            resolved[index] = tuple(self.__resolve_row(row))
+        return resolved
+
+    def __resolve_row(self, row):
+        # In zarr v3 a structured array element is a 0-d numpy void, so unpack it before swapping.
+        row_list = list(row.item()) if hasattr(row, "item") and getattr(row, "ndim", None) == 0 else list(row)
+        self.__swap_refs(row_list)
+        return row_list
 
     def __swap_refs(self, row):
         for i in self.__refgetters:
@@ -242,9 +248,12 @@ class AbstractZarrReferenceDataset(DatasetOfReferences):
 
     def __getitem__(self, arg):
         ref = super().__getitem__(arg)
-        if isinstance(ref, np.ndarray):
+        if isinstance(ref, np.ndarray) and ref.ndim > 0:
             return [self._get_ref(x) for x in ref]
         else:
+            # In zarr v3, scalar indexing may return a 0-d array; extract the item
+            if isinstance(ref, np.ndarray) and ref.ndim == 0:
+                ref = ref.item()
             return self._get_ref(ref)
 
     @property

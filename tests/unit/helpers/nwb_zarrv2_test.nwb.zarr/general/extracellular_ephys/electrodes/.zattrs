@@ -1,0 +1,16 @@
+{
+    "colnames": [
+        "location",
+        "group",
+        "group_name",
+        "x",
+        "y",
+        "z",
+        "imp",
+        "filtering"
+    ],
+    "description": "metadata about extracellular electrodes",
+    "namespace": "hdmf-common",
+    "neurodata_type": "DynamicTable",
+    "object_id": "588a3669-d3a4-442c-ac7c-2d1430947027"
+}

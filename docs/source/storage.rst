@@ -4,7 +4,7 @@
 Storage Specification
 =====================
 
-hdmf-zarr currently uses the Zarr :zarr-docs:`DirectoryStore <api/storage.html#zarr.storage.DirectoryStore>`,
+hdmf-zarr currently uses the Zarr :zarr-docs:`LocalStore <api/zarr/storage/index.html#zarr.storage.LocalStore>`,
 which uses directories and files on a standard file system to serialize data.
 
 Format Mapping
@@ -247,12 +247,9 @@ Zarr file. The individual object references are defined in the
 :py:class:`~hdmf_zarr.backend.ZarrIO` as py:class:`~hdmf_zarr.utils.ZarrReference` object created via
 the :py:meth:`~hdmf_zarr.backend.ZarrIO._create_ref` helper function.
 
-By default, :py:class:`~hdmf_zarr.backend.ZarrIO` uses the ``numcodecs.pickles.Pickle`` codec to
-encode object references defined as py:class:`~hdmf_zarr.utils.ZarrReference` dicts in datasets.
-Users may set the codec used to encode objects in Zarr datasets via the ``object_codec_class``
-parameter of the :py:func:`~hdmf_zarr.backend.ZarrIO.__init__` constructor of
-:py:class:`~hdmf_zarr.backend.ZarrIO`. E.g.,  we could use
-``ZarrIO( ... , object_codec_class=numcodecs.JSON)`` to serialize objects using JSON.
+In zarr v3, :py:class:`~hdmf_zarr.backend.ZarrIO` stores object references as JSON-serialized strings
+in variable-length string (``StringDType``) datasets. Each element is a JSON string encoding a
+py:class:`~hdmf_zarr.utils.ZarrReference` dict.
 
 Storing object references in Attributes
 ---------------------------------------
@@ -336,6 +333,14 @@ The mappings of data types is as follows
     |                          | For example                        |                |
     |                          | ``2018-09-28T14:43:54.123+02:00``  |                |
     +--------------------------+------------------------------------+----------------+
+
+.. note::
+
+    In zarr v3, string and reference fields within compound dtypes are stored as fixed-length
+    Unicode strings (``FixedLengthUTF32``). The string length is dynamically sized to fit the
+    actual data, with a minimum of :py:attr:`~hdmf_zarr.backend.COMPOUND_DTYPE_MIN_STRING_LENGTH`
+    characters to allow for appending rows with longer values. Reference fields are stored as
+    JSON-serialized strings within these fixed-length fields.
 
 .. note::
 

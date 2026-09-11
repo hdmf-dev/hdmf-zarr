@@ -36,7 +36,6 @@ customize the behavior of the mixin.
 import os
 import shutil
 import numpy as np
-import numcodecs
 from datetime import datetime
 from dateutil import tz
 from abc import ABCMeta, abstractmethod
@@ -63,7 +62,7 @@ from tests.unit.helpers.utils import (
     get_temp_filepath,
 )
 
-from zarr.storage import DirectoryStore, NestedDirectoryStore
+from zarr.storage import LocalStore
 
 try:
     import pynwb
@@ -106,7 +105,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     of the individual paths depends on the backend used for writing in ``roundtripContainer``.
     E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
     and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
-    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
+    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.LocalStore``.
     A value of None as part of list means to use the default filename for write.
     (Default=[None, ])
     """
@@ -118,7 +117,7 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
     of the individual paths depends on the backend used for writing in ``roundtripContainer``.
     E.g., if :py:class:`~hdmf.backends.h5tools.HDF5IO` is used then the paths must be strings,
     and when :py:class:`~hdmf_zarr.backend.ZarrIO` is used then paths may be strings or
-    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.DirectoryStore``.
+    supported ``zarr.storage`` backend objects, e.g., a ``zarr.storage.LocalStore``.
     A value of None as part of list means to use the default filename for export.
     (Default=[None, ])
     """
@@ -180,8 +179,8 @@ class MixinTestCaseConvert(metaclass=ABCMeta):
                     write_path = "test_%s.hdmf" % container_type
                 if export_path is None:
                     export_path = "test_export_%s.hdmf" % container_type
-                self.filenames.append(write_path if isinstance(write_path, str) else write_path.path)
-                self.filenames.append(export_path if isinstance(export_path, str) else export_path.path)
+                self.filenames.append(write_path if isinstance(write_path, str) else str(write_path.root))
+                self.filenames.append(export_path if isinstance(export_path, str) else str(export_path.root))
                 # roundtrip the container
                 exported_container = self.roundtripExportContainer(
                     container=container,
@@ -235,8 +234,7 @@ class MixinTestHDF5ToZarr:
     WRITE_PATHS = [None]
     EXPORT_PATHS = [
         None,
-        DirectoryStore("test_export_DirectoryStore.zarr"),
-        NestedDirectoryStore("test_export_NestedDirectoryStore.zarr"),
+        LocalStore("test_export_LocalStore.zarr"),
     ]
     TARGET_FORMAT = "ZARR"
 
@@ -267,8 +265,7 @@ class MixinTestZarrToHDF5:
 
     WRITE_PATHS = [
         None,
-        DirectoryStore("test_export_DirectoryStore.zarr"),
-        NestedDirectoryStore("test_export_NestedDirectoryStore.zarr"),
+        LocalStore("test_export_LocalStore.zarr"),
     ]
     EXPORT_PATHS = [None]
     TARGET_FORMAT = "H5"
@@ -304,13 +301,11 @@ class MixinTestZarrToZarr:
 
     WRITE_PATHS = [
         None,
-        DirectoryStore("test_export_DirectoryStore_Source.zarr"),
-        NestedDirectoryStore("test_export_NestedDirectoryStore_Source.zarr"),
+        LocalStore("test_export_LocalStore_Source.zarr"),
     ]
     EXPORT_PATHS = [
         None,
-        DirectoryStore("test_export_DirectoryStore_Export.zarr"),
-        NestedDirectoryStore("test_export_NestedDirectoryStore_Export.zarr"),
+        LocalStore("test_export_LocalStore_Export.zarr"),
     ]
     TARGET_FORMAT = "ZARR"
 
@@ -949,24 +944,26 @@ class TestHDF5toZarrWithFilters(TestCase):
         self.assertTupleEqual((10,), read_array.chunks)
 
     def test_shuffle(self):
-        """Test that shuffle filter is being preserved"""
+        """Test that shuffle filter is being preserved as a compressor in zarr v3"""
         outdata = H5DataIO(data=list(range(100)), chunks=(10,), shuffle=True)
         self.__roundtrip_data(data=outdata)
         self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
         read_array = self.__get_data_array(self.read_container)
-        self.assertEqual(len(read_array.filters), 1)
-        self.assertIsInstance(read_array.filters[0], numcodecs.Shuffle)
+        # In zarr v3, Shuffle is a BytesBytesCodec (compressor), not a filter
+        self.assertEqual(len(read_array.compressors), 1)
+        self.assertEqual(read_array.compressors[0].codec_config["id"], "shuffle")
         self.assertTupleEqual((10,), read_array.chunks)
 
     def test_gzip(self):
-        """Test that gzip filter is being preserved"""
+        """Test that gzip filter is being preserved as a compressor in zarr v3"""
         outdata = H5DataIO(data=list(range(100)), chunks=(10,), compression="gzip", compression_opts=2)
         self.__roundtrip_data(data=outdata)
         self.assertContainerEqual(self.out_container, self.read_container, ignore_hdmf_attrs=True)
         read_array = self.__get_data_array(self.read_container)
-        self.assertEqual(len(read_array.filters), 1)
-        self.assertIsInstance(read_array.filters[0], numcodecs.Zlib)
-        self.assertEqual(read_array.filters[0].level, 2)
+        # In zarr v3, gzip (Zlib) is a compressor, not a filter
+        self.assertEqual(len(read_array.compressors), 1)
+        self.assertEqual(read_array.compressors[0].codec_config["id"], "zlib")
+        self.assertEqual(read_array.compressors[0].codec_config["level"], 2)
         self.assertTupleEqual((10,), read_array.chunks)
 
 

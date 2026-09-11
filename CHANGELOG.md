@@ -2,8 +2,19 @@
 
 ## Upcoming Release (TBD)
 
+### Added
+- Added read-only `ZarrV2IO` and `NWBZarrV2IO` backends for reading legacy Zarr v2 files, with `NWBZarrV2IO.export_to_v3` and the one-shot `NWBZarrV2IO.convert_to_v3` static helper to convert NWB Zarr v2 files to Zarr v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+- Added a clear error when reading a Zarr v2 file with the Zarr v3 `ZarrIO`/`NWBZarrIO` that directs the user to `ZarrV2IO`/`NWBZarrV2IO`, replacing an opaque zarr-python parse error. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+
+### Changed
+- Bumped minimum required Python version from 3.11 to 3.12 and Zarr dependency to `>=3.3.0` due to backwards-incompatible changes in Zarr v3 structured data types. [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373)
+- Aligned `ZarrDataIO` with the zarr v3 codec API: `compressor` is renamed to `compressors`, the `serializer` (`ArrayBytesCodec`) slot is now reachable, and `filters` keeps its name for `ArrayArrayCodec` only. @h-mayorquin [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369)
+
 ### Fixed
 - Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
+- Fixed `ZarrIO._copy_array` failing to export arrays compressed with Zarr v2 numcodecs (e.g. `numcodecs.Blosc`) by mapping them to their `numcodecs.zarr3` equivalents, preserving compression/filters when exporting from Zarr v2 to v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+- Fixed lazily-loaded Zarr arrays not being recognized as `collections.abc.Iterable`, which caused hdmf/pynwb type checks (e.g. `ImageSeries.dimension`) to reject them. `zarr.Array` gains an `__iter__` that yields elements lazily via `__getitem__`. This applies to arrays from both Zarr v2 and Zarr v3 files, since both are read through zarr-python v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
+- Fixed silent truncation when writing into an existing compound dataset whose fixed-length string or reference fields are narrower than the new data. `ZarrIO` now raises a `ValueError` naming the field and the two widths. @h-mayorquin
 - Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`, because `ZarrIO.__dtypes` was missing those keys and the resulting `None` was passed to `np.dtype`. This affected the `HERD` index fields, among others. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 
 

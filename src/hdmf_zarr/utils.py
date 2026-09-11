@@ -7,6 +7,7 @@ import math
 import json
 import logging
 import os
+from itertools import product
 from collections import deque
 from collections.abc import Iterable
 from typing import Optional, Union, Literal, Tuple, Dict, Any
@@ -14,17 +15,16 @@ from concurrent.futures import ProcessPoolExecutor
 from threadpoolctl import threadpool_limits
 from warnings import warn
 
-import numcodecs
-import zarr
 import numpy as np
-from zarr.hierarchy import Group
+import zarr
+from zarr import Group, Array
+from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec, ArrayBytesCodec
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
 from hdmf.utils import docval, getargs
 
 from hdmf.spec import SpecWriter, SpecReader
-
 
 # Necessary definitions to avoid parallelization bugs, Inherited from SpikeInterface experience
 # see
@@ -33,6 +33,93 @@ from hdmf.spec import SpecWriter, SpecReader
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
+
+
+class HDMFZarrArray(Array):
+    """
+    A subclass of zarr.Array used by HDMF to provide compatibility with array-like
+    interfaces expected by PyNWB and HDMF, including lazy decoding of variable-length
+    strings, without monkey-patching the global zarr.Array class.
+
+    NOTE: Downstream codes should not rely on the use of HDMFZarrArray. This is an
+    intermediate approach to enable compatibility with downstream libraries that
+    depend on changes in the features of the Array class in Zarr V3, specificlally,
+    removal of __len__ and __iter__, unwrapping of scalar arrays, and use of the
+    new StringDType (kind "T") instead of object (kind "O") for representing strings.
+    Use of HDMFZarrArray will be removed in a future release once HDMF/PyNWB have
+    been updated to:
+    1) support np.dtypes.StringDType for strings. This can be removed on release
+    of hdmf#1576 and hdmf#1578
+    2) not require __len__ and __iter__ on arrays. This can be removed on release
+    of hdmf#1580
+    3) not require unwrapping of scalars. This can be removed on release of
+    hdmf#1581, hdmf#1580, and NeurodataWithoutBorders/pynwb#2263
+    """
+
+    def _has_string_dtype(self):
+        """
+        Check if the array has a np.dtypes.StringDType string dtype.
+        """
+        return isinstance(super().dtype, np.dtypes.StringDType)
+
+    @property
+    def dtype(self):
+        """
+        Return the dtype of the array.
+
+        For downstream compatibility, this function returns object dtype for arrays
+        with StringDType.
+        """
+        if self._has_string_dtype():
+            # HDMF does not recognize StringDType (kind "T") when inferring generic
+            # dataset types. Object arrays are inferred as variable-length UTF-8.
+            return np.dtype(object)
+        return super().dtype
+
+    def __len__(self):
+        """
+        Return the length of the first dimension of the array.
+        """
+        if self.ndim == 0:
+            raise TypeError("len() of unsized object")
+        return self.shape[0]
+
+    def __iter__(self):
+        """
+        Return an iterator over the elements of the first dimension of the array.
+        """
+        if self.ndim == 0:
+            raise TypeError("iteration over a 0-d array")
+        for i in range(self.shape[0]):
+            yield self[i]
+
+    def __getitem__(self, key):
+        """
+        Get an item from the array.
+
+        For downstream compatibility this functions:
+        - Changes the dtype of np.dtypes.StringDType to object
+        - Unwraps scalar arrays by returning result[()]
+        """
+        result = super().__getitem__(key)
+        if self._has_string_dtype() and isinstance(result, np.ndarray):
+            result = result.astype(object)
+        if isinstance(result, np.ndarray) and result.ndim == 0:
+            return result[()]
+        return result
+
+    def __array__(self, dtype=None, copy=None):
+        """
+        Return the array as a numpy array.
+
+        For downstream compatibility this function provides custom handling of
+        np.dtypes.StringDType arrays.
+        """
+        if not self._has_string_dtype():
+            return super().__array__(dtype=dtype, copy=copy)
+        if copy is False:
+            raise ValueError("`copy=False` is not supported. This method always creates a copy.")
+        return np.asarray(self[...], dtype=dtype)
 
 
 class ZarrIODataChunkIteratorQueue(deque):
@@ -157,8 +244,20 @@ class ZarrIODataChunkIteratorQueue(deque):
                 progress_bar_options.update(**per_iterator_progress_options)
 
                 iterator_itemsize = iterator.dtype.itemsize
-                for buffer_selection in iterator.buffer_selection_generator:
-                    buffer_map_args = (zarr_dataset.store.path, zarr_dataset.path, iterator, buffer_selection)
+                # Preserve whole buffers when they own complete shards. Otherwise,
+                # give each shard one task, using Zarr's resolved layout for auto.
+                # When a shard spans multiple iterator buffers, their intersections
+                # are read and written sequentially within the same task.
+                selections = (
+                    self._iter_shard_selections(zarr_dataset.shape, zarr_dataset.shards)
+                    if zarr_dataset.shards is not None
+                    and not self._buffers_contain_shards(zarr_dataset.shape, zarr_dataset.shards, iterator.buffer_shape)
+                    else iterator.buffer_selection_generator
+                )
+                for buffer_selection in selections:
+                    store = zarr_dataset.store
+                    store_path = str(store.root) if hasattr(store, "root") else str(store)
+                    buffer_map_args = (store_path, zarr_dataset.path, iterator, buffer_selection)
                     buffer_map.append(buffer_map_args)
                     buffer_size_in_MB = (
                         math.prod([slice_.stop - slice_.start for slice_ in buffer_selection]) * iterator_itemsize / 1e6
@@ -285,6 +384,33 @@ class ZarrIODataChunkIteratorQueue(deque):
         _operation_to_run = operation_to_run
 
     @staticmethod
+    def _buffers_contain_shards(shape, shards, buffers):
+        """Return whether buffer boundaries avoid splitting destination shards."""
+        return all(buffer == size or buffer % shard == 0 for size, shard, buffer in zip(shape, shards, buffers))
+
+    @staticmethod
+    def _iter_shard_selections(shape, shards):
+        """Yield one non-overlapping task selection per destination shard."""
+        for start in product(*(range(0, size, shard) for size, shard in zip(shape, shards))):
+            yield tuple(slice(pos, min(pos + shard, size)) for pos, shard, size in zip(start, shards, shape))
+
+    @staticmethod
+    def _iter_shard_buffer_selections(shard_selection, buffer_shape):
+        """Intersect a shard with the iterator buffer grid without loading a full shard.
+
+        A buffer crossing shard boundaries is read in separate pieces by the shard
+        owners. Each requested piece is no larger than the iterator buffer shape.
+        """
+        starts = (
+            range(part.start // size * size, part.stop, size) for part, size in zip(shard_selection, buffer_shape)
+        )
+        for start in product(*starts):
+            yield tuple(
+                slice(max(pos, part.start), min(pos + size, part.stop))
+                for pos, size, part in zip(start, buffer_shape, shard_selection)
+            )
+
+    @staticmethod
     def _write_buffer_zarr(
         worker_context: Dict[str, Any],
         zarr_store_path: str,
@@ -296,12 +422,21 @@ class ZarrIODataChunkIteratorQueue(deque):
         zarr_store = zarr.open(store=zarr_store_path, mode="r+")  # storage_options=storage_options)
         zarr_dataset = zarr_store[relative_dataset_path]
 
-        data = iterator._get_data(selection=buffer_selection)
-        zarr_dataset[buffer_selection] = data
+        if zarr_dataset.shards is None:
+            selections = (buffer_selection,)
+        else:
+            # Whole-buffer tasks yield one read; shard tasks may yield several.
+            # Finish each write before updating another part of the owned shard.
+            selections = ZarrIODataChunkIteratorQueue._iter_shard_buffer_selections(
+                buffer_selection, iterator.buffer_shape
+            )
+        for selection in selections:
+            data = iterator._get_data(selection=selection)
+            zarr_dataset[selection] = data
+            del data
 
         # An issue detected in cloud usage by the SpikeInterface team
         # Fix memory leak by forcing garbage collection
-        del data
         gc.collect()
 
     @staticmethod
@@ -353,12 +488,10 @@ class ZarrSpecWriter(SpecWriter):
 
     def __write(self, d, name):
         data = self.stringify(d)
-        dset = self.__group.require_dataset(
+        dset = self.__group.require_array(
             name,
             shape=(1,),
-            dtype=object,
-            object_codec=numcodecs.JSON(),
-            compressor=None,
+            dtype=np.dtypes.StringDType(),
         )
         dset.attrs["zarr_dtype"] = "scalar"
         dset[0] = data
@@ -381,27 +514,33 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        if isinstance(self.__group.store, zarr.storage.ConsolidatedMetadataStore):
-            fpath = self.__group.store.store.path
-        else:
-            fpath = self.__group.store.path
+        fpath = str(self.__group.store)
         source = "%s:%s" % (os.path.abspath(fpath), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 
-    def __read(self, path):
-        s = self.__group[path][0]
+    def _read(self, path):
+        """Read a JSON-encoded spec from a single-element string array at *path*."""
+        s = self._group[path][0]
+        # In zarr v3, string arrays may return numpy StringDType scalars
+        # Ensure we have a plain Python string for json.loads
+        s = str(s) if not isinstance(s, str) else s
         d = json.loads(s)
         return d
 
+    @property
+    def _group(self):
+        """The underlying Zarr group. Exposed as a protected accessor for subclasses."""
+        return self.__group
+
     def read_spec(self, spec_path):
         """Read a spec from the given path"""
-        return self.__read(spec_path)
+        return self._read(spec_path)
 
     def read_namespace(self, ns_path):
         """Read a namespace from the given path"""
         if self.__cache is None:
-            self.__cache = self.__read(ns_path)
+            self.__cache = self._read(ns_path)
         ret = self.__cache["namespaces"]
         return ret
 
@@ -424,7 +563,10 @@ class ZarrDataIO(DataIO):
         {
             "name": "chunks",
             "type": (list, tuple),
-            "doc": "Chunk shape",
+            "doc": (
+                "Chunk shape. When ``shards`` is also specified, ``chunks`` defines the inner chunk shape "
+                "within each shard (i.e. the fine-grained I/O unit)."
+            ),
             "default": None,
         },
         {
@@ -434,18 +576,52 @@ class ZarrDataIO(DataIO):
             "default": None,
         },
         {
-            "name": "compressor",
-            "type": (numcodecs.abc.Codec, bool),
+            "name": "compressors",
+            "type": (BytesBytesCodec, list, tuple, bool),
             "doc": (
-                "Zarr compressor filter to be used. Set to True to use Zarr default. "
-                "Set to False to disable compression)"
+                "Zarr compressor codecs (BytesBytesCodec) to be used. Can be a single codec or list of codecs. "
+                "Set to True to use Zarr default. Set to False to disable compression. "
+                "Use zarr.codecs (e.g., zarr.codecs.BloscCodec()) or zarr.codecs.numcodecs wrappers."
             ),
             "default": None,
         },
         {
             "name": "filters",
             "type": (list, tuple),
-            "doc": "One or more Zarr-supported codecs used to transform data prior to compression.",
+            "doc": (
+                "One or more Zarr-supported codecs (ArrayArrayCodec) used to transform the array before it is "
+                "serialized to bytes. Use zarr.codecs or zarr.codecs.numcodecs wrappers."
+            ),
+            "default": None,
+        },
+        {
+            "name": "serializer",
+            "type": ArrayBytesCodec,
+            "doc": (
+                "Zarr codec (ArrayBytesCodec) used to serialize the array to bytes, e.g., zarr.codecs.BytesCodec(). "
+                "Zarr chooses a default for the dtype when this is not given."
+            ),
+            "default": None,
+        },
+        {
+            "name": "shards",
+            "type": (list, tuple, str),
+            "doc": (
+                "Shard shape in array elements, or 'auto' to let Zarr choose the shape. Each shard is a single object "
+                "in the store and contains multiple inner chunks defined by ``chunks``. Sharding reduces the "
+                "number of store objects and can improve performance for large arrays. ``chunks`` defines the "
+                "inner chunk shape. For efficient parallel iterator writes, prefer a ``buffer_shape`` equal to "
+                "the shard shape or an integer multiple along each axis, so each buffer contains complete shards. "
+                "Buffers spanning a full array axis may include a partial edge shard. Aligned buffers are written "
+                "as whole-buffer tasks. Other buffer shapes are supported safely by assigning each shard to one "
+                "task and sequentially reading and writing the portions of iterator buffers inside it. Partial "
+                "shard updates read the entire existing encoded shard and assemble its replacement. When "
+                "shards span multiple buffers, this repeats for successive buffer pieces and can use substantially "
+                "more memory than the source buffer. ``buffer_shape`` limits source read sizes, not total write "
+                "memory, including Zarr's encoded shard buffers and codec workspace. With 'auto', scheduling uses "
+                "the shard shape chosen by "
+                "Zarr; buffer-shard alignment is not required."
+            ),
             "default": None,
         },
         {
@@ -460,8 +636,8 @@ class ZarrDataIO(DataIO):
     )
     def __init__(self, **kwargs):
         # TODO Need to add error checks and warnings to ZarrDataIO to check for parameter collisions and add tests
-        data, chunks, fill_value, compressor, filters, self.__link_data = getargs(
-            "data", "chunks", "fillvalue", "compressor", "filters", "link_data", kwargs
+        data, chunks, fill_value, compressors, filters, serializer, shards, self.__link_data = getargs(
+            "data", "chunks", "fillvalue", "compressors", "filters", "serializer", "shards", "link_data", kwargs
         )
         # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
         #       These parameters are used to create empty data to allocate the data but
@@ -474,19 +650,46 @@ class ZarrDataIO(DataIO):
             self.__iosettings["chunks"] = chunks
         if fill_value is not None:
             self.__iosettings["fill_value"] = fill_value
-        if compressor is not None:
-            if isinstance(compressor, bool):
-                # Disable compression by setting compressor to None
-                if not compressor:
-                    self.__iosettings["compressor"] = None
+        if compressors is not None:
+            if isinstance(compressors, bool):
+                # Disable compression by setting compressors to empty list
+                if not compressors:
+                    self.__iosettings["compressors"] = None
                 # To use default settings simply do not specify any compressor settings
                 else:
                     pass
-            # use the user-specified compressor
+            # use the user-specified compressor(s)
             else:
-                self.__iosettings["compressor"] = compressor
+                self.__iosettings["compressors"] = compressors
         if filters is not None:
-            self.__iosettings["filters"] = filters
+            self.__iosettings["filters"] = list(filters)
+        if serializer is not None:
+            self.__iosettings["serializer"] = serializer
+        if isinstance(shards, str):
+            if shards != "auto":
+                raise ValueError("'shards' must be a shape or 'auto'.")
+            self.__iosettings["shards"] = shards
+        elif shards is not None:
+            self.__iosettings["shards"] = tuple(shards)
+        if shards is not None and not isinstance(shards, str) and chunks is None:
+            warn(
+                "Specifying 'shards' without 'chunks' is not recommended. "
+                "When using sharding, 'chunks' defines the inner chunk shape within each shard.",
+                UserWarning,
+                stacklevel=2,
+            )
+        elif shards is not None and not isinstance(shards, str) and chunks is not None:
+            if len(shards) != len(chunks):
+                raise ValueError(
+                    f"'shards' and 'chunks' must have the same number of dimensions, "
+                    f"but got len(shards)={len(shards)} and len(chunks)={len(chunks)}."
+                )
+            for i, (s, c) in enumerate(zip(shards, chunks)):
+                if s % c != 0:
+                    raise ValueError(
+                        f"Shard shape dimension {i} (shards[{i}]={s}) must be a multiple of "
+                        f"the chunk shape dimension {i} (chunks[{i}]={c})."
+                    )
 
     @property
     def link_data(self) -> bool:
@@ -517,16 +720,26 @@ class ZarrDataIO(DataIO):
         :param dataset: h5py.Dataset object that should be wrapped
         :type dataset: h5py.Dataset
         :param kwargs: Other keyword arguments to pass to ZarrDataIO.__init__
+            ``fillvalue``, ``chunks``, ``compressors``, and ``filters`` override
+            the corresponding values inferred from ``h5dataset``. When omitted,
+            fill value and chunks are copied from the HDF5 dataset, while Zarr
+            compressors and filters are inferred from its HDF5 filter pipeline.
 
         :returns: ZarrDataIO object wrapping the dataset
         """
-        filters = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        all_codecs = ZarrDataIO.hdf5_to_zarr_filters(h5dataset)
+        # In zarr v3, separate compressors (BytesBytesCodec) from filters (ArrayArrayCodec)
+        compressors = [c for c in all_codecs if isinstance(c, BytesBytesCodec)]
+        filters = [c for c in all_codecs if isinstance(c, ArrayArrayCodec)]
         fillval = h5dataset.fillvalue if "fillvalue" not in kwargs else kwargs.pop("fillvalue")
         if isinstance(fillval, bytes):  # bytes are not JSON serializable so use string instead
             fillval = fillval.decode("utf-8")
         chunks = h5dataset.chunks if "chunks" not in kwargs else kwargs.pop("chunks")
+        compressors = kwargs.pop("compressors", compressors if compressors else None)
+        filters = kwargs.pop("filters", filters if filters else None)
         re = ZarrDataIO(
             data=h5dataset,
+            compressors=compressors,
             filters=filters,
             fillvalue=fillval,
             chunks=chunks,
@@ -536,45 +749,55 @@ class ZarrDataIO(DataIO):
 
     @staticmethod
     def hdf5_to_zarr_filters(h5dataset) -> list:
-        """From the given h5py.Dataset infer the corresponding filters to use in Zarr"""
+        """From the given h5py.Dataset infer the corresponding zarr v3 codecs.
+
+        Returns a list of zarr v3 codec instances (BytesBytesCodec or ArrayArrayCodec).
+        Uses zarr.codecs.numcodecs wrappers for codecs not natively available in zarr v3.
+        """
         # Based on https://github.com/fsspec/kerchunk/blob/617d9ce06b9d02375ec0e5584541fcfa9e99014a/kerchunk/hdf.py#L181
-        filters = []
+        import warnings as _warnings
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Blosc as ZarrBlosc, Zstd as ZarrZstd, Zlib as ZarrZlib
+
+        codecs = []
         # Check for unsupported filters
         if h5dataset.scaleoffset:
-            # TODO: translate to  numcodecs.fixedscaleoffset.FixedScaleOffset()
             warn(f"{h5dataset.name} HDF5 scaleoffset filter ignored in Zarr")
         if h5dataset.compression in ("szip", "lzf"):
             warn(f"{h5dataset.name} HDF5 szip or lzf compression ignored in Zarr")
         # Add the shuffle filter if possible
         if h5dataset.shuffle and h5dataset.dtype.kind != "O":
             # cannot use shuffle if we materialised objects
-            filters.append(numcodecs.Shuffle(elementsize=h5dataset.dtype.itemsize))
+            with _warnings.catch_warnings():
+                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
+                codecs.append(ZarrShuffle(elementsize=h5dataset.dtype.itemsize))
         # iterate through all the filters and add them to the list
         for filter_id, properties in h5dataset._filters.items():
             filter_id_str = str(filter_id)
-            if filter_id_str == "32001":
-                blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
-                (_1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor) = properties
-                pars = dict(
-                    blocksize=total_bytes,
-                    clevel=clevel,
-                    shuffle=shuffle,
-                    cname=blosc_compressors[compressor],
-                )
-                filters.append(numcodecs.Blosc(**pars))
-            elif filter_id_str == "32015":
-                filters.append(numcodecs.Zstd(level=properties[0]))
-            elif filter_id_str == "gzip":
-                filters.append(numcodecs.Zlib(level=properties))
-            elif filter_id_str == "32004":
-                warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
-            elif filter_id_str == "32008":
-                warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
-            elif filter_id_str == "shuffle":  # already handled above
-                pass
-            else:
-                warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
-        return filters
+            with _warnings.catch_warnings():
+                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
+                if filter_id_str == "32001":
+                    blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
+                    _1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor = properties
+                    pars = dict(
+                        blocksize=total_bytes,
+                        clevel=clevel,
+                        shuffle=shuffle,
+                        cname=blosc_compressors[compressor],
+                    )
+                    codecs.append(ZarrBlosc(**pars))
+                elif filter_id_str == "32015":
+                    codecs.append(ZarrZstd(level=properties[0]))
+                elif filter_id_str == "gzip":
+                    codecs.append(ZarrZlib(level=properties))
+                elif filter_id_str == "32004":
+                    warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
+                elif filter_id_str == "32008":
+                    warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
+                elif filter_id_str == "shuffle":  # already handled above
+                    pass
+                else:
+                    warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
+        return codecs
 
     @staticmethod
     def is_h5py_dataset(obj):

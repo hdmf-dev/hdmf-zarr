@@ -1,0 +1,10 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "dim0"
+    ],
+    "description": "the impedance of the electrode, in ohms",
+    "namespace": "hdmf-common",
+    "neurodata_type": "VectorData",
+    "object_id": "1a4159f7-d1b2-4ed2-8676-65cd3601eebd",
+    "zarr_dtype": "float"
+}
