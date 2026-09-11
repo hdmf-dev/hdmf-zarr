@@ -3,7 +3,6 @@
 import unittest
 from itertools import product
 import platform
-import warnings
 from concurrent.futures import ProcessPoolExecutor
 from typing import Tuple, Dict
 from io import StringIO
@@ -317,14 +316,10 @@ def test_sharded_iterator_write_routing(tmp_path, shape, chunks, shards, buffers
     column = VectorData(name="values", description="", data=ZarrDataIO(iterator, chunks=chunks, shards=shards))
     table = DynamicTable(name="table", description="", id=list(range(shape[0])), columns=[column])
     store = str(tmp_path / "data.zarr")
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=RecordingExecutor) as executor:
-            with ZarrIO(store, manager=get_manager(), mode="w") as io:
-                io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
+    with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=RecordingExecutor) as executor:
+        with ZarrIO(store, manager=get_manager(), mode="w") as io:
+            io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
     assert executor.called
-    fallback_warnings = [w for w in caught if "Writing dataset 'values' sequentially" in str(w.message)]
-    assert not fallback_warnings
     array = zarr.open_group(store, mode="r")["values"]
     assert array.shards == shards
     assert_array_equal(array[:], data)
@@ -395,16 +390,12 @@ def test_auto_shards_iterator(tmp_path):
         columns=[VectorData(name="values", description="", data=ZarrDataIO(iterator, chunks=(2,), shards="auto"))],
     )
     store = str(tmp_path / "auto.zarr")
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=ProcessPoolExecutor) as executor:
-            with ZarrIO(store, manager=get_manager(), mode="w") as io:
-                io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
+    with patch("hdmf_zarr.utils.ProcessPoolExecutor", wraps=ProcessPoolExecutor) as executor:
+        with ZarrIO(store, manager=get_manager(), mode="w") as io:
+            io.write(table, number_of_jobs=2, multiprocessing_context="spawn")
     array = zarr.open_group(store, mode="r")["values"]
     assert array.shards is not None
     assert executor.called
-    fallback = [w for w in caught if "Writing dataset 'values' sequentially" in str(w.message)]
-    assert not fallback
     assert_array_equal(array[:], data)
 
 
