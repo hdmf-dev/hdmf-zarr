@@ -141,6 +141,7 @@ class TestZarrDataIO(TestCase):
         )
         # test that we apply shuffle filter on int data
         from zarr.codecs.numcodecs import Shuffle as ZarrShuffle
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_int)
         self.assertEqual(len(filters), 1)
         self.assertIsInstance(filters[0], ZarrShuffle)
@@ -162,6 +163,7 @@ class TestZarrDataIO(TestCase):
         )
         # test that we apply blosc filter on data
         from zarr.codecs.numcodecs import Blosc as ZarrBlosc
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
         self.assertIsInstance(filters[0], ZarrBlosc)
@@ -182,6 +184,7 @@ class TestZarrDataIO(TestCase):
         )
         # test that we apply zstd filter on data
         from zarr.codecs.numcodecs import Zstd as ZarrZstd
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
         self.assertIsInstance(filters[0], ZarrZstd)
@@ -201,6 +204,7 @@ class TestZarrDataIO(TestCase):
         )
         # test that we apply gzip/zlib filter on data
         from zarr.codecs.numcodecs import Zlib as ZarrZlib
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
         self.assertIsInstance(filters[0], ZarrZlib)
@@ -236,6 +240,7 @@ class TestZarrDataIO(TestCase):
         self.assertEqual(re_zarrdataio.chunks, (5, 10))
         # In zarr v3, compressors and filters are separated. Shuffle is a BytesBytesCodec (compressor).
         from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Zlib as ZarrZlib
+
         self.assertNotIn("filters", re_zarrdataio.io_settings)
         self.assertEqual(len(re_zarrdataio.io_settings["compressors"]), 2)
         self.assertIsInstance(re_zarrdataio.io_settings["compressors"][0], ZarrShuffle)
@@ -312,3 +317,12 @@ class TestZarrDataIOSharding(TestCase):
         data = np.arange(1000, dtype="i4").reshape(100, 10)
         with self.assertRaises(ValueError):
             ZarrDataIO(data, chunks=(10, 3), shards=(50, 10))
+
+    def test_auto_shards(self):
+        for chunks in (None, (2,)):
+            io = ZarrDataIO(np.arange(16), chunks=chunks, shards="auto")
+            self.assertEqual(io.io_settings["shards"], "auto")
+
+    def test_invalid_shards_string(self):
+        with self.assertRaisesRegex(ValueError, "'shards' must be a shape or 'auto'"):
+            ZarrDataIO(np.arange(16), shards="automatic")
