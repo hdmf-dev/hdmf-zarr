@@ -62,6 +62,9 @@ test = [
     "ruff",
     "scipy>=1.7",  # used in some tests
     "tox",
+    # zindi is used to test reading a Zarr v3 reference file system generated from HDF5
+    # via the unified Zarr v3 convention (see tests/unit/test_zindi_interop.py)
+    "zindi @ git+https://github.com/bendichter/zindi.git@77c0147296ab82b3770fed95f9f607077b12cf8d",
 ]
 
 # documentation dependencies
