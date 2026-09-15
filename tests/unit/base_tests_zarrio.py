@@ -710,6 +710,42 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         val = self.__write_attribute_test_helper("bytesattr", np.array(b"Hello World"), assert_value=False)
         self.assertEqual(val, "Hello World")
 
+    def test_write_attributes_nan_inf_roundtrip(self):
+        """NaN and Inf attributes read back as floats, and strings holding those tokens stay strings.
+
+        A float and a string carrying the same text are distinct values, so they must stay distinct
+        across a write and read.
+        """
+        values = {
+            "float_nan": float("nan"),
+            "float_inf": float("inf"),
+            "float_ninf": float("-inf"),
+            "np_nan": np.float32("nan"),
+            "text_nan": "NaN",
+            "text_inf": "Infinity",
+            "list_nan": [1.0, float("nan")],
+        }
+        tempIO = ZarrIO(self.store_path, mode="w")
+        tempIO.open()
+        tempIO.write_attributes(tempIO._file, values)
+        tempIO.close()
+
+        tempIO = ZarrIO(self.store_path, mode="r")
+        tempIO.open()
+        attrs = tempIO.read_builder().attributes
+
+        self.assertTrue(np.isnan(attrs["float_nan"]))
+        self.assertEqual(attrs["float_inf"], float("inf"))
+        self.assertEqual(attrs["float_ninf"], float("-inf"))
+        self.assertTrue(np.isnan(attrs["np_nan"]))
+        self.assertIsInstance(attrs["text_nan"], str)
+        self.assertEqual(attrs["text_nan"], "NaN")
+        self.assertIsInstance(attrs["text_inf"], str)
+        self.assertEqual(attrs["text_inf"], "Infinity")
+        self.assertEqual(attrs["list_nan"][0], 1.0)
+        self.assertTrue(np.isnan(attrs["list_nan"][1]))
+        tempIO.close()
+
     def test_write_attributes_write_unsupported_scalar_type(self):
         with self.assertRaises(TypeError):
             self.__write_attribute_test_helper("strattr", np.int32)

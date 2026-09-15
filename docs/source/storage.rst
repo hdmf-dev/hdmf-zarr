@@ -125,8 +125,12 @@ Attributes
     Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes
     must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types
     (e.g., numpy arrays) to JSON serializable types as much as possible, but not all possible types may
-    be supported. Float ``NaN``, ``Infinity``, and ``-Infinity`` values, which are not valid JSON, are
-    encoded as the strings ``"NaN"``, ``"Infinity"``, and ``"-Infinity"`` respectively.
+    be supported. Float ``NaN``, ``Infinity``, and ``-Infinity`` values are written as the bare tokens
+    ``NaN``, ``Infinity``, and ``-Infinity``, following zarr-python. These tokens are a zarr-python
+    extension to JSON rather than part of the JSON standard, so a store containing them is readable by
+    Python's :py:mod:`json` module and rejected by strict JSON parsers. Writing them this way keeps a
+    float distinct from a string holding the same text, and keeps hdmf-zarr consistent with any other
+    tool reading the store through zarr-python.
 
 .. _sec-zarr-storage-attributes-reserved:
 
