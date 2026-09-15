@@ -1215,6 +1215,30 @@ class BaseTestExportZarrToZarr(BaseZarrWriterTestCase):
                 with self.assertRaisesWith(ValueError, msg):
                     export_io.export(src_io=read_io, container=dummy_file)
 
+    def test_export_root_level_dataset(self):
+        """Test that a non-scalar dataset directly under the root group is copied when exporting with the default
+        link_data=True, rather than being written as a link to a dataset that does not exist in the new file."""
+        data = np.arange(5)
+        builder = GroupBuilder(
+            name="root",
+            datasets={"root_data": DatasetBuilder("root_data", data)},
+            groups={"group": GroupBuilder("group", datasets={"nested_data": DatasetBuilder("nested_data", data)})},
+        )
+        with ZarrIO(self.store_path[0], mode="w") as write_io:
+            write_io.write_builder(builder)
+
+        with ZarrIO(self.store_path[0], mode="r") as read_io:
+            with ZarrIO(self.store_path[1], mode="w") as export_io:
+                export_io.export(src_io=read_io)
+
+        with ZarrIO(self.store_path[1], mode="r") as read_io:
+            root = read_io.read_builder()
+            self.assertIn("root_data", root.datasets)
+            self.assertNotIn("root_data", root.links)
+            np.testing.assert_array_equal(root["root_data"].data[:], data)
+            self.assertIn("nested_data", root["group"].datasets)
+            np.testing.assert_array_equal(root["group"]["nested_data"].data[:], data)
+
     def test_export_no_consolidation(self):
         """Test that exporting with consolidate_metadata=False works."""
         foo1 = Foo("foo1", [1, 2, 3, 4, 5], "I am foo1", 17, 3.14)

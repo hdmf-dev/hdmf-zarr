@@ -5,6 +5,7 @@ import itertools
 import json
 import math
 import os
+import posixpath
 import shutil
 import warnings
 import numpy as np
@@ -1396,7 +1397,9 @@ class ZarrIO(HDMFIO):
                     linked = True
                     dset = None
                 else:  # exporting
-                    data_parent = "/".join(data.name.split("/")[:-1])
+                    # Zarr group names are absolute POSIX-style paths (the root group is "/"), so use
+                    # posixpath.dirname rather than splitting on "/", which yields "" for root-level datasets.
+                    data_parent = posixpath.dirname(data.name)
                     # Case 1: The dataset is NOT in the export source, create a link to preserve the external link.
                     if data_filename != export_source:
                         self.__add_link__(parent, rel_data_filename, data.name, name)
