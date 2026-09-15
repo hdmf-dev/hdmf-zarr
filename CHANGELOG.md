@@ -16,6 +16,7 @@
 - Fixed lazily-loaded Zarr arrays not being recognized as `collections.abc.Iterable`, which caused hdmf/pynwb type checks (e.g. `ImageSeries.dimension`) to reject them. `zarr.Array` gains an `__iter__` that yields elements lazily via `__getitem__`. This applies to arrays from both Zarr v2 and Zarr v3 files, since both are read through zarr-python v3. @alejoe91 [#349](https://github.com/hdmf-dev/hdmf-zarr/pull/349)
 - Fixed silent truncation when writing into an existing compound dataset whose fixed-length string or reference fields are narrower than the new data. `ZarrIO` now raises a `ValueError` naming the field and the two widths. @h-mayorquin
 - Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`, because `ZarrIO.__dtypes` was missing those keys and the resulting `None` was passed to `np.dtype`. This affected the `HERD` index fields, among others. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
+- Fixed bug where exporting with the default `link_data=True` wrote non-scalar datasets directly under the root group (e.g., `file_create_date` in NWB files) as links to datasets that do not exist in the new file, so the exported file could not be read back. @bendichter [#377](https://github.com/hdmf-dev/hdmf-zarr/pull/377)
 
 
 ## 0.13.0 (June 22, 2026)
