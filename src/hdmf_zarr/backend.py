@@ -3,7 +3,6 @@
 # Python imports
 import itertools
 import json
-import math
 import os
 import posixpath
 import shutil
@@ -892,8 +891,6 @@ class ZarrIO(HDMFIO):
                 obj.attrs[key] = tmp
             # Case 3: Scalar attributes
             else:
-                # Encode NaN/Inf floats as strings (JSON doesn't support them)
-                value = self._encode_nan_inf(value)
                 # Attempt to write the attribute
                 try:
                     obj.attrs[key] = value
@@ -911,33 +908,6 @@ class ZarrIO(HDMFIO):
                     except:  # noqa: E722
                         msg = str(e) + "key=" + key + " type=" + str(type(value)) + "  data=" + str(value)
                         raise TypeError(msg) from e
-
-    @staticmethod
-    def _encode_nan_inf(value):
-        """Encode NaN/Inf float values as strings for JSON-safe attribute storage."""
-        if isinstance(value, float):
-            if math.isnan(value):
-                return "NaN"
-            elif math.isinf(value):
-                return "Infinity" if value > 0 else "-Infinity"
-        elif isinstance(value, (np.floating,)):
-            if np.isnan(value):
-                return "NaN"
-            elif np.isinf(value):
-                return "Infinity" if value > 0 else "-Infinity"
-        return value
-
-    @staticmethod
-    def _decode_nan_inf(value):
-        """Decode NaN/Inf string representations back to float values."""
-        if isinstance(value, str):
-            if value == "NaN":
-                return float("nan")
-            elif value == "Infinity":
-                return float("inf")
-            elif value == "-Infinity":
-                return float("-inf")
-        return value
 
     def __get_path(self, builder):
         """Get the path to the builder.
@@ -2206,6 +2176,5 @@ class ZarrIO(HDMFIO):
                     else:
                         raise NotImplementedError("Unsupported zarr_dtype for attribute " + str(v))
                 else:
-                    # Decode NaN/Inf string representations back to float
-                    ret[k] = self._decode_nan_inf(v)
+                    ret[k] = v
         return ret
