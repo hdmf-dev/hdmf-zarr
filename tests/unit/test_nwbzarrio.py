@@ -205,9 +205,7 @@ class TestNWBZarrIOCompoundReferenceExport(unittest.TestCase):
             with NWBZarrIO(self.export_path, mode="w") as export_io:
                 export_io.export(src_io=read_io)
 
-        # Check the exported compound dataset directly. Reading the whole export back through
-        # NWBZarrIO is not exercised here because link_data=True export of the root-level
-        # file_create_date dataset is broken independently of compound references.
+        # The on-disk form: a structured dtype whose reference field holds plain target paths.
         exported = zarr.open_group(self.export_path, mode="r")["intervals/epochs/timeseries"]
         self.assertEqual(exported.dtype.names, ("idx_start", "count", "timeseries"))
         self.assertEqual(exported.attrs["_REFERENCE_FIELDS"], ["timeseries"])
@@ -217,6 +215,16 @@ class TestNWBZarrIOCompoundReferenceExport(unittest.TestCase):
             self.assertEqual(int(rows[row]["idx_start"]), row)
             self.assertEqual(int(rows[row]["count"]), 1)
             self.assertEqual(str(rows[row]["timeseries"]), "/acquisition/ts")
+
+        # The exported file reads back and each stored path resolves to the TimeSeries it names.
+        with NWBZarrIO(self.export_path, mode="r") as io:
+            exported_nwbfile = io.read()
+            ts = exported_nwbfile.acquisition["ts"]
+            for row in range(2):
+                entry = exported_nwbfile.epochs["timeseries"][row][0]
+                self.assertEqual(entry.idx_start, row)
+                self.assertEqual(entry.count, 1)
+                self.assertIs(entry.timeseries, ts)
 
     def test_validate_file_with_compound_reference_column(self):
         from pynwb import validate
