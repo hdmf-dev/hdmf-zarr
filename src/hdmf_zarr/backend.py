@@ -97,9 +97,9 @@ def _check_compound_string_widths(dset, dtype):
                 "the dataset with wider fields."
             )
 
+
 SUPPORTED_ZARR_STORES = (
-    (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE
-    else (LocalStore, FsspecStore, _ZarrStoreABC)
+    (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore, _ZarrStoreABC)
 )
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
@@ -405,7 +405,7 @@ class ZarrIO(HDMFIO):
         :param namespace_catalog: The NamespaceCatalog or TypeMap to load namespaces into.
         :param namespaces: The namespaces to load.
         :param f: The Zarr group from which to load the namespaces.
-        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping 
+        :return: A dictionary mapping the names of the loaded namespaces to a dictionary mapping
         included namespace names and the included data types.
         """
         if SPEC_LOC_ATTR not in f.attrs:
@@ -877,9 +877,7 @@ class ZarrIO(HDMFIO):
                                 (
                                     i.item()
                                     if (isinstance(i, np.generic) and not isinstance(i, np.bytes_))
-                                    else i.decode("utf-8")
-                                    if isinstance(i, (bytes, np.bytes_))
-                                    else i
+                                    else i.decode("utf-8") if isinstance(i, (bytes, np.bytes_)) else i
                                 )
                                 for i in value
                             ]
@@ -907,9 +905,7 @@ class ZarrIO(HDMFIO):
                         val = (
                             val.item()
                             if (isinstance(val, np.generic) and not isinstance(val, np.bytes_))
-                            else val.decode("utf-8")
-                            if isinstance(val, (bytes, np.bytes_))
-                            else val
+                            else val.decode("utf-8") if isinstance(val, (bytes, np.bytes_)) else val
                         )
                         obj.attrs[key] = val
                     except:  # noqa: E722
@@ -1548,8 +1544,7 @@ class ZarrIO(HDMFIO):
                 _check_compound_string_widths(dset, dtype_v3)
                 # Mark which fields contain references
                 ref_field_names = [
-                    dts["name"] for dts in type_str
-                    if isinstance(dts, dict) and dts.get("dtype") == "object_reference"
+                    dts["name"] for dts in type_str if isinstance(dts, dict) and dts.get("dtype") == "object_reference"
                 ]
                 if ref_field_names:
                     dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
@@ -1731,8 +1726,12 @@ class ZarrIO(HDMFIO):
         return len(data)
 
     __reserve_attribute = (
-        "_DTYPE", "_SCALAR", "_LINKS", "_REFERENCE_FIELDS",
-        "zarr_dtype", "zarr_link",  # backward compat with old convention
+        "_DTYPE",
+        "_SCALAR",
+        "_LINKS",
+        "_REFERENCE_FIELDS",
+        "zarr_dtype",
+        "zarr_link",  # backward compat with old convention
         SPEC_LOC_ATTR,
     )
 
@@ -2117,11 +2116,13 @@ class ZarrIO(HDMFIO):
 
         if compound_dtype is not None:
             zarr_dtype = compound_dtype
+        elif is_scalar:
+            # ``_SCALAR`` identifies the dataset as holding a scalar. A writer may pair it with
+            # ``_DTYPE`` carrying the element type, so it is resolved first.
+            zarr_dtype = "scalar"
         elif dtype_attr is not None:
             # Map "object_reference" to hdmf's "object" for compatibility
             zarr_dtype = "object" if dtype_attr == "object_reference" else dtype_attr
-        elif is_scalar:
-            zarr_dtype = "scalar"
         elif "zarr_dtype" in zarr_obj.attrs:
             # Zarr v2 convention (hdmf-zarr < 0.14) stored everything in zarr_dtype.
             # Read-only support via ZarrV2IO.
@@ -2129,8 +2130,7 @@ class ZarrIO(HDMFIO):
         elif hasattr(zarr_obj, "dtype"):  # Fallback for invalid files
             zarr_dtype = zarr_obj.dtype
             warnings.warn(
-                "Inferred dtype from zarr type. Dataset missing dtype attributes: "
-                + str(name) + "   " + str(zarr_obj)
+                "Inferred dtype from zarr type. Dataset missing dtype attributes: " + str(name) + "   " + str(zarr_obj)
             )
         else:
             raise ValueError("Dataset missing dtype attributes: " + str(name) + "   " + str(zarr_obj))

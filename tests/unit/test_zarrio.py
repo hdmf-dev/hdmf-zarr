@@ -695,3 +695,29 @@ class TestResolveCompoundDtype(ZarrStoreTestCase):
         written = zarr.open(os.path.join(self.store_path, "tbl"), mode="r")
         self.assertEqual(written.dtype["idx"], np.dtype(np.uint32))
         self.assertEqual(written[:]["idx"].tolist(), [0, 1])
+
+
+class TestReadScalarDataset(ZarrStoreTestCase):
+    """Reading datasets marked scalar by the ``_SCALAR`` attribute."""
+
+    def _read_dtype(self, name):
+        with ZarrIO(self.store_path, mode="r") as io:
+            return io.read_builder().datasets[name].dtype
+
+    def test_read_scalar_with_dtype_attribute(self):
+        """A scalar dataset that also carries ``_DTYPE`` is read as a scalar.
+
+        The convention permits a writer to record the element type alongside ``_SCALAR``.
+        """
+        group = zarr.open_group(self.store_path, mode="w")
+        both = group.create_array("both", shape=(1,), dtype="<f8")
+        both[0] = 3.5
+        both.attrs["_SCALAR"] = True
+        both.attrs["_DTYPE"] = "<f8"
+        scalar_only = group.create_array("scalar_only", shape=(1,), dtype="<f8")
+        scalar_only[0] = 3.5
+        scalar_only.attrs["_SCALAR"] = True
+        zarr.consolidate_metadata(group.store)
+
+        self.assertEqual(self._read_dtype("both"), "scalar")
+        self.assertEqual(self._read_dtype("scalar_only"), "scalar")
