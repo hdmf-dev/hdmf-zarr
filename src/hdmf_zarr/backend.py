@@ -2116,11 +2116,13 @@ class ZarrIO(HDMFIO):
 
         if compound_dtype is not None:
             zarr_dtype = compound_dtype
+        elif is_scalar:
+            # ``_SCALAR`` identifies the dataset as holding a scalar. A writer may pair it with
+            # ``_DTYPE`` carrying the element type, so it is resolved first.
+            zarr_dtype = "scalar"
         elif dtype_attr is not None:
             # Map "object_reference" to hdmf's "object" for compatibility
             zarr_dtype = "object" if dtype_attr == "object_reference" else dtype_attr
-        elif is_scalar:
-            zarr_dtype = "scalar"
         elif "zarr_dtype" in zarr_obj.attrs:
             # Zarr v2 convention (hdmf-zarr < 0.14) stored everything in zarr_dtype.
             # Read-only support via ZarrV2IO.
