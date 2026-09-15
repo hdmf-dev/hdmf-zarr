@@ -394,8 +394,7 @@ reference when debugging legacy data.
     Legacy Attribute Name         Usage
     ============================  ======================================================================================
     ``zarr_link``                 Attribute on Groups used to store links. Each entry is a dict with ``name``,
-                                  ``source``, ``path``, ``object_id``, and ``source_object_id`` keys. Replaced by
-                                  ``_LINKS`` (which drops the two object id keys).
+                                  ``source``, and ``path`` keys. Replaced by ``_LINKS``.
     ``zarr_dtype``                Attribute on Datasets specifying the data type. Set to ``"object"`` for reference
                                   datasets, ``"scalar"`` for scalar datasets, and to a list of ``{"name", "dtype"}``
                                   dicts for compound datasets. Replaced by ``_DTYPE``, ``_SCALAR``, and the native
