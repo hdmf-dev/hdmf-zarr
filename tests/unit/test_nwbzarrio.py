@@ -5,6 +5,7 @@ import shutil
 from datetime import datetime
 from dateutil.tz import tzlocal
 import numpy as np
+import zarr
 
 try:
     from pynwb import NWBFile
@@ -165,3 +166,62 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
             shutil.rmtree(export_path)
         if os.path.exists(double_export_path):
             shutil.rmtree(double_export_path)
+
+
+@unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")
+class TestNWBZarrIOCompoundReferenceExport(unittest.TestCase):
+    """Export of a file with a compound reference column (e.g., epochs.timeseries) using the
+    default ``link_data=True`` path, which routes the descriptor produced by ``__read_dataset``
+    straight into ``write_dataset`` without going through the BuildManager."""
+
+    def setUp(self):
+        self.filepath = "test_compound_ref_export.zarr"
+        self.export_path = "test_compound_ref_export_exported.zarr"
+
+    def tearDown(self):
+        for path in (self.filepath, self.export_path):
+            if os.path.exists(path):
+                shutil.rmtree(path)
+
+    def write_test_file(self):
+        from pynwb import TimeSeries
+
+        nwbfile = NWBFile(
+            session_description="compound reference export",
+            identifier="EXAMPLE_ID",
+            session_start_time=datetime(2024, 1, 1, tzinfo=tzlocal()),
+        )
+        ts = TimeSeries(name="ts", data=np.arange(10.0), unit="v", rate=1.0)
+        nwbfile.add_acquisition(ts)
+        nwbfile.add_epoch(0.0, 1.0, timeseries=[ts])
+        nwbfile.add_epoch(1.0, 2.0, timeseries=[ts])
+        with NWBZarrIO(self.filepath, mode="w") as io:
+            io.write(nwbfile)
+
+    def test_export_with_link_data(self):
+        self.write_test_file()
+
+        with NWBZarrIO(self.filepath, mode="r") as read_io:
+            with NWBZarrIO(self.export_path, mode="w") as export_io:
+                export_io.export(src_io=read_io)
+
+        # Check the exported compound dataset directly. Reading the whole export back through
+        # NWBZarrIO is not exercised here because link_data=True export of the root-level
+        # file_create_date dataset is broken independently of compound references.
+        exported = zarr.open_group(self.export_path, mode="r")["intervals/epochs/timeseries"]
+        self.assertEqual(exported.dtype.names, ("idx_start", "count", "timeseries"))
+        self.assertEqual(exported.attrs["_REFERENCE_FIELDS"], ["timeseries"])
+        self.assertEqual(exported.shape, (2,))
+        rows = exported[:]
+        for row in range(2):
+            self.assertEqual(int(rows[row]["idx_start"]), row)
+            self.assertEqual(int(rows[row]["count"]), 1)
+            self.assertEqual(str(rows[row]["timeseries"]), "/acquisition/ts")
+
+    def test_validate_file_with_compound_reference_column(self):
+        from pynwb import validate
+
+        self.write_test_file()
+        with NWBZarrIO(self.filepath, mode="r") as io:
+            errors = validate(io=io)
+        self.assertEqual(errors, [])

@@ -1030,35 +1030,27 @@ class ZarrIO(HDMFIO):
         else:
             target_name = ROOT_NAME
 
-        # For same-file references (source is "." or None) when using a non-path store,
-        # navigate within the already-open file instead of trying to open a new store.
-        is_same_file = source is None or source == "."
-        is_store_path = isinstance(self.path, SUPPORTED_ZARR_STORES) and not isinstance(self.path, LocalStore)
-        if is_same_file and is_store_path:
-            source_file = self.source
-            target_zarr_obj = self.__file
+        if source is None:
+            source_file = str(zarr_ref["path"])
         else:
-            if source is None:
-                source_file = str(zarr_ref["path"])
-            else:
-                source_file = str(source)
+            source_file = str(source)
 
-            if not self.is_remote():
-                if isinstance(self.source, str) and self.source.startswith(("s3://")):
-                    source_file = self.source
-                else:
-                    source_file = self._resolve_ref_source(source_file)
+        if not self.is_remote():
+            if isinstance(self.source, str) and self.source.startswith(("s3://")):
+                source_file = self.source
             else:
-                # get rid of extra "/" and "./" in the path root and source_file
-                root_path = str(self.path).rstrip("/")
-                source_path = str(source_file).lstrip(".")
-                source_file = root_path + source_path
+                source_file = self._resolve_ref_source(source_file)
+        else:
+            # get rid of extra "/" and "./" in the path root and source_file
+            root_path = str(self.path).rstrip("/")
+            source_path = str(source_file).lstrip(".")
+            source_file = root_path + source_path
 
-            target_zarr_obj = self._open_file_consolidated(
-                store=source_file,
-                mode="r",
-                storage_options=self.__storage_options,
-            )
+        target_zarr_obj = self._open_file_consolidated(
+            store=source_file,
+            mode="r",
+            storage_options=self.__storage_options,
+        )
         if object_path is not None:
             try:
                 target_zarr_obj = target_zarr_obj[object_path]
@@ -1503,9 +1495,7 @@ class ZarrIO(HDMFIO):
                 str_fields = {}  # field_name -> list of string values
                 for field in options["dtype"]:
                     field_name = field["name"]
-                    is_ref_field = (
-                        field["dtype"] == "object" or isinstance(field["dtype"], dict)
-                    )
+                    is_ref_field = field["dtype"] in ("object", "object_reference") or isinstance(field["dtype"], dict)
                     is_str_field = (
                         field["dtype"] is str
                         or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime")
@@ -1644,6 +1634,7 @@ class ZarrIO(HDMFIO):
         "ref": ZarrReference,
         "reference": ZarrReference,
         "object": ZarrReference,
+        "object_reference": ZarrReference,
     }
 
     @classmethod
@@ -1837,7 +1828,7 @@ class ZarrIO(HDMFIO):
         if isinstance(dtype, np.dtype) and dtype.names is not None:
             _check_compound_string_widths(dset, dtype)
         # Zarr v3's structured data_type carries compound field info natively,
-        # so no _COMPOUND_DTYPE attribute is needed. Only set _DTYPE for non-compound types.
+        # so _DTYPE is only set for non-compound types.
         if not isinstance(type_str, list):
             dset.attrs["_DTYPE"] = type_str
 
@@ -2109,12 +2100,6 @@ class ZarrIO(HDMFIO):
         is_scalar = zarr_obj.attrs.get("_SCALAR", False)
         dtype_attr = zarr_obj.attrs.get("_DTYPE", None)
         ref_fields = zarr_obj.attrs.get("_REFERENCE_FIELDS", None)
-
-        if zarr_obj.attrs.get("_COMPOUND_DTYPE", None) is not None:
-            raise ValueError(
-                "_COMPOUND_DTYPE attribute is no longer supported on dataset '%s'. "
-                "Use zarr v3 structured data_type with _REFERENCE_FIELDS instead." % str(name)
-            )
 
         compound_dtype = None
         if hasattr(zarr_obj, "dtype") and hasattr(zarr_obj.dtype, "names") and zarr_obj.dtype.names is not None:
