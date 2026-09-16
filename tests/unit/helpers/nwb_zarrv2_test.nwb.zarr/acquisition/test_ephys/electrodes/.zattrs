@@ -5,13 +5,13 @@
     "description": "all electrodes",
     "namespace": "hdmf-common",
     "neurodata_type": "DynamicTableRegion",
-    "object_id": "85c35564-7cbd-4075-b4c4-2c6cbefbe7eb",
+    "object_id": "af6e1bef-6687-485e-a867-9144a89de95c",
     "table": {
         "value": {
-            "object_id": "588a3669-d3a4-442c-ac7c-2d1430947027",
+            "object_id": "8f6760af-ecbe-4a6c-a715-881c53179847",
             "path": "/general/extracellular_ephys/electrodes",
             "source": ".",
-            "source_object_id": "cd7369dd-582d-4872-8eaa-8bd9226094ef"
+            "source_object_id": "23a74b9e-680b-4a4c-b548-ccf9aece221c"
         },
         "zarr_dtype": "object"
     },

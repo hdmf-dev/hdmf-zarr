@@ -2,9 +2,9 @@
     "_ARRAY_DIMENSIONS": [
         "dim0"
     ],
-    "description": "the impedance of the electrode, in ohms",
+    "description": "Impedance of the channel, in ohms.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "1a4159f7-d1b2-4ed2-8676-65cd3601eebd",
-    "zarr_dtype": "float"
+    "object_id": "b9e88693-e9c2-402f-84f2-f67bcba051ed",
+    "zarr_dtype": "float64"
 }

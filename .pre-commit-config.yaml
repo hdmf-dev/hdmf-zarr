@@ -4,9 +4,12 @@ repos:
     hooks:
     -   id: check-yaml
     -   id: end-of-file-fixer
+        exclude: ^tests/unit/helpers/.*\.nwb\.zarr/
     -   id: trailing-whitespace
+        exclude: ^tests/unit/helpers/.*\.nwb\.zarr/
     -   id: check-added-large-files
     -   id: check-json
+        exclude: ^tests/unit/helpers/.*\.nwb\.zarr/
     -   id: check-toml
 -   repo: https://github.com/psf/black
     rev: 25.9.0

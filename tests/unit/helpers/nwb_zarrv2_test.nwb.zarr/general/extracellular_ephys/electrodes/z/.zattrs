@@ -2,9 +2,9 @@
     "_ARRAY_DIMENSIONS": [
         "dim0"
     ],
-    "description": "the z coordinate of the position (+z is right)",
+    "description": "z coordinate of the channel location in the brain.",
     "namespace": "hdmf-common",
     "neurodata_type": "VectorData",
-    "object_id": "c63d2271-6824-4cd8-b8bb-0f905b76d7d0",
-    "zarr_dtype": "float"
+    "object_id": "7afe6d63-c917-4ae9-b859-05ee6d548143",
+    "zarr_dtype": "float64"
 }
