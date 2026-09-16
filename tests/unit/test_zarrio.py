@@ -31,6 +31,7 @@ from hdmf.build import GroupBuilder, DatasetBuilder, ReferenceBuilder
 from hdmf.backends.hdf5.h5tools import HDF5IO
 import os
 import shutil
+import tempfile
 import warnings
 import pathlib
 
@@ -721,3 +722,48 @@ class TestReadScalarDataset(ZarrStoreTestCase):
 
         self.assertEqual(self._read_dtype("both"), "scalar")
         self.assertEqual(self._read_dtype("scalar_only"), "scalar")
+
+
+#########################################
+#  Export through a symlinked path
+#########################################
+class TestExportThroughSymlinkedPath(TestCase):
+    """
+    Test exporting a file whose path contains a symlinked component.
+
+    The export source is compared against the path a LocalStore reports, which is
+    symlink-resolved, so both sides must be resolved for datasets to be recognized as
+    belonging to the file being exported.
+    """
+
+    def setUp(self):
+        self.real_dir = os.path.realpath(tempfile.mkdtemp())
+        self.link_dir = tempfile.mktemp()
+        os.symlink(self.real_dir, self.link_dir)
+        self.source_path = os.path.join(self.link_dir, "source.zarr")
+        self.export_path = os.path.join(self.link_dir, "export.zarr")
+
+    def tearDown(self):
+        if os.path.islink(self.link_dir):
+            os.unlink(self.link_dir)
+        shutil.rmtree(self.real_dir, ignore_errors=True)
+
+    def test_export_through_symlinked_path_copies_data(self):
+        builder = GroupBuilder("root", attributes={"namespace": "test"})
+        builder.set_dataset(DatasetBuilder("my_data", np.arange(5), attributes={}))
+        with ZarrIO(self.source_path, mode="w") as io:
+            io.write_builder(builder)
+
+        with ZarrIO(self.source_path, mode="r") as read_io:
+            with ZarrIO(self.export_path, mode="w") as export_io:
+                export_io.export(src_io=read_io)
+
+        exported = zarr.open_group(self.export_path, mode="r")
+        self.assertIn("my_data", [name for name, _ in exported.members()])
+        self.assertIsNone(exported.attrs.get("_LINKS"))
+
+        # the exported file holds its own chunks, so it outlives the source
+        shutil.rmtree(os.path.join(self.real_dir, "source.zarr"))
+        with ZarrIO(self.export_path, mode="r") as io:
+            read_builder = io.read_builder()
+            self.assertListEqual(list(read_builder["my_data"].data[:]), [0, 1, 2, 3, 4])

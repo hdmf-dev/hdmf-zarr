@@ -26,6 +26,7 @@ Added support for reading and converting existing data using Zarr V2:
 Addressed the following bugs that are independent of the migration to Zarr V3:
 * Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 * Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
+* Fixed bug where exporting a file whose path contains a symlinked component wrote external links instead of copying the data. @rly [#383](https://github.com/hdmf-dev/hdmf-zarr/issues/383)
 
 ### Contributors
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.

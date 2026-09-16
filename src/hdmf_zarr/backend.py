@@ -211,11 +211,12 @@ class ZarrIO(HDMFIO):
         self.__force_overwrite = force_overwrite
         if isinstance(path, Path):
             path = str(path)
-        # Convert local paths to absolute for consistent path resolution. Leave protocol
-        # URLs (e.g. s3://, gcs://, gs://, abfs://, az://, http(s)://, or chained fsspec
-        # protocols like simplecache::s3://) untouched so their URLs are not corrupted.
+        # Resolve local paths so the source matches the path a LocalStore reports for the
+        # same file, which is symlink-resolved. Leave protocol URLs (e.g. s3://, gcs://,
+        # gs://, abfs://, az://, http(s)://, or chained fsspec protocols like
+        # simplecache::s3://) untouched so their URLs are not corrupted.
         if isinstance(path, str) and "://" not in path:
-            path = os.path.abspath(path)
+            path = str(Path(path).resolve())
         # FsspecStore is read-only; enforce read mode for remote paths
         if storage_options is not None and mode != "r":
             raise ValueError(
