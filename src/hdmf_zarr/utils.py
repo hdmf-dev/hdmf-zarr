@@ -6,7 +6,6 @@ import multiprocessing
 import math
 import json
 import logging
-import os
 from itertools import product
 from collections import deque
 from collections.abc import Iterable
@@ -19,6 +18,7 @@ import numpy as np
 import zarr
 from zarr import Group, Array
 from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec, ArrayBytesCodec
+from zarr.storage import LocalStore
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
 from hdmf.query import HDMFDataset
@@ -33,6 +33,19 @@ from hdmf.spec import SpecWriter, SpecReader
 # so they are not share in the same process
 global _worker_context
 global _operation_to_run
+
+
+def get_store_path(store):
+    """
+    Return the path identifying a Zarr store.
+
+    For a :py:class:`~zarr.storage.LocalStore` this is the resolved absolute filesystem
+    path. For every other store this is the store's string representation, which for
+    remote stores is a URL.
+    """
+    if isinstance(store, LocalStore):
+        return str(store.root.resolve())
+    return str(store)
 
 
 class HDMFZarrArray(Array):
@@ -514,8 +527,7 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        fpath = str(self.__group.store)
-        source = "%s:%s" % (os.path.abspath(fpath), self.__group.name)
+        source = "%s:%s" % (get_store_path(self.__group.store), self.__group.name)
         super().__init__(source=source)
         self.__cache = None
 

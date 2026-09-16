@@ -34,6 +34,7 @@ from .utils import (
     ZarrSpecWriter,
     ZarrSpecReader,
     ZarrIODataChunkIteratorQueue,
+    get_store_path,
 )
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
@@ -720,9 +721,7 @@ class ZarrIO(HDMFIO):
         For local stores, this returns the resolved absolute filesystem path.
         For remote stores, this returns the string representation.
         """
-        if isinstance(store, LocalStore):
-            return str(store.root.resolve())
-        return str(store)
+        return get_store_path(store)
 
     @staticmethod
     def _resolve_store(store, storage_options=None):

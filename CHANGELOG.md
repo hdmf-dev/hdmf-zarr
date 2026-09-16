@@ -8,6 +8,13 @@ This release marks a major transition for `hdmf-zarr`, updating the core storage
 - **Zarr V3 Standard:** The primary `ZarrIO` and `NWBZarrIO` classes now write and read Zarr v3 format exclusively, using `zarr-python` v3.
 - **Legacy Zarr V2 Support:** Legacy Zarr v2 files cannot be read by `ZarrIO` directly. Instead, use the newly added `ZarrV2IO` and `NWBZarrV2IO` backends to read them. Attempting to open a v2 file with `ZarrIO` will now raise a clear error directing users to the v2 classes.
 - **Migration Path:** To migrate existing files to the new format, you can use `NWBZarrV2IO.export_to_v3(...)` or the one-shot `NWBZarrV2IO.convert_to_v3(...)` static helper to efficiently convert NWB Zarr v2 files to Zarr v3.
+- **Forward Compatibility:** Files written by this release are Zarr v3 and cannot be opened by hdmf-zarr 0.13 or earlier, which require `zarr<3`. Collaborators who need to read a file written with 0.14 must also upgrade to 0.14.
+
+### Removed
+- **`synchronizer` argument:** `ZarrIO` and `NWBZarrIO` no longer accept a `synchronizer` argument, and the `ZarrIO.synchronizer` property is removed. zarr-python v3 does not provide the synchronizer mechanism this wrapped. Passing `synchronizer=...` raises `TypeError`.
+- **`object_codec_class` argument:** `ZarrIO` and `NWBZarrIO` no longer accept an `object_codec_class` argument, and the `ZarrIO.object_codec_class` property is removed. References, cached specs, and compound datasets are serialized as JSON in `StringDType` arrays, so there is no object codec to select. Passing `object_codec_class=...` raises `TypeError`.
+- **Store classes:** `SUPPORTED_ZARR_STORES` covers `LocalStore`, `FsspecStore` when fsspec is installed, and any other zarr v3 `Store` subclass. `DirectoryStore`, `NestedDirectoryStore`, and `TempStore` do not exist in zarr-python v3, so code that constructs one needs to use `LocalStore` instead.
+- **Remote write:** Passing `storage_options` is supported only with `mode="r"`. Writing an NWB Zarr file directly to a remote store is not currently supported and raises `ValueError`.
 
 ### Changes
 The core functionality has been overhauled to transition to Zarr V3, including structural, encoding, and reading changes.
@@ -16,6 +23,7 @@ The core functionality has been overhauled to transition to Zarr V3, including s
 * **Aligned `ZarrDataIO` with the Zarr v3 codec API:** The `compressor` argument is renamed to `compressors`, the `serializer` (`ArrayBytesCodec`) slot is now directly accessible, and `filters` only applies to `ArrayArrayCodec`. @h-mayorquin [#369](https://github.com/hdmf-dev/hdmf-zarr/pull/369)
 * **Support dataset sharding via `ZarrDataIO`:** Added new `shards` argument to `ZarrDataIO` to define custom sharding properties, including support for automatic sharding and guarded parallel iterator writes. @h-mayorquin @alejoe91 [#374](https://github.com/hdmf-dev/hdmf-zarr/pull/374) [#372](https://github.com/hdmf-dev/hdmf-zarr/pull/372)
 * **Python and Zarr Requirements:** Bumped minimum required Python version to 3.12 and Zarr dependency to `>=3.3.0` due to backwards-incompatible changes in Zarr v3 structured data types. @oruebel [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373)
+* **Other Dependency Requirements:** Bumped `hdmf` to `>=6.2.0`, `numpy` to `>=2.0.0`, and `pynwb` to `>=4.2.0`, and removed the `numcodecs<0.16.0` upper bound. Downstream projects pinning `hdmf<5`, `numpy<2`, or `pynwb<4` need to relax those pins to install this release.
 
 ### Added
 Added support for reading and converting existing data using Zarr V2:
@@ -26,6 +34,7 @@ Added support for reading and converting existing data using Zarr V2:
 Addressed the following bugs that are independent of the migration to Zarr V3:
 * Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 * Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
+* Fixed bug where `ZarrSpecReader.source` was built by applying `os.path.abspath` to the `file://` URL returned by `str(LocalStore)`, yielding a path that does not exist and that embeds the current working directory. @rly
 
 ### Contributors
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.
