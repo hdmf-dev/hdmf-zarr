@@ -40,8 +40,10 @@ def get_store_path(store):
     Return the path identifying a Zarr store.
 
     For a :py:class:`~zarr.storage.LocalStore` this is the resolved absolute filesystem
-    path. For every other store this is the store's string representation, which for
-    remote stores is a URL.
+    path. For every other store this is ``str(store)``, whose form is defined by that
+    store class: :py:class:`~zarr.storage.MemoryStore` gives a ``memory://`` URL, while
+    a store that defines no ``__str__``, such as
+    :py:class:`~zarr.storage.FsspecStore`, falls back to its ``repr``.
     """
     if isinstance(store, LocalStore):
         return str(store.root.resolve())
@@ -527,7 +529,7 @@ class ZarrSpecReader(SpecReader):
     @docval({"name": "group", "type": Group, "doc": "the Zarr file to read specs from"})
     def __init__(self, **kwargs):
         self.__group = getargs("group", kwargs)
-        source = "%s:%s" % (get_store_path(self.__group.store), self.__group.name)
+        source = f"{get_store_path(self.__group.store)}:{self.__group.name}"
         super().__init__(source=source)
         self.__cache = None
 

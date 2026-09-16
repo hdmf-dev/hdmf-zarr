@@ -233,7 +233,7 @@ class ZarrIO(HDMFIO):
         self._consolidated_cache = {}
         source_path = self.__path
         if isinstance(self.__path, SUPPORTED_ZARR_STORES):
-            source_path = self._get_store_path(self.__path)
+            source_path = get_store_path(self.__path)
         super().__init__(manager, source=source_path)
 
     @property
@@ -409,7 +409,7 @@ class ZarrIO(HDMFIO):
         included namespace names and the included data types.
         """
         if SPEC_LOC_ATTR not in f.attrs:
-            msg = "No cached namespaces found in %s" % cls._get_store_path(f.store)
+            msg = "No cached namespaces found in %s" % get_store_path(f.store)
             warnings.warn(msg)
             return {}
 
@@ -712,16 +712,6 @@ class ZarrIO(HDMFIO):
         # Consolidate metadata for the entire file after everything has been written
         if consolidate_metadata:
             zarr.consolidate_metadata(store=self.path)
-
-    @staticmethod
-    def _get_store_path(store):
-        """
-        Method to retrieve the path from the Zarr storage.
-
-        For local stores, this returns the resolved absolute filesystem path.
-        For remote stores, this returns the string representation.
-        """
-        return get_store_path(store)
 
     @staticmethod
     def _resolve_store(store, storage_options=None):
@@ -1057,7 +1047,7 @@ class ZarrIO(HDMFIO):
         # when self.path is a Path, it is converted to a str in __init__.
         # We only have to deal with *SUPPORTED_ZARR_STORES and strings.
         if isinstance(ref_link_source, SUPPORTED_ZARR_STORES):
-            ref_link_source = self._get_store_path(ref_link_source)
+            ref_link_source = get_store_path(ref_link_source)
         elif not isinstance(ref_link_source, str):
             ref_link_source = str(ref_link_source)
 
@@ -1070,7 +1060,7 @@ class ZarrIO(HDMFIO):
         # Note: Don't use just os.path.relpath() with just a single arg, i.e., source. This will make the
         # path relative to the working directory. We want it relative to where it lives in the file system.
         if isinstance(self.path, SUPPORTED_ZARR_STORES):
-            str_path = self._get_store_path(self.path)
+            str_path = get_store_path(self.path)
         elif not isinstance(self.path, str):
             str_path = str(self.path)
         else:
@@ -1103,7 +1093,7 @@ class ZarrIO(HDMFIO):
             parent.attrs["_LINKS"] = []
         links = list(parent.attrs["_LINKS"])
         if not isinstance(target_source, str):  # a store
-            target_source = self._get_store_path(target_source)
+            target_source = get_store_path(target_source)
         links.append({"source": target_source, "path": target_path, "name": link_name})
         parent.attrs["_LINKS"] = links
 
@@ -1123,7 +1113,7 @@ class ZarrIO(HDMFIO):
 
         target_builder = builder.builder
 
-        group_filename = self._get_store_path(parent.store)
+        group_filename = get_store_path(parent.store)
         if export_source is not None:
             if target_builder.source in (group_filename, export_source):
                 # Case 1:
@@ -1347,7 +1337,7 @@ class ZarrIO(HDMFIO):
         dset = None
         if isinstance(data, Array):
             # copy the dataset
-            data_filename = self._get_store_path(data.store)
+            data_filename = get_store_path(data.store)
             str_path = self.path
             if not isinstance(str_path, str):  # a store
                 str_path = str(self.path)
@@ -1918,7 +1908,7 @@ class ZarrIO(HDMFIO):
             raise ValueError(self._zarr_v2_read_error_message(self.source)) from exc
 
     def __set_built(self, zarr_obj, builder):
-        fpath = self._get_store_path(zarr_obj.store)
+        fpath = get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         self.__built.setdefault(path, builder)
@@ -1961,7 +1951,7 @@ class ZarrIO(HDMFIO):
         """
         Look up a builder for the given zarr object
         """
-        fpath = self._get_store_path(zarr_obj.store)
+        fpath = get_store_path(zarr_obj.store)
         path = zarr_obj.path
         path = os.path.join(fpath, path)
         return self.__built.get(path, None)
@@ -2006,7 +1996,7 @@ class ZarrIO(HDMFIO):
 
         # Note: The source should be from the zarr object and not assumed to be
         # from the file being read.
-        source = self._get_store_path(zarr_obj.store)
+        source = get_store_path(zarr_obj.store)
 
         # Create the GroupBuilder
         attributes = self.__read_attrs(zarr_obj)
@@ -2104,7 +2094,7 @@ class ZarrIO(HDMFIO):
         else:
             raise ValueError("Dataset missing dtype attributes: " + str(name) + "   " + str(zarr_obj))
 
-        source = self._get_store_path(zarr_obj.store)
+        source = get_store_path(zarr_obj.store)
 
         kwargs = {
             "attributes": self.__read_attrs(zarr_obj),
