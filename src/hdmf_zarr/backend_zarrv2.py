@@ -19,7 +19,7 @@ from hdmf.build import DatasetBuilder
 from hdmf.utils import docval, get_docval, popargs
 
 from .backend import ZarrIO, SPEC_LOC_ATTR
-from .utils import ZarrSpecReader
+from .utils import ZarrSpecReader, get_store_path
 from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
 
 _V2_READ_MODES = ("r", "r-")
@@ -349,7 +349,7 @@ class ZarrV2IO(ZarrIO):
     @classmethod
     def _load_namespaces(cls, namespace_catalog, namespaces, f, allow_pickle=False):
         if SPEC_LOC_ATTR not in f.attrs:
-            warnings.warn("No cached namespaces found in %s" % cls._get_store_path(f.store))
+            warnings.warn("No cached namespaces found in %s" % get_store_path(f.store))
             return {}
 
         spec_group = f[f.attrs[SPEC_LOC_ATTR]]
@@ -365,9 +365,7 @@ class ZarrV2IO(ZarrIO):
             except UnsafePickleCodecError:
                 raise
             except Exception as e:
-                warnings.warn(
-                    f"Could not read cached namespace '{ns}' from {cls._get_store_path(f.store)}: {e}. Skipping."
-                )
+                warnings.warn(f"Could not read cached namespace '{ns}' from {get_store_path(f.store)}: {e}. Skipping.")
 
         if not readers:
             return {}
@@ -377,7 +375,7 @@ class ZarrV2IO(ZarrIO):
         except UnsafePickleCodecError:
             raise
         except Exception as e:
-            warnings.warn(f"Could not load cached namespaces from {cls._get_store_path(f.store)}: {e}. Skipping.")
+            warnings.warn(f"Could not load cached namespaces from {get_store_path(f.store)}: {e}. Skipping.")
             return {}
 
     # ----- reference resolution -----
@@ -728,7 +726,7 @@ class ZarrV2IO(ZarrIO):
 
         shape = tuple(zarray_meta["shape"])
         chunks = tuple(zarray_meta["chunks"])
-        source = self._get_store_path(store)
+        source = get_store_path(store)
 
         data = self._decode_v2_dataset(store, dataset_key, zarray_meta, allow_pickle=self.allow_pickle)
 
