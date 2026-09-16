@@ -33,7 +33,7 @@ import numpy as np
 from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
-from hdmf_zarr.backend_zarrv2 import UnsafePickleCodecError, ZarrV2IO
+from hdmf_zarr.backend_zarrv2 import IncompleteConversionError, UnsafePickleCodecError, ZarrV2IO
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -622,6 +622,62 @@ class TestV2ExportToV3(unittest.TestCase):
         with NWBZarrIO(dest, mode="r") as io:
             nwbfile = io.read()
             self.assertEqual(nwbfile.identifier, self.expected["identifier"])
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestV2ConversionRefusesToDropEntries(unittest.TestCase):
+    """A conversion must not silently omit source entries it could not read."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.source = os.path.join(self.tmpdir, "source.nwb.zarr")
+        shutil.copytree(_V2_FILE, self.source)
+        # Declare a codec this environment does not provide, so neither zarr v3 nor the
+        # raw v2 chunk decoder can read the dataset.
+        zarray_path = os.path.join(self.source, "acquisition", "test_ephys", "data", ".zarray")
+        with open(zarray_path, "r") as f:
+            meta = json.load(f)
+        meta["compressor"] = {"id": "a-codec-that-does-not-exist"}
+        with open(zarray_path, "w") as f:
+            json.dump(meta, f)
+        os.remove(os.path.join(self.source, ".zmetadata"))
+        self.dest = os.path.join(self.tmpdir, "dest.nwb.zarr")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_convert_to_v3_raises_and_writes_nothing(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(IncompleteConversionError) as ctx:
+                NWBZarrV2IO.convert_to_v3(source_path=self.source, dest_path=self.dest, allow_pickle=True)
+        self.assertIn("/acquisition/test_ephys/data", str(ctx.exception))
+        self.assertFalse(os.path.exists(self.dest))
+
+    def test_convert_to_v3_allow_incomplete_writes_the_rest(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            NWBZarrV2IO.convert_to_v3(
+                source_path=self.source, dest_path=self.dest, allow_pickle=True, allow_incomplete=True
+            )
+        self.assertTrue(os.path.exists(self.dest))
+
+    def test_reading_records_the_skipped_entry_and_continues(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with NWBZarrV2IO(self.source, mode="r", allow_pickle=True) as io:
+                nwbfile = io.read()
+                skipped = io.skipped_entries
+        self.assertIsNotNone(nwbfile.session_description)
+        self.assertEqual([entry for entry, _ in skipped], ["/acquisition/test_ephys/data"])
+        self.assertTrue(any("Skipping" in str(w.message) for w in caught))
+
+    def test_intact_fixture_skips_nothing(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                io.read()
+                self.assertEqual(io.skipped_entries, [])
 
 
 if __name__ == "__main__":

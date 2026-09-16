@@ -1,7 +1,7 @@
 from .backend import ZarrIO
 from .utils import ZarrDataIO
 from .nwb import NWBZarrIO
-from .backend_zarrv2 import ZarrV2IO, is_zarr_v2_file
+from .backend_zarrv2 import ZarrV2IO, is_zarr_v2_file, IncompleteConversionError
 from .nwb_zarrv2 import NWBZarrV2IO
 
 try:
@@ -14,7 +14,15 @@ except ImportError:  # pragma: no cover
     __version__ = version("hdmf")
     del version
 
-__all__ = ["ZarrIO", "ZarrDataIO", "NWBZarrIO", "ZarrV2IO", "NWBZarrV2IO", "is_zarr_v2_file"]
+__all__ = [
+    "ZarrIO",
+    "ZarrDataIO",
+    "NWBZarrIO",
+    "ZarrV2IO",
+    "NWBZarrV2IO",
+    "is_zarr_v2_file",
+    "IncompleteConversionError",
+]
 
 # Duecredit definitions
 from ._due import due, BibTeX  # noqa: E402

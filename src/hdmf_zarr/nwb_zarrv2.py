@@ -12,7 +12,7 @@ from hdmf.utils import docval, popargs, get_docval
 
 from .backend import SUPPORTED_ZARR_STORES
 from .nwb import NWBZarrIO, _build_nwb_manager
-from .backend_zarrv2 import ZarrV2IO
+from .backend_zarrv2 import ZarrV2IO, IncompleteConversionError
 
 
 class NWBZarrV2IO(ZarrV2IO):
@@ -71,6 +71,15 @@ class NWBZarrV2IO(ZarrV2IO):
             "doc": "Zarr storage options for the destination store",
             "default": None,
         },
+        {
+            "name": "allow_incomplete",
+            "type": bool,
+            "doc": (
+                "whether to write the destination file when entries of the source could not be read. "
+                "The entries are absent from the result, so the destination is not a faithful copy."
+            ),
+            "default": False,
+        },
     )
     def export_to_v3(self, **kwargs):
         """Export this zarr-v2 NWB file to a new zarr-v3 NWB file.
@@ -79,8 +88,16 @@ class NWBZarrV2IO(ZarrV2IO):
         zarr-v3 file via :class:`~hdmf_zarr.NWBZarrIO`. Because a v2 → v3 conversion
         rewrites the storage layout, data chunks are always copied (``link_data`` is
         forced to ``False``) rather than linked back to the source file.
+
+        Raises :exc:`IncompleteConversionError` when any entry of the source file could
+        not be read, listing the entries. Reading a file for inspection reports such an
+        entry as a warning and continues, but a conversion writes a file that is meant
+        to stand in for the source, so a missing entry is an error here. Pass
+        ``allow_incomplete=True`` to write the destination anyway.
         """
-        path, nwbfile, write_args, storage_options = popargs("path", "nwbfile", "write_args", "storage_options", kwargs)
+        path, nwbfile, write_args, storage_options, allow_incomplete = popargs(
+            "path", "nwbfile", "write_args", "storage_options", "allow_incomplete", kwargs
+        )
         if isinstance(path, Path):
             path = str(path)
         write_args = dict(write_args) if write_args is not None else {}
@@ -89,6 +106,17 @@ class NWBZarrV2IO(ZarrV2IO):
 
         if nwbfile is None:
             nwbfile = self.read()
+
+        if self.skipped_entries and not allow_incomplete:
+            listed = "\n".join(f"  {entry}: {reason}" for entry, reason in self.skipped_entries)
+            count = len(self.skipped_entries)
+            noun = "entry" if count == 1 else "entries"
+            raise IncompleteConversionError(
+                f"{count} {noun} of '{self.source}' could not be read and would be "
+                f"absent from '{path}':\n{listed}\n"
+                "Pass allow_incomplete=True to write the destination without them."
+            )
+
         nwbfile.set_modified()
 
         with NWBZarrIO(path=path, mode="w", storage_options=storage_options) as export_io:
@@ -124,6 +152,15 @@ class NWBZarrV2IO(ZarrV2IO):
             "doc": "whether the trusted source file may decode unsafe pickle codecs",
             "default": False,
         },
+        {
+            "name": "allow_incomplete",
+            "type": bool,
+            "doc": (
+                "whether to write the destination file when entries of the source could not be read. "
+                "The entries are absent from the result, so the destination is not a faithful copy."
+            ),
+            "default": False,
+        },
         is_method=False,
     )
     def convert_to_v3(**kwargs):
@@ -145,9 +182,12 @@ class NWBZarrV2IO(ZarrV2IO):
         Example::
 
             NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr")
+
+        Raises :exc:`IncompleteConversionError` when any entry of the source file could
+        not be read; see :meth:`export_to_v3`.
         """
-        source_path, dest_path, write_args, storage_options, allow_pickle = popargs(
-            "source_path", "dest_path", "write_args", "storage_options", "allow_pickle", kwargs
+        source_path, dest_path, write_args, storage_options, allow_pickle, allow_incomplete = popargs(
+            "source_path", "dest_path", "write_args", "storage_options", "allow_pickle", "allow_incomplete", kwargs
         )
         if isinstance(source_path, Path):
             source_path = str(source_path)
@@ -161,7 +201,12 @@ class NWBZarrV2IO(ZarrV2IO):
             storage_options=source_storage_options,
             allow_pickle=allow_pickle,
         ) as v2_io:
-            v2_io.export_to_v3(path=dest_path, write_args=write_args, storage_options=storage_options)
+            v2_io.export_to_v3(
+                path=dest_path,
+                write_args=write_args,
+                storage_options=storage_options,
+                allow_incomplete=allow_incomplete,
+            )
 
     @staticmethod
     @docval(
