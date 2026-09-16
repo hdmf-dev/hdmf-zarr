@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from hdmf_zarr import NWBZarrIO
 import os
 import shutil
@@ -49,14 +50,34 @@ class TestNWBZarrIO(unittest.TestCase):
     def test_read_nwb(self):
         """
         Test reading a local file with NWBZarrIO.read_nwb.
-
-        NOTE: See TestFSSpecStreaming.test_fsspec_streaming_via_read_nwb for corresponding tests
-              for reading a remote file with NWBZarrIO.read_nwb
         """
         self.write_test_file()
         nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))
+
+    def test_read_nwb_s3_uses_anonymous_storage_options(self):
+        """
+        An s3:// path is opened anonymously, so that public DANDI assets are readable
+        without credentials.
+        """
+        with (
+            patch("hdmf_zarr.nwb.NWBZarrIO.__init__", return_value=None) as mock_init,
+            patch("hdmf_zarr.nwb.NWBZarrIO.read", return_value="nwbfile"),
+        ):
+            NWBZarrIO.read_nwb(path="s3://bucket/file.nwb.zarr")
+        self.assertEqual(mock_init.call_args.kwargs["storage_options"], dict(anon=True))
+
+    def test_read_nwb_local_path_passes_no_storage_options(self):
+        """
+        A local path is opened without storage options, so no fsspec store is constructed.
+        """
+        with (
+            patch("hdmf_zarr.nwb.NWBZarrIO.__init__", return_value=None) as mock_init,
+            patch("hdmf_zarr.nwb.NWBZarrIO.read", return_value="nwbfile"),
+        ):
+            NWBZarrIO.read_nwb(path="local.nwb.zarr")
+        self.assertIsNone(mock_init.call_args.kwargs["storage_options"])
 
 
 @unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")

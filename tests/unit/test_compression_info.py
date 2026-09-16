@@ -63,10 +63,14 @@ class TestZarrCompressionInfo(unittest.TestCase):
             # Get the zarr array from the builder
             zarr_array = data_builder.data
 
-            # Check that info property returns useful information
-            info_str = str(zarr_array.info)
-            self.assertIsInstance(info_str, str)
-            self.assertTrue(len(info_str) > 0)
+            # Check that the compressor configured above survived the round trip
+            blosc = [c for c in zarr_array.compressors if isinstance(c, BloscCodec)]
+            self.assertEqual(len(blosc), 1)
+            self.assertEqual(blosc[0].to_dict()['configuration']['cname'], 'zstd')
+
+            # Check that the stored size is measured rather than reported as a placeholder
+            self.assertGreater(zarr_array.nbytes_stored(), 0)
+            self.assertLess(zarr_array.nbytes_stored(), zarr_array.nbytes)
 
     def test_info_without_consolidated_metadata(self):
         """
@@ -104,10 +108,14 @@ class TestZarrCompressionInfo(unittest.TestCase):
             # Get the zarr array from the builder
             zarr_array = data_builder.data
 
-            # Check that info property returns useful information
-            info_str = str(zarr_array.info)
-            self.assertIsInstance(info_str, str)
-            self.assertTrue(len(info_str) > 0)
+            # Check that the compressor configured above survived the round trip
+            blosc = [c for c in zarr_array.compressors if isinstance(c, BloscCodec)]
+            self.assertEqual(len(blosc), 1)
+            self.assertEqual(blosc[0].to_dict()['configuration']['cname'], 'zstd')
+
+            # Check that the stored size is measured rather than reported as a placeholder
+            self.assertGreater(zarr_array.nbytes_stored(), 0)
+            self.assertLess(zarr_array.nbytes_stored(), zarr_array.nbytes)
 
     def test_info_display_format(self):
         """
@@ -144,9 +152,13 @@ class TestZarrCompressionInfo(unittest.TestCase):
             info_str = str(zarr_array.info)
 
             # Check that the info string contains expected fields
-            # In zarr v3, the info property is a string representation
-            self.assertIsInstance(info_str, str)
-            self.assertTrue(len(info_str) > 0)
+            self.assertIn('Compressors', info_str)
+            self.assertIn('BloscCodec', info_str)
+
+            # Stored size requires walking the store, which info_complete does
+            complete_str = str(zarr_array.info_complete())
+            self.assertIn('No. bytes stored', complete_str)
+            self.assertIn('Storage ratio', complete_str)
 
 
 if __name__ == '__main__':

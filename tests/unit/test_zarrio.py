@@ -24,7 +24,7 @@ from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanag
 import zarr
 import numpy as np
 from hdmf_zarr.backend import ZarrIO, ROOT_NAME
-from hdmf_zarr.utils import HDMFZarrArray
+from hdmf_zarr.utils import HDMFZarrArray, get_store_path
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
 from hdmf.build import GroupBuilder, DatasetBuilder, ReferenceBuilder
@@ -163,16 +163,16 @@ class TestConsolidateMetadata(ZarrStoreTestCase):
     def test_get_store_path_shallow(self):
         self.create_zarr(consolidate_metadata=False)
         store = LocalStore(self.store_path)
-        path = ZarrIO._get_store_path(store)
-        # In zarr v3, _get_store_path returns str(store) which is the LocalStore repr
-        self.assertIsInstance(path, str)
+        path = get_store_path(store)
+        # a LocalStore resolves to an absolute filesystem path
+        self.assertEqual(path, str(pathlib.Path(self.store_path).resolve()))
 
     def test_get_store_path_deep(self):
         self.create_zarr()
         zarr_obj = zarr.open_consolidated(self.store_path, mode="r")
         store = zarr_obj.store
-        path = ZarrIO._get_store_path(store)
-        self.assertIsInstance(path, str)
+        path = get_store_path(store)
+        self.assertEqual(path, str(pathlib.Path(self.store_path).resolve()))
 
     def test_force_open_without_consolidated(self):
         """Test that read-mode -r forces a regular read with mode r"""
