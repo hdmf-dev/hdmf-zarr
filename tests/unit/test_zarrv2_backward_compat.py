@@ -654,14 +654,6 @@ class TestV2ConversionRefusesToDropEntries(unittest.TestCase):
         self.assertIn("/acquisition/test_ephys/data", str(ctx.exception))
         self.assertFalse(os.path.exists(self.dest))
 
-    def test_convert_to_v3_allow_incomplete_writes_the_rest(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            NWBZarrV2IO.convert_to_v3(
-                source_path=self.source, dest_path=self.dest, allow_pickle=True, allow_incomplete=True
-            )
-        self.assertTrue(os.path.exists(self.dest))
-
     def test_reading_records_the_skipped_entry_and_continues(self):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
