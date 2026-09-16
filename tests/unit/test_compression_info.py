@@ -51,8 +51,10 @@ class TestZarrCompressionInfo(unittest.TestCase):
         """The Blosc codec configured on ZarrDataIO must survive the write and be read back."""
         blosc_codecs = [c for c in zarr_array.compressors if isinstance(c, BloscCodec)]
         self.assertEqual(len(blosc_codecs), 1, f"expected one BloscCodec, got {zarr_array.compressors}")
-        self.assertEqual(blosc_codecs[0].cname.value, "zstd")
-        self.assertEqual(blosc_codecs[0].clevel, 3)
+        # compare the serialized configuration, which is what is stored in zarr.json
+        configuration = blosc_codecs[0].to_dict()["configuration"]
+        self.assertEqual(configuration["cname"], "zstd")
+        self.assertEqual(configuration["clevel"], 3)
 
     def assert_stored_size_reported(self, zarr_array):
         """Stored size must be a real measurement, and the data must actually be smaller on disk."""
