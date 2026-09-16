@@ -29,9 +29,33 @@ class UnsafePickleCodecError(ValueError):
     """Raised when an untrusted v2 file requests unsafe pickle decoding."""
 
 
+def _is_pickle_codec(codec_config):
+    """Return whether a declared v2 codec config is the pickle codec."""
+    return isinstance(codec_config, dict) and codec_config.get("id") == "pickle"
+
+
+def _enforce_pickle_policy(zarray_meta, allow_pickle, dataset_key=None):
+    """Raise unless *zarray_meta* is safe to decode under the pickle trust policy.
+
+    Every codec a v2 ``.zarray`` declares runs during decoding, so the whole chain is
+    checked: the compressor and each entry of ``filters``. Zarr resolves an object
+    array's dtype from the first object codec in ``filters`` and decodes with all of
+    them, so a pickle codec is live wherever it sits in the list.
+    """
+    if allow_pickle:
+        return
+    codecs = [zarray_meta.get("compressor"), *(zarray_meta.get("filters") or [])]
+    if any(_is_pickle_codec(codec) for codec in codecs):
+        named = f" in '{dataset_key}'" if dataset_key else ""
+        raise UnsafePickleCodecError(
+            f"Refusing to decode the unsafe pickle codec{named} in a Zarr v2 file. "
+            "Reopen with allow_pickle=True only if this file is trusted."
+        )
+
+
 def _v2_codec(codec_config, allow_pickle):
     """Build a declared v2 codec after enforcing the pickle trust policy."""
-    if codec_config and codec_config.get("id") == "pickle" and not allow_pickle:
+    if _is_pickle_codec(codec_config) and not allow_pickle:
         raise UnsafePickleCodecError(
             "Refusing to decode the unsafe pickle codec in a Zarr v2 file. "
             "Reopen with allow_pickle=True only if this file is trusted."
@@ -142,6 +166,7 @@ class ZarrV2SpecReader(ZarrSpecReader):
         super().__init__(**kwargs)
 
     def _read(self, path):
+        self.__enforce_pickle_policy(path)
         try:
             return super()._read(path)
         except (ValueError, TypeError) as e:
@@ -152,6 +177,18 @@ class ZarrV2SpecReader(ZarrSpecReader):
             s = self.__read_v2_object_array(path)
             s = str(s) if not isinstance(s, str) else s
             return json.loads(s)
+
+    def __enforce_pickle_policy(self, path):
+        """Apply the pickle trust policy to a spec array before zarr decodes it.
+
+        Cached namespaces are read while the IO is being constructed, so this runs
+        before any caller sees the object.
+        """
+        dataset_key = f"{self._group.path}/{path}" if self._group.path else path
+        zarray_bytes = _read_store_bytes(self._group.store, f"{dataset_key}/.zarray")
+        if zarray_bytes is None:  # not a v2 array, nothing declared to check
+            return
+        _enforce_pickle_policy(json.loads(zarray_bytes), self.__allow_pickle, dataset_key=dataset_key)
 
     def __read_v2_object_array(self, path):
         store = self._group.store
@@ -341,6 +378,8 @@ class ZarrV2IO(ZarrIO):
 
         try:
             return namespace_catalog.load_namespaces("namespace", reader=readers)
+        except UnsafePickleCodecError:
+            raise
         except Exception as e:
             warnings.warn(f"Could not load cached namespaces from {cls._get_store_path(f.store)}: {e}. Skipping.")
             return {}
@@ -605,11 +644,20 @@ class ZarrV2IO(ZarrIO):
                 zarray_bytes = _read_store_bytes(store, zarray_key)
                 if zarray_bytes is not None:
                     zarray_meta = json.loads(zarray_bytes)
+                    # Zarr decodes with every codec the file declares, so the policy is
+                    # enforced on the declared chain before the array is handed over.
+                    _enforce_pickle_policy(
+                        zarray_meta,
+                        self.allow_pickle,
+                        dataset_key=f"{zarr_obj.name.rstrip('/')}/{entry}",
+                    )
                     if not self._v2_array_metadata_supported_by_zarr(zarray_meta):
                         raise ValueError("zarr v3 cannot parse this v2 array's metadata")
                 # Happy path: let zarr v3 open the child group/array.
                 child = zarr_obj[entry]
                 yield entry, child
+            except UnsafePickleCodecError:
+                raise
             except Exception as e:
                 # zarr v3 could not open the child. If it is an array (has a
                 # .zarray), attempt the manual v2 decode fallback.

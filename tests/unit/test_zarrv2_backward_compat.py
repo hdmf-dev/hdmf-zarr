@@ -33,7 +33,7 @@ import numpy as np
 from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
-from hdmf_zarr.backend_zarrv2 import UnsafePickleCodecError, ZarrV2IO
+from hdmf_zarr.backend_zarrv2 import UnsafePickleCodecError, ZarrV2IO, _enforce_pickle_policy
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -622,6 +622,69 @@ class TestV2ExportToV3(unittest.TestCase):
         with NWBZarrIO(dest, mode="r") as io:
             nwbfile = io.read()
             self.assertEqual(nwbfile.identifier, self.expected["identifier"])
+
+
+class TestPickleCodecPolicy(unittest.TestCase):
+    """The pickle trust policy covers every codec a v2 `.zarray` declares."""
+
+    def test_pickle_is_rejected_from_any_position(self):
+        for filters in (
+            [{"id": "pickle", "protocol": 5}],
+            [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}],
+            [{"id": "vlen-utf8"}, {"id": "json2"}, {"id": "pickle", "protocol": 5}],
+        ):
+            with self.subTest(filters=filters):
+                with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+                    _enforce_pickle_policy({"compressor": None, "filters": filters}, allow_pickle=False)
+
+    def test_pickle_as_the_compressor_is_rejected(self):
+        with self.assertRaises(UnsafePickleCodecError):
+            _enforce_pickle_policy({"compressor": {"id": "pickle"}, "filters": None}, allow_pickle=False)
+
+    def test_codecs_without_pickle_are_allowed(self):
+        _enforce_pickle_policy(
+            {"compressor": {"id": "blosc"}, "filters": [{"id": "vlen-utf8"}]}, allow_pickle=False
+        )
+
+    def test_allow_pickle_permits_the_declared_codec(self):
+        _enforce_pickle_policy({"compressor": None, "filters": [{"id": "pickle"}]}, allow_pickle=True)
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestPickleGateOnCachedSpecs(unittest.TestCase):
+    """A spec array is decoded while the IO is constructed, so the gate must hold there."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.source = os.path.join(self.tmpdir, "source.nwb.zarr")
+        shutil.copytree(_V2_FILE, self.source)
+        # Declare a benign object codec ahead of pickle. Zarr resolves the dtype from the
+        # first object codec and so parses this metadata, but decoding runs both.
+        spec_array = os.path.join(self.source, "specifications", "hdmf-common", "1.8.0", "namespace")
+        zarray_path = os.path.join(spec_array, ".zarray")
+        with open(zarray_path, "r") as f:
+            meta = json.load(f)
+        meta["dtype"] = "|O"
+        meta["compressor"] = None
+        meta["filters"] = [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}]
+        with open(zarray_path, "w") as f:
+            json.dump(meta, f)
+        os.remove(os.path.join(self.source, ".zmetadata"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_construction_refuses_the_file(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+                NWBZarrV2IO(self.source, mode="r")
+
+    def test_allow_pickle_opens_the_file(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            io = NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
+            io.close()
 
 
 if __name__ == "__main__":
