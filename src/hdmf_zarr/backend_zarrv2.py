@@ -152,21 +152,8 @@ def is_zarr_v2_file(path, storage_options=None):
 class ZarrV2SpecReader(ZarrSpecReader):
     """Spec reader that can fall back to raw-chunk decoding for v2 object arrays."""
 
-    @docval(
-        *get_docval(ZarrSpecReader.__init__),
-        {
-            "name": "allow_pickle",
-            "type": bool,
-            "doc": "whether to decode unsafe pickle codecs from a trusted v2 file",
-            "default": False,
-        },
-    )
-    def __init__(self, **kwargs):
-        self.__allow_pickle = popargs("allow_pickle", kwargs)
-        super().__init__(**kwargs)
-
     def _read(self, path):
-        self.__enforce_pickle_policy(path)
+        self.__reject_pickled_spec(path)
         try:
             return super()._read(path)
         except (ValueError, TypeError) as e:
@@ -178,17 +165,26 @@ class ZarrV2SpecReader(ZarrSpecReader):
             s = str(s) if not isinstance(s, str) else s
             return json.loads(s)
 
-    def __enforce_pickle_policy(self, path):
-        """Apply the pickle trust policy to a spec array before zarr decodes it.
+    def __reject_pickled_spec(self, path):
+        """Refuse a cached spec that declares the pickle codec.
 
-        Cached namespaces are read while the IO is being constructed, so this runs
-        before any caller sees the object.
+        hdmf-zarr writes cached specs with the JSON object codec, so a pickle codec on
+        a spec array is not something this library produced. Specs are decoded while
+        the IO is being constructed, before a caller sees the object, so this holds
+        whatever ``allow_pickle`` says.
         """
         dataset_key = f"{self._group.path}/{path}" if self._group.path else path
         zarray_bytes = _read_store_bytes(self._group.store, f"{dataset_key}/.zarray")
         if zarray_bytes is None:  # not a v2 array, nothing declared to check
             return
-        _enforce_pickle_policy(json.loads(zarray_bytes), self.__allow_pickle, dataset_key=dataset_key)
+        zarray_meta = json.loads(zarray_bytes)
+        codecs = [zarray_meta.get("compressor"), *(zarray_meta.get("filters") or [])]
+        if any(_is_pickle_codec(codec) for codec in codecs):
+            raise UnsafePickleCodecError(
+                f"Refusing to decode the pickle codec declared by the cached spec "
+                f"'{dataset_key}' in a Zarr v2 file. Cached specs are written with the "
+                "JSON codec, so this file was not written by hdmf-zarr."
+            )
 
     def __read_v2_object_array(self, path):
         store = self._group.store
@@ -205,12 +201,12 @@ class ZarrV2SpecReader(ZarrSpecReader):
 
         compressor_config = zarray_meta.get("compressor")
         if compressor_config is not None:
-            raw = _v2_codec(compressor_config, self.__allow_pickle).decode(raw)
+            raw = _v2_codec(compressor_config, allow_pickle=False).decode(raw)
 
         filters = zarray_meta.get("filters") or []
         if filters:
             for filt_config in reversed(filters):
-                raw = _v2_codec(filt_config, self.__allow_pickle).decode(raw)
+                raw = _v2_codec(filt_config, allow_pickle=False).decode(raw)
 
         if isinstance(raw, np.ndarray):
             return raw.flat[0]
@@ -365,7 +361,7 @@ class ZarrV2IO(ZarrIO):
             try:
                 ns_group = spec_group[ns]
                 latest_version = list(ns_group.keys())[-1]
-                readers[ns] = ZarrV2SpecReader(ns_group[latest_version], allow_pickle=allow_pickle)
+                readers[ns] = ZarrV2SpecReader(ns_group[latest_version])
             except UnsafePickleCodecError:
                 raise
             except Exception as e:

@@ -677,14 +677,24 @@ class TestPickleGateOnCachedSpecs(unittest.TestCase):
     def test_construction_refuses_the_file(self):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+            with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
                 NWBZarrV2IO(self.source, mode="r")
 
-    def test_allow_pickle_opens_the_file(self):
+    def test_allow_pickle_does_not_permit_a_pickled_spec(self):
+        """allow_pickle covers data written by hdmf-zarr, which never pickled a spec."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            io = NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
-            io.close()
+            with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
+                NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
+
+    def test_allow_pickle_still_reads_a_pickled_reference_column(self):
+        """The legitimate use of pickle, an object reference column, is unaffected."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                nwbfile = io.read()
+                groups = nwbfile.electrodes["group"][:]
+        self.assertTrue(all(g.name == "shank0" for g in groups))
 
 
 if __name__ == "__main__":
