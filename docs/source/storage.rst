@@ -122,7 +122,7 @@ Attributes
 
 .. note::
 
-    Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes
+    Attributes are stored as JSON documents in Zarr (using the LocalStore). As such, all attributes
     must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types
     (e.g., numpy arrays) to JSON serializable types as much as possible, but not all possible types may
     be supported. Float ``NaN``, ``Infinity``, and ``-Infinity`` values are written as the bare tokens
