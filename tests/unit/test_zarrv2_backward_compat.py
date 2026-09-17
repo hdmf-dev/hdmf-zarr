@@ -287,7 +287,7 @@ class TestV2BackwardCompat(unittest.TestCase):
 
     def test_pickle_codecs_require_explicit_opt_in(self):
         with NWBZarrV2IO(_V2_FILE, mode="r") as io:
-            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+            with self.assertRaisesRegex(UnsafePickleCodecError, "electrodes/group.*allow_pickle=True"):
                 io.read()
 
     # ---- scalar / string metadata ----
@@ -622,6 +622,95 @@ class TestV2ExportToV3(unittest.TestCase):
         with NWBZarrIO(dest, mode="r") as io:
             nwbfile = io.read()
             self.assertEqual(nwbfile.identifier, self.expected["identifier"])
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestPickleGateOnCachedSpecs(unittest.TestCase):
+    """A spec array is decoded while the IO is constructed, so the gate must hold there."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.source = os.path.join(self.tmpdir, "source.nwb.zarr")
+        shutil.copytree(_V2_FILE, self.source)
+        # Declare a benign object codec ahead of pickle. Zarr resolves the dtype from the
+        # first object codec and so parses this metadata, but decoding runs both.
+        spec_array = os.path.join(self.source, "specifications", "hdmf-common", "1.10.0", "namespace")
+        zarray_path = os.path.join(spec_array, ".zarray")
+        with open(zarray_path, "r") as f:
+            meta = json.load(f)
+        meta["dtype"] = "|O"
+        meta["compressor"] = None
+        meta["filters"] = [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}]
+        with open(zarray_path, "w") as f:
+            json.dump(meta, f)
+        os.remove(os.path.join(self.source, ".zmetadata"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_allow_pickle_does_not_permit_a_pickled_spec(self):
+        """allow_pickle covers data written by hdmf-zarr, which never pickled a spec."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
+                NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestPickleGateOnOpenedArrays(unittest.TestCase):
+    """Without allow_pickle, an array zarr opens with the pickle codec is refused before it is decoded.
+
+    Each test works on a copy of the fixture without its pickled ``electrodes/group`` column, so the
+    crafted array is the only pickle codec in the file. zarr parses a pickle codec only after another
+    object codec, so the crafted arrays declare ``vlen-utf8`` first.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.source = os.path.join(self.tmpdir, "source.nwb.zarr")
+        shutil.copytree(_V2_FILE, self.source)
+        shutil.rmtree(os.path.join(self.source, "general", "extracellular_ephys", "electrodes", "group"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write_pickle_zarray(self, array_path):
+        os.makedirs(os.path.join(self.source, array_path))
+        with open(os.path.join(self.source, array_path, ".zarray"), "w") as f:
+            json.dump(
+                {
+                    "chunks": [1],
+                    "compressor": None,
+                    "dtype": "|O",
+                    "fill_value": None,
+                    "filters": [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}],
+                    "order": "C",
+                    "shape": [1],
+                    "zarr_format": 2,
+                },
+                f,
+            )
+
+    def test_group_member(self):
+        path = "acquisition/pickled"
+        self._write_pickle_zarray(path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(self.source, mode="r") as io:
+                with self.assertRaisesRegex(UnsafePickleCodecError, path):
+                    io.read_builder()
+
+    def test_link_to_an_array_group_iteration_does_not_visit(self):
+        """The target sits inside another array's directory, so only the link opens it."""
+        path = "general/extracellular_ephys/electrodes/location/pickled"
+        self._write_pickle_zarray(path)
+        with open(os.path.join(self.source, "acquisition", ".zattrs"), "w") as f:
+            json.dump({"zarr_link": [{"name": "pickled", "source": ".", "path": f"/{path}"}]}, f)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(self.source, mode="r") as io:
+                with self.assertRaisesRegex(UnsafePickleCodecError, path):
+                    io.read_builder()
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
