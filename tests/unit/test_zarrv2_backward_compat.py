@@ -58,10 +58,13 @@ class TestZarrV2FileDetection(unittest.TestCase):
             "https://host/file.zarr",
             "simplecache::s3://bucket/file.zarr",
         ):
-            with self.subTest(path=path), patch(
-                "hdmf_zarr.backend_zarrv2.zarr.open",
-                return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
-            ) as open_zarr:
+            with (
+                self.subTest(path=path),
+                patch(
+                    "hdmf_zarr.backend_zarrv2.zarr.open",
+                    return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
+                ) as open_zarr,
+            ):
                 self.assertTrue(is_zarr_v2_file(path))
                 open_zarr.assert_called_once_with(path, mode="r", storage_options={})
 
@@ -724,7 +727,8 @@ class TestV2CachedNamespaces(unittest.TestCase):
         for namespace in namespaces:
             with self.subTest(namespace=namespace):
                 versions = [
-                    v for v in os.listdir(os.path.join(specs, namespace))
+                    v
+                    for v in os.listdir(os.path.join(specs, namespace))
                     if os.path.isdir(os.path.join(specs, namespace, v))
                 ]
                 self.assertTrue(versions, f"'{namespace}' has no cached version directory")

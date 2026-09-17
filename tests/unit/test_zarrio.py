@@ -698,30 +698,47 @@ class TestResolveCompoundDtype(ZarrStoreTestCase):
         self.assertEqual(written[:]["idx"].tolist(), [0, 1])
 
 
-class TestReadScalarDataset(ZarrStoreTestCase):
-    """Reading datasets marked scalar by the ``_SCALAR`` attribute."""
+class TestScalarDataset(ZarrStoreTestCase):
+    """Scalar datasets are stored as zero-dimensional arrays and read back as scalars."""
 
-    def _read_dtype(self, name):
-        with ZarrIO(self.store_path, mode="r") as io:
-            return io.read_builder().datasets[name].dtype
+    def _roundtrip(self, datasets):
+        with ZarrIO(self.store_path, mode="w") as io:
+            io.write_builder(GroupBuilder(ROOT_NAME, datasets=datasets))
+        return zarr.open_group(self.store_path, mode="r"), ZarrIO(self.store_path, mode="r")
 
-    def test_read_scalar_with_dtype_attribute(self):
-        """A scalar dataset that also carries ``_DTYPE`` is read as a scalar.
+    def test_numeric_and_string(self):
+        group, io = self._roundtrip(
+            {"num": DatasetBuilder("num", 5), "txt": DatasetBuilder("txt", "hi")},
+        )
+        with io:
+            read = io.read_builder()
+            for name, expected in (("num", 5), ("txt", "hi")):
+                self.assertEqual(group[name].shape, ())
+                self.assertNotIsInstance(read[name].data, (np.ndarray, zarr.Array))
+                self.assertEqual(read[name].data, expected)
 
-        The convention permits a writer to record the element type alongside ``_SCALAR``.
-        """
-        group = zarr.open_group(self.store_path, mode="w")
-        both = group.create_array("both", shape=(1,), dtype="<f8")
-        both[0] = 3.5
-        both.attrs["_SCALAR"] = True
-        both.attrs["_DTYPE"] = "<f8"
-        scalar_only = group.create_array("scalar_only", shape=(1,), dtype="<f8")
-        scalar_only[0] = 3.5
-        scalar_only.attrs["_SCALAR"] = True
-        zarr.consolidate_metadata(group.store)
+    def test_reference(self):
+        target = DatasetBuilder("target", np.arange(3))
+        group, io = self._roundtrip(
+            {"target": target, "ref": DatasetBuilder("ref", ReferenceBuilder(target), dtype="object")},
+        )
+        with io:
+            read = io.read_builder()
+            self.assertEqual(group["ref"].shape, ())
+            self.assertIsInstance(read["ref"].data, ReferenceBuilder)
+            self.assertIs(read["ref"].data.builder, read["target"])
 
-        self.assertEqual(self._read_dtype("both"), "scalar")
-        self.assertEqual(self._read_dtype("scalar_only"), "scalar")
+    def test_compound(self):
+        """A compound scalar with a string field is sized to fit the value (issue #277)."""
+        dtype = [{"name": "x", "dtype": "float32"}, {"name": "label", "dtype": "text"}]
+        value = np.array((1.5, "a" * 600), dtype=[("x", "<f4"), ("label", object)])
+        group, io = self._roundtrip({"pos": DatasetBuilder("pos", value, dtype=dtype)})
+        with io:
+            data = io.read_builder()["pos"].data
+            self.assertEqual(group["pos"].shape, ())
+            self.assertEqual(data.shape, ())
+            self.assertEqual(data["x"], 1.5)
+            self.assertEqual(data["label"], "a" * 600)
 
 
 #########################################

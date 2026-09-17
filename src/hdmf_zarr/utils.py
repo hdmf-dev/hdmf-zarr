@@ -505,11 +505,10 @@ class ZarrSpecWriter(SpecWriter):
         data = self.stringify(d)
         dset = self.__group.require_array(
             name,
-            shape=(1,),
+            shape=(),
             dtype=np.dtypes.StringDType(),
         )
-        dset.attrs["_SCALAR"] = True
-        dset[0] = data
+        dset[()] = data
         return dset
 
     def write_spec(self, spec, path):
@@ -533,9 +532,13 @@ class ZarrSpecReader(SpecReader):
         super().__init__(source=source)
         self.__cache = None
 
+    def _read_spec_string(self, path):
+        """Read the JSON string of a spec from the scalar string array at *path*."""
+        return self._group[path][()]
+
     def _read(self, path):
-        """Read a JSON-encoded spec from a single-element string array at *path*."""
-        s = self._group[path][0]
+        """Read a JSON-encoded spec from the scalar string array at *path*."""
+        s = self._read_spec_string(path)
         # In zarr v3, string arrays may return numpy StringDType scalars
         # Ensure we have a plain Python string for json.loads
         s = str(s) if not isinstance(s, str) else s
