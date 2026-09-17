@@ -29,9 +29,7 @@ import warnings
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import numcodecs
 import numpy as np
-import zarr
 from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
@@ -39,8 +37,7 @@ from hdmf_zarr.backend_zarrv2 import (
     IncompleteConversionError,
     UnsafePickleCodecError,
     ZarrV2IO,
-    ZarrV2SpecReader,
-    _enforce_pickle_policy,
+    _declares_pickle,
 )
 
 # Paths relative to the repo root
@@ -294,9 +291,8 @@ class TestV2BackwardCompat(unittest.TestCase):
         cls.io.close()
 
     def test_pickle_codecs_require_explicit_opt_in(self):
-        with NWBZarrV2IO(_V2_FILE, mode="r") as io:
-            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
-                io.read()
+        with self.assertRaisesRegex(UnsafePickleCodecError, "electrodes/group.*allow_pickle=True"):
+            NWBZarrV2IO(_V2_FILE, mode="r")
 
     # ---- scalar / string metadata ----
 
@@ -633,27 +629,22 @@ class TestV2ExportToV3(unittest.TestCase):
 
 
 class TestPickleCodecPolicy(unittest.TestCase):
-    """The pickle trust policy covers every codec a v2 `.zarray` declares."""
+    """The pickle check covers every codec a v2 `.zarray` declares."""
 
-    def test_pickle_is_rejected_from_any_position(self):
+    def test_pickle_is_found_in_any_position(self):
         for filters in (
             [{"id": "pickle", "protocol": 5}],
             [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}],
             [{"id": "vlen-utf8"}, {"id": "json2"}, {"id": "pickle", "protocol": 5}],
         ):
             with self.subTest(filters=filters):
-                with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
-                    _enforce_pickle_policy({"compressor": None, "filters": filters}, allow_pickle=False)
+                self.assertTrue(_declares_pickle({"compressor": None, "filters": filters}))
 
-    def test_pickle_as_the_compressor_is_rejected(self):
-        with self.assertRaises(UnsafePickleCodecError):
-            _enforce_pickle_policy({"compressor": {"id": "pickle"}, "filters": None}, allow_pickle=False)
+    def test_pickle_as_the_compressor_is_found(self):
+        self.assertTrue(_declares_pickle({"compressor": {"id": "pickle"}, "filters": None}))
 
-    def test_codecs_without_pickle_are_allowed(self):
-        _enforce_pickle_policy({"compressor": {"id": "blosc"}, "filters": [{"id": "vlen-utf8"}]}, allow_pickle=False)
-
-    def test_allow_pickle_permits_the_declared_codec(self):
-        _enforce_pickle_policy({"compressor": None, "filters": [{"id": "pickle"}]}, allow_pickle=True)
+    def test_codecs_without_pickle_are_not_flagged(self):
+        self.assertFalse(_declares_pickle({"compressor": {"id": "blosc"}, "filters": [{"id": "vlen-utf8"}]}))
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
@@ -704,14 +695,23 @@ class TestPickleGateOnCachedSpecs(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
-class TestPickleGateOnOpenedMetadata(unittest.TestCase):
-    """The gate checks the codecs zarr decodes with, wherever the file declares them and however the array is reached.
+class TestPickleScanOnOpen(unittest.TestCase):
+    """Without allow_pickle, a v2 file that declares pickle where zarr can decode it with pickle refuses to open.
 
     Each test works on a copy of the fixture without its pickled ``electrodes/group`` column, so the
     crafted array is the only pickle codec in the file.
     """
 
-    _PICKLE_FILTERS = [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}]
+    _PICKLE_ZARRAY = {
+        "chunks": [1],
+        "compressor": None,
+        "dtype": "|O",
+        "fill_value": None,
+        "filters": [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}],
+        "order": "C",
+        "shape": [1],
+        "zarr_format": 2,
+    }
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -719,106 +719,64 @@ class TestPickleGateOnOpenedMetadata(unittest.TestCase):
         shutil.copytree(_V2_FILE, self.source)
         column = "general/extracellular_ephys/electrodes/group"
         shutil.rmtree(os.path.join(self.source, column))
-        self.zmetadata = self._load_zmetadata()
-        for key in [k for k in self.zmetadata["metadata"] if k.startswith(column + "/")]:
-            del self.zmetadata["metadata"][key]
-        self._dump_zmetadata()
+        self._edit_zmetadata(lambda entries: [entries.pop(k) for k in list(entries) if k.startswith(column + "/")])
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def _load_zmetadata(self):
-        with open(os.path.join(self.source, ".zmetadata"), "r") as f:
-            return json.load(f)
+    def _edit_zmetadata(self, edit):
+        path = os.path.join(self.source, ".zmetadata")
+        with open(path, "r") as f:
+            zmetadata = json.load(f)
+        edit(zmetadata["metadata"])
+        with open(path, "w") as f:
+            json.dump(zmetadata, f)
 
-    def _dump_zmetadata(self):
-        with open(os.path.join(self.source, ".zmetadata"), "w") as f:
-            json.dump(self.zmetadata, f)
+    def _write_pickle_zarray(self, array_path):
+        os.makedirs(os.path.join(self.source, array_path))
+        with open(os.path.join(self.source, array_path, ".zarray"), "w") as f:
+            json.dump(self._PICKLE_ZARRAY, f)
 
-    def _declare_pickle_in_zmetadata_only(self, array_path):
-        """Declare pickle for *array_path* in ``.zmetadata`` while its ``.zarray`` stays benign.
+    def test_intact_copy_opens(self):
+        """Guards the tests below: without the crafted array, the copy opens without allow_pickle."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            NWBZarrV2IO(self.source, mode="r").close()
 
-        zarr v3 opens a group with consolidated metadata only when it can parse every entry, so
-        object arrays get a null fill value and the JSON coded spec arrays zarr v3 cannot parse
-        are dropped from ``.zmetadata``.
-        """
-        entries = self.zmetadata["metadata"]
-        crafted = f"{array_path}/.zarray"
-        entries[crafted] = dict(entries[crafted], dtype="|O", compressor=None, filters=self._PICKLE_FILTERS)
-        for key, meta in list(entries.items()):
-            if not key.endswith("/.zarray") or meta.get("dtype") != "|O":
-                continue
-            meta["fill_value"] = None
-            if key != crafted and any(f.get("id") == "json2" for f in meta.get("filters") or []):
-                prefix = key[: -len(".zarray")]
-                for k in [k for k in entries if k.startswith(prefix)]:
-                    del entries[k]
-        self._dump_zmetadata()
-        # the consolidated metadata is what zarr opens the array with
-        opened = zarr.open_consolidated(self.source, mode="r", zarr_format=2)[array_path]
-        self.assertIn("pickle", [f.codec_id for f in opened.metadata.filters])
-        with open(os.path.join(self.source, array_path, ".zarray"), "r") as f:
-            self.assertNotIn("pickle", json.dumps(json.load(f)))
-
-    def test_array_with_pickle_only_in_zmetadata_is_refused(self):
+    def test_pickle_declared_only_in_zmetadata(self):
         path = "general/extracellular_ephys/electrodes/location"
-        self._declare_pickle_in_zmetadata_only(path)
+        self._edit_zmetadata(lambda entries: entries[f"{path}/.zarray"].update(self._PICKLE_ZARRAY))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(UnsafePickleCodecError, path):
+                NWBZarrV2IO(self.source, mode="r")
+
+    def test_array_under_a_directory_without_zgroup(self):
+        self._write_pickle_zarray("stray/pickled")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(UnsafePickleCodecError, "stray/pickled"):
+                NWBZarrV2IO(self.source, mode="r")
+
+    def test_link_to_an_array_inside_another_array(self):
+        """The walk does not descend into arrays, so this array is reachable only through the link."""
+        path = "general/extracellular_ephys/electrodes/location/pickled"
+        self._write_pickle_zarray(path)
+        with open(os.path.join(self.source, "acquisition", ".zattrs"), "w") as f:
+            json.dump({"zarr_link": [{"name": "pickled", "source": ".", "path": f"/{path}"}]}, f)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             with NWBZarrV2IO(self.source, mode="r") as io:
                 with self.assertRaisesRegex(UnsafePickleCodecError, path):
                     io.read_builder()
 
-    def test_cached_spec_with_pickle_only_in_zmetadata_is_refused(self):
+    def test_cached_spec_with_pickle_only_in_zmetadata_with_allow_pickle(self):
         path = "specifications/hdmf-common/1.10.0/namespace"
-        # Re-encode the spec chunk with the declared chain, so the spec decodes to the real
-        # namespace when the pickle codec is not refused.
-        chunk_path = os.path.join(self.source, path, "0")
-        with open(os.path.join(self.source, path, ".zarray"), "r") as f:
-            (json_filter,) = json.load(f)["filters"]
-        with open(chunk_path, "rb") as f:
-            value = numcodecs.get_codec(json_filter).decode(f.read())
-        for codec_config in self._PICKLE_FILTERS:
-            value = numcodecs.get_codec(codec_config).encode(value)
-        with open(chunk_path, "wb") as f:
-            f.write(bytes(value))
-        self._declare_pickle_in_zmetadata_only(path)
-        group = zarr.open_consolidated(self.source, mode="r", zarr_format=2)["specifications/hdmf-common/1.10.0"]
-        with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
-            ZarrV2SpecReader(group).read_namespace("namespace")
-
-    def test_link_to_pickled_array_outside_the_walked_groups_is_refused(self):
-        """read_builder does not walk ``specifications``, so a link is the only way this array is opened."""
-        target = os.path.join(self.source, "specifications", "pickled")
-        os.makedirs(target)
-        with open(os.path.join(target, ".zarray"), "w") as f:
-            json.dump(
-                {
-                    "chunks": [1],
-                    "compressor": None,
-                    "dtype": "|O",
-                    "fill_value": None,
-                    "filters": self._PICKLE_FILTERS,
-                    "order": "C",
-                    "shape": [1],
-                    "zarr_format": 2,
-                },
-                f,
-            )
-        attrs_path = os.path.join(self.source, "acquisition", ".zattrs")
-        attrs = {}
-        if os.path.exists(attrs_path):
-            with open(attrs_path, "r") as f:
-                attrs = json.load(f)
-        attrs["zarr_link"] = [{"name": "pickled", "source": ".", "path": "/specifications/pickled"}]
-        with open(attrs_path, "w") as f:
-            json.dump(attrs, f)
-        os.remove(os.path.join(self.source, ".zmetadata"))
+        self._edit_zmetadata(lambda entries: entries[f"{path}/.zarray"].update(self._PICKLE_ZARRAY))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with NWBZarrV2IO(self.source, mode="r") as io:
-                with self.assertRaisesRegex(UnsafePickleCodecError, "/specifications/pickled"):
-                    io.read_builder()
+            with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
+                NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
