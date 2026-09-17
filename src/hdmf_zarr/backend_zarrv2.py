@@ -45,52 +45,6 @@ def _is_pickle_codec(codec):
     return getattr(codec, "codec_id", None) == "pickle"
 
 
-def _declares_pickle(zarray_meta):
-    """Return whether a v2 ``.zarray`` declares the pickle codec.
-
-    Every declared codec runs during decoding, so the whole chain is checked: the
-    compressor and each entry of ``filters``. Zarr resolves an object array's dtype
-    from the first object codec in ``filters`` and decodes with all of them, so a
-    pickle codec is live wherever it sits in the list.
-    """
-    codecs = [zarray_meta.get("compressor"), *(zarray_meta.get("filters") or [])]
-    return any(_is_pickle_codec(codec) for codec in codecs)
-
-
-def _zarray_bytes_declare_pickle(zarray_bytes):
-    """Return whether raw ``.zarray`` bytes declare the pickle codec.
-
-    Missing or malformed metadata declares nothing, since neither zarr nor the raw
-    chunk fallback can decode an array from it.
-    """
-    if zarray_bytes is None:
-        return False
-    try:
-        zarray_meta = json.loads(zarray_bytes)
-    except ValueError:
-        return False
-    return isinstance(zarray_meta, dict) and _declares_pickle(zarray_meta)
-
-
-def _zmetadata_arrays(store):
-    """Return the array entries of a v2 store's consolidated ``.zmetadata``, keyed by array path.
-
-    Returns an empty dict when the store has no readable ``.zmetadata``.
-    """
-    zmeta_bytes = _read_store_bytes(store, ".zmetadata")
-    if zmeta_bytes is None:
-        return {}
-    try:
-        metadata = json.loads(zmeta_bytes).get("metadata", {})
-    except (ValueError, AttributeError):
-        return {}
-    return {
-        key[: -len(".zarray")].rstrip("/"): value
-        for key, value in metadata.items()
-        if (key == ".zarray" or key.endswith("/.zarray")) and isinstance(value, dict)
-    }
-
-
 def _opened_array_declares_pickle(array):
     """Return whether zarr decodes *array* with the pickle codec.
 
@@ -120,13 +74,10 @@ def _enforce_opened_array_pickle_policy(array, allow_pickle):
         _raise_unsafe_pickle(array.name)
 
 
-def _v2_codec(codec_config, allow_pickle):
-    """Build a declared v2 codec after enforcing the pickle trust policy."""
+def _v2_codec(codec_config, allow_pickle, dataset_key=None):
+    """Build a declared v2 codec after enforcing the pickle trust policy, naming *dataset_key* in the error."""
     if _is_pickle_codec(codec_config) and not allow_pickle:
-        raise UnsafePickleCodecError(
-            "Refusing to decode the unsafe pickle codec in a Zarr v2 file. "
-            "Reopen with allow_pickle=True only if this file is trusted."
-        )
+        _raise_unsafe_pickle(dataset_key)
     import numcodecs
 
     return numcodecs.get_codec(codec_config)
@@ -219,11 +170,6 @@ def is_zarr_v2_file(path, storage_options=None):
 class ZarrV2SpecReader(ZarrSpecReader):
     """Spec reader that can fall back to raw-chunk decoding for v2 object arrays."""
 
-    @docval(*get_docval(ZarrSpecReader.__init__))
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.__zmetadata_arrays = None  # read from the store on the first spec read
-
     def _read(self, path):
         self.__reject_pickled_spec(path)
         try:
@@ -246,13 +192,12 @@ class ZarrV2SpecReader(ZarrSpecReader):
         whatever ``allow_pickle`` says.
         """
         dataset_key = f"{self._group.path}/{path}" if self._group.path else path
-        store = self._group.store
-        # zarr decodes with the array's .zmetadata entry when the store was opened with
-        # consolidated metadata, and with its .zarray otherwise, so both are checked.
-        if self.__zmetadata_arrays is None:
-            self.__zmetadata_arrays = _zmetadata_arrays(store)
-        zarray_bytes = _read_store_bytes(store, f"{dataset_key}/.zarray")
-        if _zarray_bytes_declare_pickle(zarray_bytes) or _declares_pickle(self.__zmetadata_arrays.get(dataset_key, {})):
+        try:
+            array = self._group[path]
+        except Exception:
+            # zarr cannot open it, so only the raw chunk fallback decodes it, which refuses pickle itself
+            return
+        if isinstance(array, zarr.Array) and _opened_array_declares_pickle(array):
             raise UnsafePickleCodecError(
                 f"Refusing to decode the pickle codec declared by the cached spec "
                 f"'{dataset_key}' in a Zarr v2 file. Cached specs are written with the "
@@ -274,12 +219,12 @@ class ZarrV2SpecReader(ZarrSpecReader):
 
         compressor_config = zarray_meta.get("compressor")
         if compressor_config is not None:
-            raw = _v2_codec(compressor_config, allow_pickle=False).decode(raw)
+            raw = _v2_codec(compressor_config, allow_pickle=False, dataset_key=dataset_key).decode(raw)
 
         filters = zarray_meta.get("filters") or []
         if filters:
             for filt_config in reversed(filters):
-                raw = _v2_codec(filt_config, allow_pickle=False).decode(raw)
+                raw = _v2_codec(filt_config, allow_pickle=False, dataset_key=dataset_key).decode(raw)
 
         if isinstance(raw, np.ndarray):
             return raw.flat[0]
@@ -362,19 +307,11 @@ class ZarrV2IO(ZarrIO):
         warnings.warn(f"Skipping '{path}': {reason}")
 
     @classmethod
-    @docval(
-        *get_docval(ZarrIO.load_namespaces),
-        {
-            "name": "allow_pickle",
-            "type": bool,
-            "doc": "whether to decode unsafe pickle codecs from a trusted v2 file",
-            "default": False,
-        },
-    )
+    @docval(*get_docval(ZarrIO.load_namespaces))
     def load_namespaces(cls, **kwargs):
-        """Load cached namespaces while enforcing the v2 pickle trust policy."""
-        namespace_catalog, path, file, storage_options, namespaces, allow_pickle = popargs(
-            "namespace_catalog", "path", "file", "storage_options", "namespaces", "allow_pickle", kwargs
+        """Load cached namespaces, refusing any cached spec that declares the pickle codec."""
+        namespace_catalog, path, file, storage_options, namespaces = popargs(
+            "namespace_catalog", "path", "file", "storage_options", "namespaces", kwargs
         )
         if path is not None and file is not None:
             raise ValueError("Only one of 'path' and 'file' must be provided.")
@@ -383,7 +320,7 @@ class ZarrV2IO(ZarrIO):
             f = cls._open_for_namespaces(store)
         else:
             f = file
-        return cls._load_namespaces(namespace_catalog, namespaces, f, allow_pickle=allow_pickle)
+        return cls._load_namespaces(namespace_catalog, namespaces, f)
 
     # ----- open / namespace hooks -----
 
@@ -402,43 +339,12 @@ class ZarrV2IO(ZarrIO):
     def _open_file(self, store, mode, storage_options=None):
         store = self._resolve_store(store, storage_options)
         try:
-            zarr_obj = zarr.open(store=store, mode=mode)
+            return zarr.open(store=store, mode=mode)
         except Exception:
             # zarr v3 fails to parse some v2 constructs (e.g. an object-dtype array
             # with an int fill_value in the consolidated block). The failing type is
             # not a stable API, so retry the more permissive non-consolidated open.
-            zarr_obj = zarr.open(store=store, mode=mode, use_consolidated=False)
-        self._refuse_declared_pickle(zarr_obj)
-        return zarr_obj
-
-    def _refuse_declared_pickle(self, zarr_obj):
-        """Raise :exc:`UnsafePickleCodecError` if the opened store declares the pickle codec, unless ``allow_pickle``.
-
-        zarr decodes an array with its ``.zmetadata`` entry when the store is opened with
-        consolidated metadata and with its ``.zarray`` otherwise, so every ``.zmetadata``
-        entry is checked, and a walk checks the ``.zarray`` of every array in every
-        directory outside an array. zarr also opens an array at any path, including
-        inside another array's directory, and that array is reachable only through a
-        link or reference, which :meth:`resolve_ref` checks.
-        """
-        if self.allow_pickle:
-            return
-        store = zarr_obj.store
-        for key, zarray_meta in _zmetadata_arrays(store).items():
-            if _declares_pickle(zarray_meta):
-                _raise_unsafe_pickle(key)
-        prefixes = [zarr_obj.path or ""]
-        while prefixes:
-            prefix = prefixes.pop()
-            for entry in self._store_list_dir(store, prefix):
-                if entry.startswith("."):
-                    continue
-                key = f"{prefix}/{entry}" if prefix else entry
-                zarray_bytes = _read_store_bytes(store, f"{key}/.zarray")
-                if zarray_bytes is None:
-                    prefixes.append(key)
-                elif _zarray_bytes_declare_pickle(zarray_bytes):
-                    _raise_unsafe_pickle(key)
+            return zarr.open(store=store, mode=mode, use_consolidated=False)
 
     def _open_file_consolidated(self, store, mode, storage_options=None):
         if mode == "r-":
@@ -453,7 +359,6 @@ class ZarrV2IO(ZarrIO):
             zarr_obj = zarr.open_consolidated(store=open_store, mode=mode)
         except Exception:
             zarr_obj = zarr.open(store=open_store, mode=mode, use_consolidated=False)
-        self._refuse_declared_pickle(zarr_obj)
 
         self._consolidated_cache[cache_key] = zarr_obj
         return zarr_obj
@@ -468,7 +373,7 @@ class ZarrV2IO(ZarrIO):
             return zarr.open(store, mode="r", use_consolidated=False)
 
     @classmethod
-    def _load_namespaces(cls, namespace_catalog, namespaces, f, allow_pickle=False):
+    def _load_namespaces(cls, namespace_catalog, namespaces, f):
         if SPEC_LOC_ATTR not in f.attrs:
             warnings.warn("No cached namespaces found in %s" % get_store_path(f.store))
             return {}
@@ -639,10 +544,10 @@ class ZarrV2IO(ZarrIO):
         dimension_separator = zarray_meta.get("dimension_separator", ".")
 
         compressor_config = zarray_meta.get("compressor")
-        compressor = _v2_codec(compressor_config, allow_pickle) if compressor_config else None
+        compressor = _v2_codec(compressor_config, allow_pickle, dataset_key) if compressor_config else None
 
         filters_config = zarray_meta.get("filters") or []
-        filters = [_v2_codec(filter_config, allow_pickle) for filter_config in filters_config]
+        filters = [_v2_codec(filter_config, allow_pickle, dataset_key) for filter_config in filters_config]
 
         # A compound holding an object field is pickled whole, exactly like a plain object array,
         # so it comes back from the codec as an ndarray instead of a buffer to reinterpret.
@@ -775,6 +680,8 @@ class ZarrV2IO(ZarrIO):
                         raise ValueError("zarr v3 cannot parse this v2 array's metadata")
                 # Happy path: let zarr v3 open the child group/array.
                 child = zarr_obj[entry]
+                if isinstance(child, zarr.Array):
+                    _enforce_opened_array_pickle_policy(child, self.allow_pickle)
                 yield entry, child
             except UnsafePickleCodecError:
                 raise

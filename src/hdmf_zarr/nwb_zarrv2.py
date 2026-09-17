@@ -42,9 +42,7 @@ class NWBZarrV2IO(ZarrV2IO):
         path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle = popargs(
             "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", "allow_pickle", kwargs
         )
-        manager = _build_nwb_manager(
-            type(self), path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle=allow_pickle
-        )
+        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options, allow_pickle=allow_pickle)
 
     @docval(

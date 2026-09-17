@@ -9,9 +9,7 @@ from hdmf.build import BuildManager, TypeMap
 from pynwb import get_manager, get_type_map
 
 
-def _build_nwb_manager(
-    io_cls, path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle=None
-):
+def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces, storage_options):
     """Resolve the NWB BuildManager from IO constructor arguments.
 
     :param io_cls: IO class used to load cached namespaces.
@@ -21,8 +19,6 @@ def _build_nwb_manager(
     :param extensions: Namespace extension path(s) or TypeMap.
     :param load_namespaces: Whether to load cached namespaces from *path*.
     :param storage_options: Options used to open a remote source store.
-    :param allow_pickle: Whether a v2 reader may decode unsafe pickle codecs.
-        ``None`` omits this v2-only option for v3 readers.
 
     Centralizes the namespace-loading and manager-selection logic shared by
     :class:`NWBZarrIO` and :class:`NWBZarrV2IO`.
@@ -33,15 +29,7 @@ def _build_nwb_manager(
 
     if load_namespaces:
         tm = get_type_map()
-        if allow_pickle is None:
-            io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
-        else:
-            io_cls.load_namespaces(
-                namespace_catalog=tm,
-                path=path,
-                storage_options=storage_options,
-                allow_pickle=allow_pickle,
-            )
+        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
         return BuildManager(tm)
 
     if manager is not None and extensions is not None:
