@@ -12,7 +12,7 @@ from hdmf.utils import docval, popargs, get_docval
 
 from .backend import SUPPORTED_ZARR_STORES
 from .nwb import NWBZarrIO, _build_nwb_manager
-from .backend_zarrv2 import ZarrV2IO
+from .backend_zarrv2 import ZarrV2IO, IncompleteConversionError
 
 
 class NWBZarrV2IO(ZarrV2IO):
@@ -79,8 +79,15 @@ class NWBZarrV2IO(ZarrV2IO):
         zarr-v3 file via :class:`~hdmf_zarr.NWBZarrIO`. Because a v2 → v3 conversion
         rewrites the storage layout, data chunks are always copied (``link_data`` is
         forced to ``False``) rather than linked back to the source file.
+
+        Raises :exc:`IncompleteConversionError` when any entry of the source file could
+        not be read, listing the entries. Reading a file for inspection reports such an
+        entry as a warning and continues, but a conversion writes a file that is meant
+        to stand in for the source, so a missing entry is an error here.
         """
-        path, nwbfile, write_args, storage_options = popargs("path", "nwbfile", "write_args", "storage_options", kwargs)
+        path, nwbfile, write_args, storage_options = popargs(
+            "path", "nwbfile", "write_args", "storage_options", kwargs
+        )
         if isinstance(path, Path):
             path = str(path)
         write_args = dict(write_args) if write_args is not None else {}
@@ -89,6 +96,16 @@ class NWBZarrV2IO(ZarrV2IO):
 
         if nwbfile is None:
             nwbfile = self.read()
+
+        if self.skipped_entries:
+            listed = "\n".join(f"  {entry}: {reason}" for entry, reason in self.skipped_entries)
+            count = len(self.skipped_entries)
+            noun = "entry" if count == 1 else "entries"
+            raise IncompleteConversionError(
+                f"{count} {noun} of '{self.source}' could not be read and would be "
+                f"absent from '{path}':\n{listed}"
+            )
+
         nwbfile.set_modified()
 
         with NWBZarrIO(path=path, mode="w", storage_options=storage_options) as export_io:
@@ -145,6 +162,9 @@ class NWBZarrV2IO(ZarrV2IO):
         Example::
 
             NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr")
+
+        Raises :exc:`IncompleteConversionError` when any entry of the source file could
+        not be read; see :meth:`export_to_v3`.
         """
         source_path, dest_path, write_args, storage_options, allow_pickle = popargs(
             "source_path", "dest_path", "write_args", "storage_options", "allow_pickle", kwargs
