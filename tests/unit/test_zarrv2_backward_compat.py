@@ -625,6 +625,34 @@ class TestV2ExportToV3(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestV2CachedNamespaces(unittest.TestCase):
+    """The fixture carries its cached schema, and the reader reads it."""
+
+    def test_every_cached_namespace_has_a_schema(self):
+        specs = os.path.join(_V2_FILE, "specifications")
+        namespaces = sorted(d for d in os.listdir(specs) if os.path.isdir(os.path.join(specs, d)))
+        self.assertIn("core", namespaces)
+        for namespace in namespaces:
+            with self.subTest(namespace=namespace):
+                versions = [
+                    v for v in os.listdir(os.path.join(specs, namespace))
+                    if os.path.isdir(os.path.join(specs, namespace, v))
+                ]
+                self.assertTrue(versions, f"'{namespace}' has no cached version directory")
+                for version in versions:
+                    contents = os.listdir(os.path.join(specs, namespace, version))
+                    self.assertIn("namespace", contents)
+
+    def test_reading_reports_no_unreadable_cached_namespace(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                io.read()
+        unreadable = [str(w.message) for w in caught if "Could not read cached namespace" in str(w.message)]
+        self.assertEqual(unreadable, [])
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
 class TestV2ConversionRefusesToDropEntries(unittest.TestCase):
     """A conversion must not silently omit source entries it could not read."""
 
