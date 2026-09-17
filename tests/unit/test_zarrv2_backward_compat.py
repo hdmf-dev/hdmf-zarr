@@ -33,7 +33,7 @@ import numpy as np
 from zarr.storage import LocalStore
 
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
-from hdmf_zarr.backend_zarrv2 import UnsafePickleCodecError, ZarrV2IO, _enforce_pickle_policy
+from hdmf_zarr.backend_zarrv2 import IncompleteConversionError, UnsafePickleCodecError, ZarrV2IO, _enforce_pickle_policy
 
 # Paths relative to the repo root
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -660,7 +660,7 @@ class TestPickleGateOnCachedSpecs(unittest.TestCase):
         shutil.copytree(_V2_FILE, self.source)
         # Declare a benign object codec ahead of pickle. Zarr resolves the dtype from the
         # first object codec and so parses this metadata, but decoding runs both.
-        spec_array = os.path.join(self.source, "specifications", "hdmf-common", "1.8.0", "namespace")
+        spec_array = os.path.join(self.source, "specifications", "hdmf-common", "1.10.0", "namespace")
         zarray_path = os.path.join(spec_array, ".zarray")
         with open(zarray_path, "r") as f:
             meta = json.load(f)
@@ -695,6 +695,82 @@ class TestPickleGateOnCachedSpecs(unittest.TestCase):
                 nwbfile = io.read()
                 groups = nwbfile.electrodes["group"][:]
         self.assertTrue(all(g.name == "shank0" for g in groups))
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestV2CachedNamespaces(unittest.TestCase):
+    """The fixture carries its cached schema, and the reader reads it."""
+
+    def test_every_cached_namespace_has_a_schema(self):
+        specs = os.path.join(_V2_FILE, "specifications")
+        namespaces = sorted(d for d in os.listdir(specs) if os.path.isdir(os.path.join(specs, d)))
+        self.assertIn("core", namespaces)
+        for namespace in namespaces:
+            with self.subTest(namespace=namespace):
+                versions = [
+                    v for v in os.listdir(os.path.join(specs, namespace))
+                    if os.path.isdir(os.path.join(specs, namespace, v))
+                ]
+                self.assertTrue(versions, f"'{namespace}' has no cached version directory")
+                for version in versions:
+                    contents = os.listdir(os.path.join(specs, namespace, version))
+                    self.assertIn("namespace", contents)
+
+    def test_reading_reports_no_unreadable_cached_namespace(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                io.read()
+        unreadable = [str(w.message) for w in caught if "Could not read cached namespace" in str(w.message)]
+        self.assertEqual(unreadable, [])
+
+
+@unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestV2ConversionRefusesToDropEntries(unittest.TestCase):
+    """A conversion must not silently omit source entries it could not read."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.source = os.path.join(self.tmpdir, "source.nwb.zarr")
+        shutil.copytree(_V2_FILE, self.source)
+        # Declare a codec this environment does not provide, so neither zarr v3 nor the
+        # raw v2 chunk decoder can read the dataset.
+        zarray_path = os.path.join(self.source, "acquisition", "test_ephys", "data", ".zarray")
+        with open(zarray_path, "r") as f:
+            meta = json.load(f)
+        meta["compressor"] = {"id": "a-codec-that-does-not-exist"}
+        with open(zarray_path, "w") as f:
+            json.dump(meta, f)
+        os.remove(os.path.join(self.source, ".zmetadata"))
+        self.dest = os.path.join(self.tmpdir, "dest.nwb.zarr")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_convert_to_v3_raises_and_writes_nothing(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(IncompleteConversionError) as ctx:
+                NWBZarrV2IO.convert_to_v3(source_path=self.source, dest_path=self.dest, allow_pickle=True)
+        self.assertIn("/acquisition/test_ephys/data", str(ctx.exception))
+        self.assertFalse(os.path.exists(self.dest))
+
+    def test_reading_records_the_skipped_entry_and_continues(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with NWBZarrV2IO(self.source, mode="r", allow_pickle=True) as io:
+                nwbfile = io.read()
+                skipped = io.skipped_entries
+        self.assertIsNotNone(nwbfile.session_description)
+        self.assertEqual([entry for entry, _ in skipped], ["/acquisition/test_ephys/data"])
+        self.assertTrue(any("Skipping" in str(w.message) for w in caught))
+
+    def test_intact_fixture_skips_nothing(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                io.read()
+                self.assertEqual(io.skipped_entries, [])
 
 
 if __name__ == "__main__":

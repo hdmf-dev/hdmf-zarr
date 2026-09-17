@@ -1,4 +1,8 @@
 {
+    "_ARRAY_DIMENSIONS": [
+        "num_times",
+        "num_channels"
+    ],
     "conversion": 1.0,
     "offset": 0.0,
     "resolution": -1.0,

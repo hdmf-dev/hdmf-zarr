@@ -29,6 +29,10 @@ class UnsafePickleCodecError(ValueError):
     """Raised when an untrusted v2 file requests unsafe pickle decoding."""
 
 
+class IncompleteConversionError(RuntimeError):
+    """Raised when a v2 to v3 conversion would omit entries it could not read."""
+
+
 def _is_pickle_codec(codec_config):
     """Return whether a declared v2 codec config is the pickle codec."""
     return isinstance(codec_config, dict) and codec_config.get("id") == "pickle"
@@ -265,12 +269,28 @@ class ZarrV2IO(ZarrIO):
                 "Use ZarrIO/NWBZarrIO to write zarr v3 files."
             )
         kwargs["mode"] = mode
+        self.__skipped_entries = []
         super().__init__(**kwargs)
 
     @property
     def allow_pickle(self):
         """Whether unsafe pickle decoding is enabled for this trusted v2 file."""
         return self.__allow_pickle
+
+    @property
+    def skipped_entries(self):
+        """Entries this IO could not read, as a list of ``(path, reason)`` pairs.
+
+        An entry lands here when neither zarr v3 nor the raw v2 chunk decoder could
+        read it. It is absent from the builders this IO produced, so a caller that
+        needs a faithful copy of the file must treat a non-empty list as a failure.
+        """
+        return list(self.__skipped_entries)
+
+    def _record_skipped_entry(self, path, reason):
+        """Record an entry that could not be read, and warn about it."""
+        self.__skipped_entries.append((path, reason))
+        warnings.warn(f"Skipping '{path}': {reason}")
 
     @classmethod
     @docval(
@@ -668,16 +688,15 @@ class ZarrV2IO(ZarrIO):
                     except Exception as e2:
                         # Neither zarr v3 nor the manual fallback could read it;
                         # skip so the rest of the group still loads.
-                        warnings.warn(
-                            f"Skipping '{entry}' in '{zarr_obj.name}': "
-                            f"zarr v3 could not parse it ({e}) and v2 store fallback "
-                            f"also failed ({e2})"
+                        self._record_skipped_entry(
+                            f"{zarr_obj.name.rstrip('/')}/{entry}",
+                            f"zarr v3 could not parse it ({e}) and v2 store fallback also failed ({e2})",
                         )
                 else:
                     # No .zarray: nothing to fall back to, so skip this entry.
-                    warnings.warn(
-                        f"Skipping '{entry}' in '{zarr_obj.name}': zarr v3 could not "
-                        f"parse its metadata (likely a zarr v2 object-dtype array): {e}"
+                    self._record_skipped_entry(
+                        f"{zarr_obj.name.rstrip('/')}/{entry}",
+                        f"zarr v3 could not parse its metadata (likely a v2 object-dtype array): {e}",
                     )
 
     def _read_v2_dataset(self, store, group_path, name):
