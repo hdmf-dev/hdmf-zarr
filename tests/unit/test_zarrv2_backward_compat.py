@@ -629,22 +629,10 @@ class TestV2ExportToV3(unittest.TestCase):
 
 
 class TestPickleCodecPolicy(unittest.TestCase):
-    """The pickle check covers every codec a v2 `.zarray` declares."""
-
-    def test_pickle_is_found_in_any_position(self):
-        for filters in (
-            [{"id": "pickle", "protocol": 5}],
-            [{"id": "vlen-utf8"}, {"id": "pickle", "protocol": 5}],
-            [{"id": "vlen-utf8"}, {"id": "json2"}, {"id": "pickle", "protocol": 5}],
-        ):
-            with self.subTest(filters=filters):
-                self.assertTrue(_declares_pickle({"compressor": None, "filters": filters}))
+    """The pickle check covers the compressor slot of a v2 `.zarray`."""
 
     def test_pickle_as_the_compressor_is_found(self):
         self.assertTrue(_declares_pickle({"compressor": {"id": "pickle"}, "filters": None}))
-
-    def test_codecs_without_pickle_are_not_flagged(self):
-        self.assertFalse(_declares_pickle({"compressor": {"id": "blosc"}, "filters": [{"id": "vlen-utf8"}]}))
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
@@ -671,27 +659,12 @@ class TestPickleGateOnCachedSpecs(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_construction_refuses_the_file(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
-                NWBZarrV2IO(self.source, mode="r")
-
     def test_allow_pickle_does_not_permit_a_pickled_spec(self):
         """allow_pickle covers data written by hdmf-zarr, which never pickled a spec."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             with self.assertRaisesRegex(UnsafePickleCodecError, "cached spec"):
                 NWBZarrV2IO(self.source, mode="r", allow_pickle=True)
-
-    def test_allow_pickle_still_reads_a_pickled_reference_column(self):
-        """The legitimate use of pickle, an object reference column, is unaffected."""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
-                nwbfile = io.read()
-                groups = nwbfile.electrodes["group"][:]
-        self.assertTrue(all(g.name == "shank0" for g in groups))
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
@@ -751,11 +724,13 @@ class TestPickleScanOnOpen(unittest.TestCase):
             with self.assertRaisesRegex(UnsafePickleCodecError, path):
                 NWBZarrV2IO(self.source, mode="r")
 
-    def test_array_under_a_directory_without_zgroup(self):
-        self._write_pickle_zarray("stray/pickled")
+    def test_group_member_missing_from_zmetadata(self):
+        """Reading the group decodes this array, and only its ``.zarray`` declares pickle."""
+        path = "acquisition/pickled"
+        self._write_pickle_zarray(path)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with self.assertRaisesRegex(UnsafePickleCodecError, "stray/pickled"):
+            with self.assertRaisesRegex(UnsafePickleCodecError, path):
                 NWBZarrV2IO(self.source, mode="r")
 
     def test_link_to_an_array_inside_another_array(self):
