@@ -740,6 +740,38 @@ class TestScalarDataset(ZarrStoreTestCase):
             self.assertEqual(data["x"], 1.5)
             self.assertEqual(data["label"], "a" * 600)
 
+    def test_compound_with_reference_field_write(self):
+        """Writing a compound scalar with a reference field reports that it is unsupported."""
+        target = DatasetBuilder("target", np.arange(3))
+        dtype = [{"name": "idx", "dtype": "int32"}, {"name": "ref", "dtype": "object"}]
+        value = np.array((1, ReferenceBuilder(target)), dtype=[("idx", "<i4"), ("ref", object)])
+        builder = GroupBuilder(
+            ROOT_NAME,
+            datasets={"target": target, "cs": DatasetBuilder("cs", value, dtype=dtype)},
+        )
+        with ZarrIO(self.store_path, mode="w") as io:
+            with self.assertRaisesWith(
+                NotImplementedError,
+                "Zero-dimensional compound dataset with a reference field is not supported: cs",
+            ):
+                io.write_builder(builder)
+
+    def test_compound_with_reference_field_read(self):
+        """Reading a compound scalar with a reference field reports that it is unsupported."""
+        group = zarr.open_group(self.store_path, mode="w")
+        group.attrs["zarr_dtype"] = "group"
+        dtype = np.dtype([("idx", "<i4"), ("ref", "U32")])
+        array = group.create_array("cs", shape=(), dtype=dtype)
+        array[()] = np.array((7, "/target"), dtype=dtype)
+        array.attrs["_DTYPE"] = [
+            {"name": "idx", "dtype": "int32"},
+            {"name": "ref", "dtype": "object_reference"},
+        ]
+        array.attrs["_REFERENCE_FIELDS"] = ["ref"]
+        with ZarrIO(self.store_path, mode="r") as io:
+            with self.assertRaises(NotImplementedError):
+                io.read_builder()
+
 
 #########################################
 #  Export through a symlinked path

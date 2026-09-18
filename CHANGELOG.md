@@ -32,6 +32,7 @@ Addressed the following bugs that are independent of the migration to Zarr V3:
 * Fixed bug where `ZarrIO.generate_dataset_html` would raise an error when called with a non-Zarr object. @oruebel [#355](https://github.com/hdmf-dev/hdmf-zarr/pull/355)
 * Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 * Fixed bug where writing a scalar dataset with a compound dtype, such as `ElectrodeGroup.position`, raised `IndexError`. @rly [#277](https://github.com/hdmf-dev/hdmf-zarr/issues/277)
+* Reading or writing a scalar dataset with a compound dtype that has a reference field raises `NotImplementedError`. This combination is not supported. @rly [#391](https://github.com/hdmf-dev/hdmf-zarr/pull/391)
 
 ### Contributors
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.

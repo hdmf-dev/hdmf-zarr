@@ -1417,6 +1417,10 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
+                if get_data_shape(data) == ():
+                    raise NotImplementedError(
+                        "Zero-dimensional compound dataset with a reference field is not supported: " + str(name)
+                    )
                 self._written_builders.set_written(builder)  # record that the builder has been written
 
                 # gather items to write
@@ -1509,7 +1513,7 @@ class ZarrIO(HDMFIO):
                 if ref_field_names:
                     dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
                 dset[...] = new_arr
-            elif np.ndim(data) == 0:
+            elif get_data_shape(data) == ():
                 dset = self.__scalar_fill__(parent, name, data, options)
             else:
                 # write a compound datatype
@@ -2127,6 +2131,13 @@ class ZarrIO(HDMFIO):
                     target_builder = self.__read_dataset(target_zarr_obj, target_name)
                 data = ReferenceBuilder(target_builder)
             elif isinstance(dtype, list):
+                if any(dts["dtype"] in ("object", "object_reference") for dts in dtype):
+                    raise NotImplementedError(
+                        "Zero-dimensional compound dataset with a reference field is not supported: "
+                        + str(name)
+                        + "   "
+                        + str(zarr_obj)
+                    )
                 data = np.array(zarr_obj[()], dtype=zarr_obj.dtype)
             else:
                 data = zarr_obj[()]
