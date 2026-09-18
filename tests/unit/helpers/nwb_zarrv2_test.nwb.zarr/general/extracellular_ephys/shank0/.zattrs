@@ -1,0 +1,14 @@
+{
+    "description": "Shank 0 of probe A",
+    "location": "brain area X",
+    "namespace": "core",
+    "neurodata_type": "ElectrodeGroup",
+    "object_id": "b2f9eb55-db61-4887-a2a3-eef210e3f580",
+    "zarr_link": [
+        {
+            "name": "device",
+            "path": "/general/devices/probe_A",
+            "source": "."
+        }
+    ]
+}

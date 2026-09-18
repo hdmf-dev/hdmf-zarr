@@ -145,8 +145,7 @@ intable_zarr_df  # display the table in the gallery output
 # -----------------------------------
 #
 # :py:class:`~hdmf_zarr.backend.ZarrIO` supports a subset of data stores available
-# for Zarr, e.g., :py:class`~zarr.storage.DirectoryStore`, :py:class`~zarr.storage.TempStore`,
-# and :py:class`~zarr.storage.NestedDirectoryStore`. The supported stores are defined
+# for Zarr, e.g., :py:class:`~zarr.storage.LocalStore`. The supported stores are defined
 # in :py:attr:`~hdmf_zarr.backend.SUPPORTED_ZARR_STORES`. A main limitation to supporting
 # all possible Zarr stores in :py:class:`~hdmf_zarr.backend.ZarrIO` is due to the fact that
 # Zarr does not support links and references.
@@ -157,16 +156,15 @@ intable_zarr_df  # display the table in the gallery output
 #     new stores with :py:class:`~hdmf_zarr.backend.ZarrIO`.
 #
 # To use a store other than the default, we simply need to instantiate the store
-# and set pass it to :py:class:`~hdmf_zarr.backend.ZarrIO` via the ``path`` parameter.
-# Here we use a :py:class`~zarr.storage.NestedDirectoryStore` to write a simple
+# and pass it to :py:class:`~hdmf_zarr.backend.ZarrIO` via the ``path`` parameter.
+# Here we use a :py:class:`~zarr.storage.LocalStore` to write a simple
 # :py:class:`hdmf.common.CSRMatrix` container to disk.
 #
 
-from zarr.storage import NestedDirectoryStore
+from zarr.storage import LocalStore
 from hdmf.common import CSRMatrix
 
-zarr_nsd_dir = "example_nested_store.zarr"
-store = NestedDirectoryStore(zarr_dir)
+zarr_ls_store = LocalStore("example_local_store.zarr")
 csr_container = CSRMatrix(
     name=ROOT_NAME,
     data=[1, 2, 3, 4, 5, 6],
@@ -174,12 +172,12 @@ csr_container = CSRMatrix(
     indptr=[0, 2, 3, 6],
     shape=(3, 3))
 
-# Write the csr_container to Zarr using a NestedDirectoryStore
-with ZarrIO(path=zarr_nsd_dir,  manager=get_manager(), mode='w') as zarr_io:
+# Write the csr_container to Zarr using a LocalStore
+with ZarrIO(path=zarr_ls_store,  manager=get_manager(), mode='w') as zarr_io:
     zarr_io.write(csr_container)
 
 # Read the CSR matrix to confirm the data was written correctly
-with ZarrIO(path=zarr_nsd_dir, manager=get_manager(), mode='r') as zarr_io:
+with ZarrIO(path=zarr_ls_store, manager=get_manager(), mode='r') as zarr_io:
     csr_read = zarr_io.read()
     print(" data=%s\n indices=%s\n indptr=%s\n shape=%s" %
           (str(csr_read.data), str(csr_read.indices), str(csr_read.indptr), str(csr_read.shape)))

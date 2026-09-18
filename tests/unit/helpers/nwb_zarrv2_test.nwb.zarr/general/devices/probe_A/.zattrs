@@ -1,0 +1,7 @@
+{
+    "description": "Test probe",
+    "manufacturer": "ACME",
+    "namespace": "core",
+    "neurodata_type": "Device",
+    "object_id": "35c5eeb1-6185-4f31-abb3-adbda2665d19"
+}

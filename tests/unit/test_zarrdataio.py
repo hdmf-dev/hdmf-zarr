@@ -7,7 +7,6 @@ more complex operations and are more akin to integration tests This module focus
 specific unit functions of ZarrDataIO.
 """
 
-import numcodecs
 import h5py
 import os
 import shutil
@@ -141,13 +140,15 @@ class TestZarrDataIO(TestCase):
             shuffle=True,
         )
         # test that we apply shuffle filter on int data
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_int)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Shuffle)
+        self.assertIsInstance(filters[0], ZarrShuffle)
         # test that we apply shuffle filter on float data
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset_float)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Shuffle)
+        self.assertIsInstance(filters[0], ZarrShuffle)
         h5file.close()
 
     @unittest.skipIf(not HDF5PLUGIN, "hdf5_plugin not installed")
@@ -160,13 +161,15 @@ class TestZarrDataIO(TestCase):
             data=np.arange(100, dtype="float32"),
             **hdf5plugin.Blosc(cname="blosclz", clevel=9, shuffle=hdf5plugin.Blosc.SHUFFLE),
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply blosc filter on data
+        from zarr.codecs.numcodecs import Blosc as ZarrBlosc
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Blosc)
-        self.assertEqual(filters[0].cname, "blosclz")
-        self.assertEqual(filters[0].clevel, 9)
-        self.assertEqual(filters[0].shuffle, hdf5plugin.Blosc.SHUFFLE)
+        self.assertIsInstance(filters[0], ZarrBlosc)
+        self.assertEqual(filters[0].codec_config["cname"], "blosclz")
+        self.assertEqual(filters[0].codec_config["clevel"], 9)
+        self.assertEqual(filters[0].codec_config["shuffle"], hdf5plugin.Blosc.SHUFFLE)
         h5file.close()
 
     @unittest.skipIf(not HDF5PLUGIN, "hdf5_plugin not installed")
@@ -179,11 +182,13 @@ class TestZarrDataIO(TestCase):
             data=np.arange(100, dtype="float32"),
             **hdf5plugin.Zstd(clevel=22),
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply zstd filter on data
+        from zarr.codecs.numcodecs import Zstd as ZarrZstd
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Zstd)
-        self.assertEqual(filters[0].level, 22)
+        self.assertIsInstance(filters[0], ZarrZstd)
+        self.assertEqual(filters[0].codec_config["level"], 22)
         # Close the HDF5 file
         h5file.close()
 
@@ -197,11 +202,13 @@ class TestZarrDataIO(TestCase):
             compression="gzip",
             compression_opts=2,
         )
-        # test that we apply shuffle filter on int data
+        # test that we apply gzip/zlib filter on data
+        from zarr.codecs.numcodecs import Zlib as ZarrZlib
+
         filters = ZarrDataIO.hdf5_to_zarr_filters(h5dset)
         self.assertEqual(len(filters), 1)
-        self.assertIsInstance(filters[0], numcodecs.Zlib)
-        self.assertEqual(filters[0].level, 2)
+        self.assertIsInstance(filters[0], ZarrZlib)
+        self.assertEqual(filters[0].codec_config["level"], 2)
         # Close the HDF5 file
         h5file.close()
 
@@ -231,9 +238,13 @@ class TestZarrDataIO(TestCase):
         self.assertEqual(re_zarrdataio.data, h5dset)
         self.assertEqual(re_zarrdataio.fillvalue, 100)
         self.assertEqual(re_zarrdataio.chunks, (5, 10))
-        self.assertEqual(len(re_zarrdataio.io_settings["filters"]), 2)
-        self.assertIsInstance(re_zarrdataio.io_settings["filters"][0], numcodecs.Shuffle)
-        self.assertIsInstance(re_zarrdataio.io_settings["filters"][1], numcodecs.Zlib)
+        # In zarr v3, compressors and filters are separated. Shuffle is a BytesBytesCodec (compressor).
+        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Zlib as ZarrZlib
+
+        self.assertNotIn("filters", re_zarrdataio.io_settings)
+        self.assertEqual(len(re_zarrdataio.io_settings["compressors"]), 2)
+        self.assertIsInstance(re_zarrdataio.io_settings["compressors"][0], ZarrShuffle)
+        self.assertIsInstance(re_zarrdataio.io_settings["compressors"][1], ZarrZlib)
         # Close the HDF5 file
         h5file.close()
 
@@ -256,7 +267,62 @@ class TestZarrDataIO(TestCase):
         # Close the HDF5 file
         h5file.close()
 
+    def test_from_h5py_dataset_explicit_codecs_override_inferred_codecs(self):
+        """Explicit Zarr codec settings take precedence over inferred HDF5 codecs."""
+        from zarr.codecs import TransposeCodec
+
+        h5file = h5py.File(self.hdf_filename, mode="a")
+        h5dset = h5file.create_dataset(
+            name="test",
+            data=np.arange(1000).reshape((10, 100)),
+            compression="gzip",
+            compression_opts=6,
+            shuffle=True,
+        )
+        filters = [TransposeCodec(order=(1, 0))]
+        re_zarrdataio = ZarrDataIO.from_h5py_dataset(h5dset, compressors=False, filters=filters)
+
+        self.assertIsNone(re_zarrdataio.io_settings["compressors"])
+        self.assertEqual(re_zarrdataio.io_settings["filters"], filters)
+        h5file.close()
+
     def test_zarr_data_io_get_io_params(self):
         z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype="int32")
         io = ZarrDataIO(z, link_data=True)
         assert io.get_io_params().get("link_data")
+
+
+class TestZarrDataIOSharding(TestCase):
+    """Unit tests for ZarrDataIO sharding parameter validation."""
+
+    def test_shards_and_chunks_stored_in_io_settings(self):
+        """Test that valid shards+chunks are stored in io_settings without error."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        io = ZarrDataIO(data, chunks=(10, 5), shards=(50, 10))
+        self.assertEqual(io.io_settings["shards"], (50, 10))
+        self.assertEqual(io.io_settings["chunks"], (10, 5))
+
+    def test_shards_without_chunks_warns(self):
+        """Test that a UserWarning is raised when shards is set without chunks."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        msg = (
+            "Specifying 'shards' without 'chunks' is not recommended. "
+            "When using sharding, 'chunks' defines the inner chunk shape within each shard."
+        )
+        with self.assertWarnsWith(UserWarning, msg):
+            ZarrDataIO(data, shards=(50, 10))
+
+    def test_shards_not_multiple_of_chunks_raises(self):
+        """Test that ValueError is raised when a shard dimension is not a multiple of the chunk dimension."""
+        data = np.arange(1000, dtype="i4").reshape(100, 10)
+        with self.assertRaises(ValueError):
+            ZarrDataIO(data, chunks=(10, 3), shards=(50, 10))
+
+    def test_auto_shards(self):
+        for chunks in (None, (2,)):
+            io = ZarrDataIO(np.arange(16), chunks=chunks, shards="auto")
+            self.assertEqual(io.io_settings["shards"], "auto")
+
+    def test_invalid_shards_string(self):
+        with self.assertRaisesRegex(ValueError, "'shards' must be a shape or 'auto'"):
+            ZarrDataIO(np.arange(16), shards="automatic")
