@@ -1417,6 +1417,10 @@ class ZarrIO(HDMFIO):
                     type_str.append(self.__serial_dtype__(t)[0])
 
             if len(refs) > 0:
+                if get_data_shape(data) == ():
+                    raise NotImplementedError(
+                        "Zero-dimensional compound dataset with a reference field is not supported: " + str(name)
+                    )
                 self._written_builders.set_written(builder)  # record that the builder has been written
 
                 # gather items to write
@@ -1509,6 +1513,8 @@ class ZarrIO(HDMFIO):
                 if ref_field_names:
                     dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
                 dset[...] = new_arr
+            elif get_data_shape(data) == ():
+                dset = self.__scalar_fill__(parent, name, data, options)
             else:
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
@@ -1517,7 +1523,7 @@ class ZarrIO(HDMFIO):
             # Note: ref_link_source is set to self.path because we do not do external references
             # We only support external links.
             if isinstance(data, ReferenceBuilder):
-                shape = (1,)
+                shape = ()
                 type_str = "object_reference"
                 refs = self._create_ref(data, ref_link_source=self.path)
             else:
@@ -1538,7 +1544,7 @@ class ZarrIO(HDMFIO):
                 for i, r in enumerate(refs):
                     dset[i] = r["path"]
             else:
-                dset[0] = refs["path"]
+                dset[()] = refs["path"]
         # write a 'regular' dataset without DatasetIO info
         else:
             if isinstance(data, (str, bytes)):
@@ -1687,13 +1693,48 @@ class ZarrIO(HDMFIO):
 
     __reserve_attribute = (
         "_DTYPE",
-        "_SCALAR",
         "_LINKS",
         "_REFERENCE_FIELDS",
         "zarr_dtype",
         "zarr_link",  # backward compat with old convention
         SPEC_LOC_ATTR,
     )
+
+    @staticmethod
+    def __size_compound_string_fields__(data, dtype):
+        """Give the string fields of a compound dtype a fixed length that fits the data.
+
+        Zarr v3 structured data types store strings as fixed-length Unicode. Each string field is
+        sized to its longest value in ``data``, with a minimum of ``COMPOUND_DTYPE_MIN_STRING_LENGTH``
+        characters to support appending rows with longer values. ``data`` may hold a single compound
+        value or an array of them.
+
+        :returns: ``data`` as a numpy array that can be indexed by field name, and the sized dtype.
+            Both are returned unchanged when the dtype has no string fields.
+        """
+
+        def is_string(field_dtype):
+            return np.issubdtype(field_dtype, np.flexible) or np.issubdtype(field_dtype, np.object_)
+
+        if not any(is_string(dtype[fn]) for fn in dtype.names):
+            return data, dtype
+        # Convert data to numpy array so we can index by field name.
+        # Use object dtype for string/flexible fields to avoid truncation
+        # when the original dtype has zero-length strings (e.g. <U0).
+        if not isinstance(data, np.ndarray):
+            obj_dtype = np.dtype([(fn, "O") if is_string(dtype[fn]) else (fn, dtype[fn]) for fn in dtype.names])
+            data = np.array(data, dtype=obj_dtype)
+        new_fields = []
+        for field_name in dtype.names:
+            field_dtype = dtype[field_name]
+            # A nested struct dtype also counts as flexible, so it is excluded by its field names
+            if field_dtype.names is None and is_string(field_dtype):
+                max_len = max((len(str(v)) for v in np.ravel(data[field_name])), default=1)
+                max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
+                new_fields.append((field_name, f"U{max_len}"))
+            else:
+                new_fields.append((field_name, field_dtype))
+        return data, np.dtype(new_fields)
 
     def __list_fill__(self, parent, name, data, options=None):  # noqa: C901
         dtype = None
@@ -1731,44 +1772,7 @@ class ZarrIO(HDMFIO):
             data_shape = (len(data),)
             # if we have a compound data type
             if dtype.names:
-                # If strings are part of our compound type then we need to handle them
-                has_strings = False
-                for substype in dtype.fields.items():
-                    if np.issubdtype(substype[1][0], np.flexible) or np.issubdtype(substype[1][0], np.object_):
-                        has_strings = True
-                        break
-                if has_strings:
-                    # Convert data to numpy array so we can index by field name.
-                    # Use object dtype for string/flexible fields to avoid truncation
-                    # when the original dtype has zero-length strings (e.g. <U0).
-                    if not isinstance(data, np.ndarray):
-                        obj_dtype = np.dtype(
-                            [
-                                (
-                                    (fn, "O")
-                                    if (np.issubdtype(dtype[fn], np.flexible) or np.issubdtype(dtype[fn], np.object_))
-                                    else (fn, dtype[fn])
-                                )
-                                for fn in dtype.names
-                            ]
-                        )
-                        data = np.array(data, dtype=obj_dtype)
-                    # In zarr v3, convert string fields to fixed-length strings
-                    # with lengths dynamically sized to fit the actual data, with a minimum
-                    # length to support appending rows with longer values
-                    new_fields = []
-                    for field_name in dtype.names:
-                        field_dtype = dtype[field_name]
-                        # Check if this is a nested struct dtype (has .names attribute)
-                        if field_dtype.names is not None:
-                            new_fields.append((field_name, field_dtype))
-                        elif np.issubdtype(field_dtype, np.flexible) or np.issubdtype(field_dtype, np.object_):
-                            max_len = max((len(str(v)) for v in data[field_name]), default=1)
-                            max_len = max(max_len, COMPOUND_DTYPE_MIN_STRING_LENGTH)
-                            new_fields.append((field_name, f"U{max_len}"))
-                        else:
-                            new_fields.append((field_name, field_dtype))
-                    dtype = np.dtype(new_fields)
+                data, dtype = self.__size_compound_string_fields__(data, dtype)
             # sometimes bytes and strings can hide as object in numpy array so lets try
             # to write those as strings and bytes rather than as objects
             elif len(data) > 0 and isinstance(data, np.ndarray):
@@ -1843,14 +1847,21 @@ class ZarrIO(HDMFIO):
         if dtype == object:  # noqa: E721
             dtype = str
 
+        # A scalar is stored as a zero-dimensional array
+        if isinstance(dtype, np.dtype) and dtype.names is not None:
+            data, dtype = self.__size_compound_string_fields__(data, dtype)
+            dset = parent.require_array(name, shape=(), dtype=dtype, **io_settings)
+            _check_compound_string_widths(dset, dtype)
+            dset[()] = np.array(data, dtype=dtype)
+            return dset
         # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
         zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
-        dset = parent.require_array(name, shape=(1,), dtype=zarr_dtype, **io_settings)
+        dset = parent.require_array(name, shape=(), dtype=zarr_dtype, **io_settings)
         # Decode bytes to str for StringDType arrays (bytes are not handled correctly by StringDType)
         if isinstance(data, (bytes, np.bytes_)):
             data = data.decode("utf-8")
-        dset[:] = data
-        dset.attrs["_SCALAR"] = True
+        dset[()] = data
+        dset.attrs["_DTYPE"] = self.__serial_dtype__(dtype)
         return dset
 
     @docval(returns="a GroupBuilder representing the NWB Dataset", rtype="GroupBuilder")
@@ -2059,7 +2070,6 @@ class ZarrIO(HDMFIO):
             return ret
 
         # Resolve dtype from new unified convention attributes, with backward compat for old names
-        is_scalar = zarr_obj.attrs.get("_SCALAR", False)
         dtype_attr = zarr_obj.attrs.get("_DTYPE", None)
         ref_fields = zarr_obj.attrs.get("_REFERENCE_FIELDS", None)
 
@@ -2076,10 +2086,6 @@ class ZarrIO(HDMFIO):
 
         if compound_dtype is not None:
             zarr_dtype = compound_dtype
-        elif is_scalar:
-            # ``_SCALAR`` identifies the dataset as holding a scalar. A writer may pair it with
-            # ``_DTYPE`` carrying the element type, so it is resolved first.
-            zarr_dtype = "scalar"
         elif dtype_attr is not None:
             # Map "object_reference" to hdmf's "object" for compatibility
             zarr_dtype = "object" if dtype_attr == "object_reference" else dtype_attr
@@ -2115,11 +2121,31 @@ class ZarrIO(HDMFIO):
         zarr_obj.__class__ = HDMFZarrArray
         data = zarr_obj
 
-        # Read scalar dataset
-        if dtype == "scalar":
+        # Read scalar dataset, which is stored as a zero-dimensional array
+        if zarr_obj.ndim == 0:
+            if self._is_ref(dtype):
+                target_name, target_zarr_obj = self.resolve_ref(zarr_obj[()])
+                if isinstance(target_zarr_obj, Group):
+                    target_builder = self.__read_group(target_zarr_obj, target_name)
+                else:
+                    target_builder = self.__read_dataset(target_zarr_obj, target_name)
+                data = ReferenceBuilder(target_builder)
+            elif isinstance(dtype, list):
+                if any(dts["dtype"] in ("object", "object_reference") for dts in dtype):
+                    raise NotImplementedError(
+                        "Zero-dimensional compound dataset with a reference field is not supported: "
+                        + str(name)
+                        + "   "
+                        + str(zarr_obj)
+                    )
+                data = np.array(zarr_obj[()], dtype=zarr_obj.dtype)
+            else:
+                data = zarr_obj[()]
+        elif dtype == "scalar":
+            # Zarr v2 convention (hdmf-zarr < 0.14) stored a scalar as a one-element array.
+            # Read-only support via ZarrV2IO.
             data = zarr_obj[()]
-
-        if isinstance(dtype, list):
+        elif isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
             has_reference = False
             for i, dts in enumerate(dtype):

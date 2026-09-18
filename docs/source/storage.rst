@@ -149,7 +149,6 @@ added on any Group or Dataset in the file.
     ``_DTYPE``                    Attribute on Datasets used to specify the data type. Set to
                                   ``"object_reference"`` for reference datasets. See :ref:`sec-zarr-storage-references`.
     ``_REFERENCE_FIELDS``         Attribute on compound Datasets listing field names that contain object references.
-    ``_SCALAR``                   Boolean attribute on Datasets (``true``) indicating the dataset holds a scalar value.
     ============================  ======================================================================================
 
 .. note::
@@ -341,9 +340,9 @@ The mappings of data types is as follows
 
 .. note::
 
-    Scalar datasets are marked with the ``_SCALAR = true`` attribute. The dataset has shape ``(1,)``
-    and the dtype matches the original data type (numeric scalars preserve their native dtype;
-    strings use ``StringDType``).
+    Scalar datasets are stored as zero-dimensional arrays with shape ``()``. The dtype matches the
+    original data type (numeric scalars preserve their native dtype; strings use ``StringDType``).
+    Scalar object references and scalar compound datasets are stored the same way.
 
 
 .. _sec-zarr-caching-specifications:
@@ -401,8 +400,9 @@ reference when debugging legacy data.
                                   ``source``, and ``path`` keys. Replaced by ``_LINKS``.
     ``zarr_dtype``                Attribute on Datasets specifying the data type. Set to ``"object"`` for reference
                                   datasets, ``"scalar"`` for scalar datasets, and to a list of ``{"name", "dtype"}``
-                                  dicts for compound datasets. Replaced by ``_DTYPE``, ``_SCALAR``, and the native
-                                  zarr v3 ``structured`` data_type together with ``_REFERENCE_FIELDS``.
+                                  dicts for compound datasets. Replaced by ``_DTYPE``, zero-dimensional arrays for
+                                  scalars, and the native zarr v3 ``structured`` data_type together with
+                                  ``_REFERENCE_FIELDS``.
     ============================  ======================================================================================
 
 Object references in datasets were stored as dicts with ``source``, ``path``, ``object_id``, and
