@@ -356,15 +356,15 @@ class ZarrIO(HDMFIO):
             store = cls._resolve_store(path, storage_options)
             try:
                 f = cls._open_for_namespaces(store)
+                return cls._load_namespaces(namespace_catalog, namespaces, f)
             except Exception as e:
-                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a
-                # cryptic error. Point the user at the Zarr v2 backend instead.
+                # Opening a Zarr v2 file with the Zarr v3 backend, or reading its cached
+                # specs, fails here with a cryptic error. Point the user at the Zarr v2
+                # backend instead.
                 if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
                     raise ValueError(cls._zarr_v2_read_error_message(path)) from e
                 raise
-        else:
-            f = file
-        return cls._load_namespaces(namespace_catalog, namespaces, f)
+        return cls._load_namespaces(namespace_catalog, namespaces, file)
 
     @classmethod
     def _open_for_namespaces(cls, store):

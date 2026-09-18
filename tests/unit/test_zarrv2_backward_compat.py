@@ -58,10 +58,13 @@ class TestZarrV2FileDetection(unittest.TestCase):
             "https://host/file.zarr",
             "simplecache::s3://bucket/file.zarr",
         ):
-            with self.subTest(path=path), patch(
-                "hdmf_zarr.backend_zarrv2.zarr.open",
-                return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
-            ) as open_zarr:
+            with (
+                self.subTest(path=path),
+                patch(
+                    "hdmf_zarr.backend_zarrv2.zarr.open",
+                    return_value=SimpleNamespace(metadata=SimpleNamespace(zarr_format=2)),
+                ) as open_zarr,
+            ):
                 self.assertTrue(is_zarr_v2_file(path))
                 open_zarr.assert_called_once_with(path, mode="r", storage_options={})
 
@@ -470,6 +473,26 @@ class TestV2ReadWithV3Backend(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_load_namespaces_path_raises_hint(self):
+        """The hint is raised when the failure surfaces while reading the cached specs.
+
+        Without the consolidated ``.zmetadata`` the v2 root group opens, so the default
+        read (load_namespaces=True) first fails when zarr v3 reads the ``json2``-encoded
+        cached spec arrays, and that path must produce the same hint.
+        """
+        tmpdir = tempfile.mkdtemp()
+        try:
+            dst = os.path.join(tmpdir, "v2_noconsolidated.nwb.zarr")
+            shutil.copytree(_V2_FILE, dst)
+            os.remove(os.path.join(dst, ".zmetadata"))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with self.assertRaises(ValueError) as cm:
+                    NWBZarrIO(dst, mode="r")
+            self._assert_helpful_v2_error(cm)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")
 class TestV2ExportToV3(unittest.TestCase):
@@ -724,7 +747,8 @@ class TestV2CachedNamespaces(unittest.TestCase):
         for namespace in namespaces:
             with self.subTest(namespace=namespace):
                 versions = [
-                    v for v in os.listdir(os.path.join(specs, namespace))
+                    v
+                    for v in os.listdir(os.path.join(specs, namespace))
                     if os.path.isdir(os.path.join(specs, namespace, v))
                 ]
                 self.assertTrue(versions, f"'{namespace}' has no cached version directory")
