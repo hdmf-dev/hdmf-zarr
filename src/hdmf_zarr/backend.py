@@ -1832,11 +1832,16 @@ class ZarrIO(HDMFIO):
 
         # Write the data to file
         if dtype == str:  # noqa: E721
-            for c in np.ndindex(data_shape):
-                o = data
-                for i in c:
-                    o = o[i]
-                dset[c] = _decode_for_text_dataset(o, name, parent.name)
+            try:
+                # StringDType decodes bytes as UTF-8, so one array covers str and bytes alike
+                dset[:] = np.array(data, dtype=zarr_dtype)
+            # A source numpy cannot convert in a single call is written element by element
+            except (ValueError, TypeError):
+                for c in np.ndindex(data_shape):
+                    o = data
+                    for i in c:
+                        o = o[i]
+                    dset[c] = _decode_for_text_dataset(o, name, parent.name)
             return dset
         # standard write
         else:
