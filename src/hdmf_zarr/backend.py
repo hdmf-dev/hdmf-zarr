@@ -1834,9 +1834,9 @@ class ZarrIO(HDMFIO):
         if dtype == str:  # noqa: E721
             try:
                 # StringDType decodes bytes as UTF-8, so one array covers str and bytes alike
-                dset[:] = np.array(data, dtype=zarr_dtype)
-            # A source numpy cannot convert in a single call is written element by element
+                dset[...] = np.array(data, dtype=zarr_dtype)
             except (ValueError, TypeError):
+                # A source that numpy cannot convert in a single call is written element by element
                 for c in np.ndindex(data_shape):
                     o = data
                     for i in c:
