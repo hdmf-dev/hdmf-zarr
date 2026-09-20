@@ -473,6 +473,39 @@ class TestV2ReadWithV3Backend(unittest.TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_append_mode_raises_hint(self):
+        """Opening a v2 file for append gives the v2 hint rather than the raw zarr error."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(ValueError) as cm:
+                ZarrIO(_V2_FILE, mode="a")
+        msg = str(cm.exception)
+        self.assertIn("Zarr v2 file", msg)
+        self.assertIn("ZarrV2IO", msg)
+
+    def test_write_into_zarr_v2_group_is_refused(self):
+        """A Zarr v2 group that opens without error is refused instead of being written as v2.
+
+        Groups and arrays created under a Zarr v2 parent inherit ``zarr_format=2``, so an
+        open that succeeds here would emit Zarr v2 output and mutate the legacy hierarchy.
+        """
+        tmpdir = tempfile.mkdtemp()
+        try:
+            path = os.path.join(tmpdir, "v2_group.zarr")
+            os.makedirs(path)
+            with open(os.path.join(path, ".zgroup"), "w") as f:
+                f.write('{"zarr_format": 2}')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with self.assertRaises(ValueError) as cm:
+                    ZarrIO(path, mode="a")
+            msg = str(cm.exception)
+            self.assertIn("Zarr v2 file", msg)
+            self.assertIn("ZarrV2IO", msg)
+            self.assertEqual(os.listdir(path), [".zgroup"])
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_load_namespaces_path_raises_hint(self):
         """The hint is raised when the failure surfaces while reading the cached specs.
 

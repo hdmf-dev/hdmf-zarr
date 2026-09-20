@@ -53,9 +53,9 @@ class NWBZarrIO(ZarrIO):
     _zarr_v2_backend_name = "NWBZarrV2IO"
 
     @classmethod
-    def _zarr_v2_read_error_message(cls, source):
-        """Extend the base v2 read-error message with the NWB convert helper."""
-        return super()._zarr_v2_read_error_message(source) + (
+    def _zarr_v2_error_message(cls, source):
+        """Extend the base v2 error message with the NWB convert helper."""
+        return super()._zarr_v2_error_message(source) + (
             " Or convert it to Zarr v3 with NWBZarrV2IO.convert_to_v3(source_path, dest_path)."
         )
 

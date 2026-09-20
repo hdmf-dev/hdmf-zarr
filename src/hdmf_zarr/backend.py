@@ -301,6 +301,7 @@ class ZarrIO(HDMFIO):
                 # error. Point the user at the Zarr v2 backend instead.
                 self._raise_if_zarr_v2(e)
                 raise
+            self._raise_if_opened_zarr_v2()
 
     def close(self):
         """Close the Zarr file"""
@@ -362,7 +363,7 @@ class ZarrIO(HDMFIO):
                 # specs, fails here with a cryptic error. Point the user at the Zarr v2
                 # backend instead.
                 if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
-                    raise ValueError(cls._zarr_v2_read_error_message(path)) from e
+                    raise ValueError(cls._zarr_v2_error_message(path)) from e
                 raise
         return cls._load_namespaces(namespace_catalog, namespaces, file)
 
@@ -1882,11 +1883,11 @@ class ZarrIO(HDMFIO):
         return f_builder
 
     @classmethod
-    def _zarr_v2_read_error_message(cls, source):
-        """Build the error shown when a Zarr v2 file is opened with the Zarr v3 backend."""
+    def _zarr_v2_error_message(cls, source):
+        """Build the error shown when this backend is pointed at a Zarr v2 file."""
         return (
-            f"Failed to read '{source}' with {cls.__name__}, which reads Zarr v3 files, but this "
-            f"path is a Zarr v2 file. Open it read-only with {cls._zarr_v2_backend_name}."
+            f"'{source}' is a Zarr v2 file and {cls.__name__} reads and writes Zarr v3 files. "
+            f"Open it read-only with {cls._zarr_v2_backend_name}."
         )
 
     @classmethod
@@ -1904,20 +1905,30 @@ class ZarrIO(HDMFIO):
             return False
 
     def _raise_if_zarr_v2(self, exc):
-        """Convert a read failure caused by a Zarr v2 file into a helpful error.
+        """Convert a failure caused by a Zarr v2 file into a helpful error.
 
-        Reading a Zarr v2 file with the Zarr v3 backend fails with a cryptic
-        zarr-python error. When this read-only backend is pointed at a path that is
-        in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
+        Opening a Zarr v2 file with the Zarr v3 backend fails with a cryptic
+        zarr-python error, in every mode. When this backend is pointed at a path that
+        is in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
         v2 backend, chaining *exc* as the cause. Otherwise return without raising so
         the caller can re-raise *exc* unchanged.
         """
-        if (
-            not self._reads_zarr_v2
-            and self.mode in ("r", "r-")
-            and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
-        ):
-            raise ValueError(self._zarr_v2_read_error_message(self.source)) from exc
+        if not self._reads_zarr_v2 and self._looks_like_zarr_v2_path(self.path, self.__storage_options):
+            raise ValueError(self._zarr_v2_error_message(self.source)) from exc
+
+    def _raise_if_opened_zarr_v2(self):
+        """Refuse a Zarr v2 hierarchy that opened without error under this backend.
+
+        A Zarr v2 group whose metadata zarr-python can parse opens successfully. Groups
+        and arrays created under it inherit ``zarr_format=2`` from their parent, so a
+        write emits Zarr v2 output, and a read applies the Zarr v3 attribute convention
+        to data stored under the legacy one.
+        """
+        if self._reads_zarr_v2:
+            return
+        metadata = getattr(self.__file, "metadata", None)
+        if getattr(metadata, "zarr_format", None) == 2:
+            raise ValueError(self._zarr_v2_error_message(self.source))
 
     def __set_built(self, zarr_obj, builder):
         fpath = get_store_path(zarr_obj.store)
