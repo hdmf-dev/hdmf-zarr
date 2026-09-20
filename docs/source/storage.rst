@@ -315,28 +315,25 @@ The mappings of data types is as follows
     |                          | that are not valid UTF-8 raises    |                |
     |                          | ``ValueError``.                    |                |
     +--------------------------+------------------------------------+----------------+
-    |  * "isodatetime"         | unicode. Stored as the ISO 8601    | variable       |
-    |                          | string the value formats to.       |                |
-    +--------------------------+------------------------------------+----------------+
     |  * "object"              | Reference to another group or      |                |
     |  * a mapping with        | dataset. See                       |                |
     |    ``target_type`` and   | :ref:`sec-zarr-storage-references` |                |
     |    ``reftype: object``   |                                    |                |
     +--------------------------+------------------------------------+----------------+
     |  * compound dtype        | Compound data type. Uses zarr v3's |                |
-    |                          | native ``structured`` data_type.   |                |
+    |                          | zarr v3 ``struct`` data type.      |                |
     |                          | Reference fields marked with       |                |
     |                          | ``_REFERENCE_FIELDS`` attribute.   |                |
     +--------------------------+------------------------------------+----------------+
-    |  * "isodatetime"         | ASCII ISO8061 datetime string.     | variable       |
+    |  * "isodatetime"         | unicode ISO 8601 datetime string.  | variable       |
     |                          | For example                        |                |
     |                          | ``2018-09-28T14:43:54.123+02:00``  |                |
     +--------------------------+------------------------------------+----------------+
 
 .. note::
 
-    Compound data types use zarr v3's native ``structured`` data_type, which carries full field
-    information (names and types).
+    Compound data types use zarr v3's ``struct`` data type, which carries full field information
+    (names and types).
 
     String and reference fields within compound dtypes are stored as fixed-length Unicode strings
     (``FixedLengthUTF32``). The string length is dynamically sized to fit the actual data, with a
@@ -409,7 +406,7 @@ reference when debugging legacy data.
     ``zarr_dtype``                Attribute on Datasets specifying the data type. Set to ``"object"`` for reference
                                   datasets, ``"scalar"`` for scalar datasets, and to a list of ``{"name", "dtype"}``
                                   dicts for compound datasets. Replaced by ``_DTYPE``, zero-dimensional arrays for
-                                  scalars, and the native zarr v3 ``structured`` data_type together with
+                                  scalars, and the zarr v3 ``struct`` data type together with
                                   ``_REFERENCE_FIELDS``.
     ============================  ======================================================================================
 
