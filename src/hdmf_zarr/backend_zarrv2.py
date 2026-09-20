@@ -64,7 +64,9 @@ def _raise_unsafe_pickle(dataset_key=None):
     named = f" in '{dataset_key}'" if dataset_key else ""
     raise UnsafePickleCodecError(
         f"Refusing to decode the unsafe pickle codec{named} in a Zarr v2 file. "
-        "Reopen with allow_pickle=True only if this file is trusted."
+        "hdmf-zarr 0.13 and earlier encode object datasets, such as the electrodes table's "
+        "object-reference columns, with pickle by default, so most Zarr v2 NWB files hold one. "
+        "Pass allow_pickle=True to the reader, or to convert_to_v3, only if this file is trusted."
     )
 
 

@@ -393,6 +393,14 @@ read-only in hdmf-zarr >= 0.14 via :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO
 :py:meth:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO.convert_to_v3`. The old definitions are recorded here for
 reference when debugging legacy data.
 
+hdmf-zarr 0.13 and earlier encode object datasets with the pickle codec by default, so most of these
+files hold at least one pickle-encoded dataset (an electrodes table's object-reference columns, for
+instance). Decoding pickle executes arbitrary code, so both reading and converting refuse it and raise
+``UnsafePickleCodecError``. Pass ``allow_pickle=True`` for a source you trust::
+
+    NWBZarrV2IO.read_nwb("old_v2.nwb.zarr", allow_pickle=True)
+    NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr", allow_pickle=True)
+
     ============================  ======================================================================================
     Legacy Attribute Name         Usage
     ============================  ======================================================================================
