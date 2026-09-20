@@ -318,9 +318,10 @@ The mappings of data types is as follows
     |  * "isodatetime"         | unicode. Stored as the ISO 8601    | variable       |
     |                          | string the value formats to.       |                |
     +--------------------------+------------------------------------+----------------+
-    |  * "ref"                 | Reference to another group or      |                |
-    |  * "reference"           | dataset. See                       |                |
-    |  * "object"              | :ref:`sec-zarr-storage-references` |                |
+    |  * "object"              | Reference to another group or      |                |
+    |  * a mapping with        | dataset. See                       |                |
+    |    ``target_type`` and   | :ref:`sec-zarr-storage-references` |                |
+    |    ``reftype: object``   |                                    |                |
     +--------------------------+------------------------------------+----------------+
     |  * compound dtype        | Compound data type. Uses zarr v3's |                |
     |                          | native ``structured`` data_type.   |                |
