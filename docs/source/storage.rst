@@ -310,8 +310,8 @@ The mappings of data types is as follows
     +--------------------------+------------------------------------+----------------+
     |  * "ascii"               | unicode. Zarr v3 has no            | variable       |
     |  * "bytes"               | byte-string data type, so these    |                |
-    |  * "string_"             | are stored as UTF-8 text and read  |                |
-    |  * "str"                 | back as ``str``. Writing bytes     |                |
+    |                          | are stored as UTF-8 text and read  |                |
+    |                          | back as ``str``. Writing bytes     |                |
     |                          | that are not valid UTF-8 raises    |                |
     |                          | ``ValueError``.                    |                |
     +--------------------------+------------------------------------+----------------+
