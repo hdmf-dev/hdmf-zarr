@@ -4,12 +4,6 @@ zindi (https://github.com/bendichter/zindi) generates a Zarr v3 reference file s
 HDF5 NWB file following the unified Zarr v3 convention (hdmf-dev/hdmf-zarr#335). This test
 confirms that a store produced by zindi can be read directly with :class:`~hdmf_zarr.nwb.NWBZarrIO`,
 which is the goal of that convention. The test is skipped when zindi is not installed.
-
-The zindi commit pinned in ``pyproject.toml`` writes a scalar as a one-element array marked with a
-``_SCALAR`` attribute, so its cached specs are one-element arrays that fail to parse as JSON. zindi
-is adopting the zero-dimensional layout that hdmf-zarr writes and reads. The mark is strict, so
-bumping the pin to a zindi that writes zero-dimensional scalars turns this into a reported failure,
-which is the signal to drop the mark.
 """
 
 import unittest
@@ -17,7 +11,6 @@ import warnings
 from datetime import datetime
 
 import numpy as np
-import pytest
 from dateutil.tz import tzlocal
 from hdmf.testing import TestCase
 from pynwb import NWBFile, NWBHDF5IO, TimeSeries
@@ -34,10 +27,6 @@ except ImportError:
 
 
 @unittest.skipIf(not HAVE_ZINDI, "zindi not installed")
-@pytest.mark.xfail(
-    strict=True,
-    reason="the pinned zindi writes one-element scalars, whose cached specs do not parse as JSON",
-)
 class TestZindiInterop(TestCase):
     """Read a zindi-generated Zarr v3 store with NWBZarrIO."""
 
