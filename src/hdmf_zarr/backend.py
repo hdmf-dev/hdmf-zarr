@@ -98,6 +98,29 @@ def _check_compound_string_widths(dset, dtype):
             )
 
 
+def _decode_for_text_dataset(value, name, parent_name):
+    """
+    Return *value* as ``str`` for storage in a text dataset, decoding it when it is ``bytes``.
+    Zarr v3 has no byte-string data type, so ``ascii``, ``bytes`` and ``string_`` datasets are
+    stored as UTF-8 text, and bytes that are not valid UTF-8 have no representation.
+
+    :param value: The value being written, decoded when it is ``bytes``
+    :param name: Name of the dataset holding the value
+    :param parent_name: Name of the group holding the dataset
+    """
+    if not isinstance(value, (bytes, np.bytes_)):
+        return value
+    try:
+        return value.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(
+            f"Cannot write the dataset '{name}' in '{parent_name}': the value {value!r} is not "
+            "valid UTF-8. Zarr v3 has no byte-string data type, so ascii and bytes datasets are "
+            "stored as UTF-8 text. If you have data that needs byte strings, please report it at "
+            "https://github.com/hdmf-dev/hdmf-zarr/issues so the format can account for it."
+        ) from exc
+
+
 SUPPORTED_ZARR_STORES = (
     (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore, _ZarrStoreABC)
 )
@@ -1804,8 +1827,7 @@ class ZarrIO(HDMFIO):
                 o = data
                 for i in c:
                     o = o[i]
-                # bytes are not JSON serializable
-                dset[c] = o if not isinstance(o, (bytes, np.bytes_)) else o.decode("utf-8")
+                dset[c] = _decode_for_text_dataset(o, name, parent.name)
             return dset
         # standard write
         else:
@@ -1822,8 +1844,7 @@ class ZarrIO(HDMFIO):
                     o = data
                     for i in c:
                         o = o[i]
-                    # bytes are not JSON serializable
-                    dset[c] = o if not isinstance(o, (bytes, np.bytes_)) else o.decode("utf-8")
+                    dset[c] = _decode_for_text_dataset(o, name, parent.name)
         return dset
 
     def __scalar_fill__(self, parent, name, data, options=None):
@@ -1857,9 +1878,7 @@ class ZarrIO(HDMFIO):
         # In zarr v3, require_array can't cast StringDType to <U0, so use StringDType explicitly
         zarr_dtype = np.dtypes.StringDType() if dtype == str else dtype  # noqa: E721
         dset = parent.require_array(name, shape=(), dtype=zarr_dtype, **io_settings)
-        # Decode bytes to str for StringDType arrays (bytes are not handled correctly by StringDType)
-        if isinstance(data, (bytes, np.bytes_)):
-            data = data.decode("utf-8")
+        data = _decode_for_text_dataset(data, name, parent.name)
         dset[()] = data
         dset.attrs["_DTYPE"] = self.__serial_dtype__(dtype)
         return dset

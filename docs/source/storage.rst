@@ -308,8 +308,15 @@ The mappings of data types is as follows
     |  * "utf8"                |                                    |                |
     |  * "utf-8"               |                                    |                |
     +--------------------------+------------------------------------+----------------+
-    |  * "ascii"               | ascii                              | variable       |
-    |  * "str"                 |                                    |                |
+    |  * "ascii"               | unicode. Zarr v3 has no            | variable       |
+    |  * "bytes"               | byte-string data type, so these    |                |
+    |  * "string_"             | are stored as UTF-8 text and read  |                |
+    |  * "str"                 | back as ``str``. Writing bytes     |                |
+    |                          | that are not valid UTF-8 raises    |                |
+    |                          | ``ValueError``.                    |                |
+    +--------------------------+------------------------------------+----------------+
+    |  * "isodatetime"         | unicode. Stored as the ISO 8601    | variable       |
+    |                          | string the value formats to.       |                |
     +--------------------------+------------------------------------+----------------+
     |  * "ref"                 | Reference to another group or      |                |
     |  * "reference"           | dataset. See                       |                |

@@ -816,3 +816,37 @@ class TestExportThroughSymlinkedPath(TestCase):
         with ZarrIO(self.export_path, mode="r") as io:
             read_builder = io.read_builder()
             self.assertListEqual(list(read_builder["my_data"].data[:]), [0, 1, 2, 3, 4])
+
+
+class TestNonUTF8BytesDataset(TestCase):
+    """Bytes that are not valid UTF-8 have no representation in a Zarr v3 text dataset."""
+
+    def setUp(self):
+        self.path = tempfile.mkdtemp() + "/nonutf8.zarr"
+
+    def tearDown(self):
+        shutil.rmtree(os.path.dirname(self.path), ignore_errors=True)
+
+    def _write(self, dataset):
+        builder = GroupBuilder("root", datasets={"d": dataset})
+        with ZarrIO(self.path, mode="w") as io:
+            io.write_builder(builder)
+
+    def test_list_names_the_dataset(self):
+        """The dataset holding the bad value is named, and the message points somewhere."""
+        with self.assertRaises(ValueError) as cm:
+            self._write(DatasetBuilder("d", [b"\xff\xfe"], dtype="ascii"))
+        msg = str(cm.exception)
+        self.assertIn("'d'", msg)
+        self.assertIn("hdmf-zarr/issues", msg)
+
+    def test_scalar_names_the_dataset(self):
+        with self.assertRaises(ValueError) as cm:
+            self._write(DatasetBuilder("d", b"\xff\xfe", dtype="ascii"))
+        self.assertIn("'d'", str(cm.exception))
+
+    def test_utf8_bytes_are_written_as_text(self):
+        """Decodable bytes keep working, so the guard does not reject ordinary ascii data."""
+        self._write(DatasetBuilder("d", [b"ok", "été".encode("utf-8")], dtype="ascii"))
+        with ZarrIO(self.path, mode="r") as io:
+            self.assertListEqual(list(io.read_builder()["d"].data[:]), ["ok", "été"])
