@@ -52,6 +52,7 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 - [#373](https://github.com/hdmf-dev/hdmf-zarr/pull/373) : Increase Zarr and Python minimum versions
 - [#374](https://github.com/hdmf-dev/hdmf-zarr/pull/374) : Support automatic shards and guard parallel iterator writes
 - [#382](https://github.com/hdmf-dev/hdmf-zarr/pull/382) : Fill CHANGELOG gaps and close doc and test gaps from the v3 migration review
+- [#396](https://github.com/hdmf-dev/hdmf-zarr/pull/396) : Name the dataset when a value is not valid UTF-8, and correct the `dtype` spec values and compound data types in the docs
 
 
 ## 0.13.0 (June 22, 2026)
