@@ -213,8 +213,8 @@ For example:
 
 .. hint::
 
-    In Zarr, attributes are stored in JSON as part of the hidden ``.zattrs`` file in the folder defining
-    the Group or Dataset.
+    In Zarr, attributes are stored in JSON in the ``attributes`` field of the ``zarr.json`` file in the folder
+    defining the Group or Dataset.
 
 .. hint::
 
@@ -378,7 +378,7 @@ Consolidating Metadata
 ======================
 
 Zarr allows users to consolidate all metadata for groups and arrays within the given store. By default, every file
-will consolidate all metadata within into a single `.zmetadata` file, stored in the root group. This reduces the number of read
+will consolidate all metadata within into the ``zarr.json`` file of the root group. This reduces the number of read
 operations when retrieving certain metadata in read mode.
 
 .. note::

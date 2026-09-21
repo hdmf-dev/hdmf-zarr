@@ -151,8 +151,9 @@ except (ImportError, OSError) as e:
 #         path = "myfile.nwb.zarr"
 #         zarr.consolidate_metadata(path)
 #
-#     This ensures that the ``.zmetadata`` file reflects the current state of the
-#     Zarr store. This step is critical before uploading modified files to S3.
+#     This ensures that the consolidated metadata in the root ``zarr.json`` file
+#     reflects the current state of the Zarr store. This step is critical before
+#     uploading modified files to S3.
 #
 #     For more details on consolidated metadata, see the
 #     `Zarr documentation <https://zarr.readthedocs.io/en/stable/user-guide/consolidated_metadata.html>`_ and the
