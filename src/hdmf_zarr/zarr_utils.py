@@ -155,7 +155,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            if t in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference"):
+            if t == DatasetBuilder.OBJECT_REF_TYPE:
                 self.__refgetters[i] = self._get_ref
             elif t is str:
                 self.__refgetters[i] = self._get_utf
@@ -168,7 +168,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             elif np.issubdtype(sub, np.str_):
                 # In zarr v3, string fields in compound dtypes use fixed-length Unicode
                 # Check if this field holds references (plain path strings)
-                tmp.append("object" if types[i] in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference") else "utf")
+                tmp.append("object" if types[i] == DatasetBuilder.OBJECT_REF_TYPE else "utf")
             elif sub.metadata:
                 if "vlen" in sub.metadata:
                     t = sub.metadata["vlen"]
@@ -187,9 +187,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             [
                 (
                     name,
-                    object
-                    if types[index] in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference")
-                    else self.dataset.dtype[index],
+                    object if types[index] == DatasetBuilder.OBJECT_REF_TYPE else self.dataset.dtype[index],
                 )
                 for index, name in enumerate(self.dataset.dtype.names)
             ]
