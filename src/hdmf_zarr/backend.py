@@ -320,11 +320,19 @@ class ZarrIO(HDMFIO):
                         storage_options=self.__storage_options,
                     )
             except Exception as e:
-                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a cryptic
-                # error. Point the user at the Zarr v2 backend instead.
+                # A Zarr v2 file whose metadata zarr-python cannot map, such as an
+                # object-dtype array with a pickle, json2 or vlen-utf8 codec, or an int
+                # fill_value, fails here with a cryptic error. Point the user at the Zarr
+                # v2 backend instead.
                 self._raise_if_zarr_v2(e)
                 raise
-            self._raise_if_opened_zarr_v2()
+            # A Zarr v2 file written without consolidated metadata has no such metadata to
+            # parse at open time, so it opens successfully and reports zarr_format=2. Groups
+            # and arrays created under it inherit that format, so a write emits Zarr v2
+            # output, and a read applies the Zarr v3 attribute convention to data stored
+            # under the legacy one.
+            if not self._reads_zarr_v2 and getattr(self.__file.metadata, "zarr_format", None) == 2:
+                raise ValueError(self._zarr_v2_error_message(self.source))
 
     def close(self):
         """Close the Zarr file"""
@@ -1934,20 +1942,6 @@ class ZarrIO(HDMFIO):
         """
         if not self._reads_zarr_v2 and self._looks_like_zarr_v2_path(self.path, self.__storage_options):
             raise ValueError(self._zarr_v2_error_message(self.source)) from exc
-
-    def _raise_if_opened_zarr_v2(self):
-        """Refuse a Zarr v2 hierarchy that opened without error under this backend.
-
-        A Zarr v2 group whose metadata zarr-python can parse opens successfully. Groups
-        and arrays created under it inherit ``zarr_format=2`` from their parent, so a
-        write emits Zarr v2 output, and a read applies the Zarr v3 attribute convention
-        to data stored under the legacy one.
-        """
-        if self._reads_zarr_v2:
-            return
-        metadata = getattr(self.__file, "metadata", None)
-        if getattr(metadata, "zarr_format", None) == 2:
-            raise ValueError(self._zarr_v2_error_message(self.source))
 
     def __set_built(self, zarr_obj, builder):
         fpath = get_store_path(zarr_obj.store)

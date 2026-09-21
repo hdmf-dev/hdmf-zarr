@@ -32,6 +32,8 @@ from unittest.mock import patch
 import numpy as np
 from zarr.storage import LocalStore
 
+from pynwb import get_manager
+
 from hdmf_zarr import ZarrIO, NWBZarrIO, NWBZarrV2IO, is_zarr_v2_file
 from hdmf_zarr.backend_zarrv2 import IncompleteConversionError, UnsafePickleCodecError, ZarrV2IO
 
@@ -470,6 +472,30 @@ class TestV2ReadWithV3Backend(unittest.TestCase):
                     with NWBZarrIO(dst, mode="r", load_namespaces=False) as io:
                         io.read()
             self._assert_helpful_v2_error(cm)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_supplied_manager_without_consolidated_metadata_raises_at_open(self):
+        """A v2 file written without consolidated metadata opens cleanly, so the open has to check it.
+
+        ``NWBZarrIO`` normally catches a v2 file in ``load_namespaces`` before the open matters,
+        but supplying a manager skips that. Without consolidated metadata there is nothing for
+        the open to choke on either, so the caller is handed a ``zarr_format=2`` file and learns
+        of the problem only once it reads. A shared manager passed to a reader and an exporter
+        reaches this.
+        """
+        tmpdir = tempfile.mkdtemp()
+        try:
+            dst = os.path.join(tmpdir, "v2_noconsolidated.nwb.zarr")
+            shutil.copytree(_V2_FILE, dst)
+            os.remove(os.path.join(dst, ".zmetadata"))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with self.assertRaises(ValueError) as cm:
+                    NWBZarrIO(dst, mode="r", manager=get_manager())
+            msg = str(cm.exception)
+            self.assertIn("Zarr v2 file", msg)
+            self.assertIn("NWBZarrV2IO", msg)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
