@@ -64,6 +64,7 @@ try:
         print(f"Subject ID: {nwbfile.subject.subject_id if nwbfile.subject else 'N/A'}")
 except (ImportError, OSError) as e:
     # fsspec is not installed or the network is unavailable
+    # `pip install hdmf-zarr[full]` installs zarr with fsspec
     print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
@@ -174,6 +175,7 @@ try:
     print(f"Session Start Time: {nwbfile.session_start_time}")
 except (ImportError, OSError) as e:
     # fsspec is not installed or the network is unavailable
+    # `pip install hdmf-zarr[full]` installs zarr with fsspec
     print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
