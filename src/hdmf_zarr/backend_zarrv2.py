@@ -704,6 +704,8 @@ class ZarrV2IO(ZarrIO):
                             f"zarr v3 could not parse it ({e}) and v2 store fallback also failed ({e2})",
                         )
                     else:
+                        # Warn outside the try so that a caller who raises this warning as an
+                        # error gets that error, and the decoded entry is not recorded as skipped.
                         warnings.warn(
                             f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store fallback (zarr v3 error: {e})"
                         )
