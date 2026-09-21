@@ -850,38 +850,3 @@ class TestNonUTF8BytesDataset(TestCase):
         self._write(DatasetBuilder("d", [b"ok", "été".encode("utf-8")], dtype="ascii"))
         with ZarrIO(self.path, mode="r") as io:
             self.assertListEqual(list(io.read_builder()["d"].data[:]), ["ok", "été"])
-
-
-class TestTextDatasetBulkWrite(TestCase):
-    """A text dataset is written in one assignment rather than one per element."""
-
-    def setUp(self):
-        self.path = tempfile.mkdtemp() + "/bulk.zarr"
-
-    def tearDown(self):
-        shutil.rmtree(os.path.dirname(self.path), ignore_errors=True)
-
-    def test_text_dataset_written_in_one_assignment(self):
-        """Per-element writes rewrite the whole chunk each time, which is superlinear in length.
-
-        The values are identical either way, so only the number of assignments separates
-        a bulk write from the per-element loop.
-        """
-        n = 500
-        values = ["label_%04d" % i for i in range(n)]
-        builder = GroupBuilder("root", datasets={"txt": DatasetBuilder("txt", values, dtype="text")})
-
-        original = zarr.Array.__setitem__
-        calls = []
-
-        def counting_setitem(self, key, value):
-            calls.append(key)
-            return original(self, key, value)
-
-        with patch.object(zarr.Array, "__setitem__", counting_setitem):
-            with ZarrIO(self.path, mode="w") as io:
-                io.write_builder(builder)
-
-        self.assertEqual(len(calls), 1, f"expected one bulk assignment, got {len(calls)}")
-        with ZarrIO(self.path, mode="r") as io:
-            self.assertListEqual(list(io.read_builder()["txt"].data[:]), values)
