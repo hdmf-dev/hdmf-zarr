@@ -326,11 +326,11 @@ class ZarrIO(HDMFIO):
                 # v2 backend instead.
                 self._raise_if_zarr_v2(e)
                 raise
-            # A Zarr v2 file written without consolidated metadata has no such metadata to
-            # parse at open time, so it opens successfully and reports zarr_format=2. Groups
-            # and arrays created under it inherit that format, so a write emits Zarr v2
-            # output, and a read applies the Zarr v3 attribute convention to data stored
-            # under the legacy one.
+            # A Zarr v2 file written without consolidated metadata can open successfully
+            # and report zarr_format=2. While this is often caught downstream on read(),
+            # it's better to catch this case on open(). This also prevents rare edge cases,
+            # where groups and arrays created under this v2 file would inherit zarr_format=2,
+            # so a write would emit Zarr v2 output.
             if not self._reads_zarr_v2 and getattr(self.__file.metadata, "zarr_format", None) == 2:
                 raise ValueError(self._zarr_v2_error_message(self.source))
 
