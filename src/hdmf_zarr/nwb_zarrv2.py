@@ -83,9 +83,7 @@ class NWBZarrV2IO(ZarrV2IO):
         entry as a warning and continues, but a conversion writes a file that is meant
         to stand in for the source, so a missing entry is an error here.
         """
-        path, nwbfile, write_args, storage_options = popargs(
-            "path", "nwbfile", "write_args", "storage_options", kwargs
-        )
+        path, nwbfile, write_args, storage_options = popargs("path", "nwbfile", "write_args", "storage_options", kwargs)
         if isinstance(path, Path):
             path = str(path)
         write_args = dict(write_args) if write_args is not None else {}
@@ -100,8 +98,7 @@ class NWBZarrV2IO(ZarrV2IO):
             count = len(self.skipped_entries)
             noun = "entry" if count == 1 else "entries"
             raise IncompleteConversionError(
-                f"{count} {noun} of '{self.source}' could not be read and would be "
-                f"absent from '{path}':\n{listed}"
+                f"{count} {noun} of '{self.source}' could not be read and would be " f"absent from '{path}':\n{listed}"
             )
 
         nwbfile.set_modified()
@@ -160,6 +157,14 @@ class NWBZarrV2IO(ZarrV2IO):
         Example::
 
             NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr")
+
+        hdmf-zarr 0.13 and earlier encode object datasets with the pickle codec by
+        default, so most Zarr v2 NWB files hold at least one pickle-encoded dataset
+        (an electrodes table's object-reference columns, for instance). Decoding
+        pickle executes arbitrary code, so it is refused with
+        :exc:`UnsafePickleCodecError` unless the source is trusted::
+
+            NWBZarrV2IO.convert_to_v3("old_v2.nwb.zarr", "new_v3.nwb.zarr", allow_pickle=True)
 
         Raises :exc:`IncompleteConversionError` when any entry of the source file could
         not be read; see :meth:`export_to_v3`.

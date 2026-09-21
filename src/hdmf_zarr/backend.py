@@ -320,10 +320,19 @@ class ZarrIO(HDMFIO):
                         storage_options=self.__storage_options,
                     )
             except Exception as e:
-                # Opening a Zarr v2 file with the Zarr v3 backend fails here with a cryptic
-                # error. Point the user at the Zarr v2 backend instead.
+                # A Zarr v2 file whose metadata zarr-python cannot map, such as an
+                # object-dtype array with a pickle, json2 or vlen-utf8 codec, or an int
+                # fill_value, fails here with a cryptic error. Point the user at the Zarr
+                # v2 backend instead.
                 self._raise_if_zarr_v2(e)
                 raise
+            # A Zarr v2 file written without consolidated metadata can open successfully
+            # and report zarr_format=2. While this is often caught downstream on read(),
+            # it's better to catch this case on open(). This also prevents rare edge cases,
+            # where groups and arrays created under this v2 file would inherit zarr_format=2,
+            # so a write would emit Zarr v2 output.
+            if not self._reads_zarr_v2 and getattr(self.__file.metadata, "zarr_format", None) == 2:
+                raise ValueError(self._zarr_v2_error_message(self.source))
 
     def close(self):
         """Close the Zarr file"""
@@ -385,7 +394,7 @@ class ZarrIO(HDMFIO):
                 # specs, fails here with a cryptic error. Point the user at the Zarr v2
                 # backend instead.
                 if not cls._reads_zarr_v2 and cls._looks_like_zarr_v2_path(path, storage_options):
-                    raise ValueError(cls._zarr_v2_read_error_message(path)) from e
+                    raise ValueError(cls._zarr_v2_error_message(path)) from e
                 raise
         return cls._load_namespaces(namespace_catalog, namespaces, file)
 
@@ -1901,11 +1910,11 @@ class ZarrIO(HDMFIO):
         return f_builder
 
     @classmethod
-    def _zarr_v2_read_error_message(cls, source):
-        """Build the error shown when a Zarr v2 file is opened with the Zarr v3 backend."""
+    def _zarr_v2_error_message(cls, source):
+        """Build the error shown when this backend is pointed at a Zarr v2 file."""
         return (
-            f"Failed to read '{source}' with {cls.__name__}, which reads Zarr v3 files, but this "
-            f"path is a Zarr v2 file. Open it read-only with {cls._zarr_v2_backend_name}."
+            f"'{source}' is a Zarr v2 file and {cls.__name__} reads and writes Zarr v3 files. "
+            f"Open it read-only with {cls._zarr_v2_backend_name}."
         )
 
     @classmethod
@@ -1923,20 +1932,16 @@ class ZarrIO(HDMFIO):
             return False
 
     def _raise_if_zarr_v2(self, exc):
-        """Convert a read failure caused by a Zarr v2 file into a helpful error.
+        """Convert a failure caused by a Zarr v2 file into a helpful error.
 
-        Reading a Zarr v2 file with the Zarr v3 backend fails with a cryptic
-        zarr-python error. When this read-only backend is pointed at a path that is
-        in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
+        Opening a Zarr v2 file with the Zarr v3 backend fails with a cryptic
+        zarr-python error, in every mode. When this backend is pointed at a path that
+        is in fact a Zarr v2 hierarchy, raise a ``ValueError`` that points at the Zarr
         v2 backend, chaining *exc* as the cause. Otherwise return without raising so
         the caller can re-raise *exc* unchanged.
         """
-        if (
-            not self._reads_zarr_v2
-            and self.mode in ("r", "r-")
-            and self._looks_like_zarr_v2_path(self.path, self.__storage_options)
-        ):
-            raise ValueError(self._zarr_v2_read_error_message(self.source)) from exc
+        if not self._reads_zarr_v2 and self._looks_like_zarr_v2_path(self.path, self.__storage_options):
+            raise ValueError(self._zarr_v2_error_message(self.source)) from exc
 
     def __set_built(self, zarr_obj, builder):
         fpath = get_store_path(zarr_obj.store)

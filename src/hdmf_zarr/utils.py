@@ -603,6 +603,15 @@ class ZarrDataIO(DataIO):
             "default": None,
         },
         {
+            "name": "compressor",
+            "type": None,
+            "doc": (
+                "DEPRECATED. Zarr compressor filter to be used. Instead of using this argument, pass a zarr v3 "
+                "BytesBytesCodec (e.g., zarr.codecs.BloscCodec()) to ``compressors``."
+            ),
+            "default": None,
+        },
+        {
             "name": "filters",
             "type": (list, tuple),
             "doc": (
@@ -656,6 +665,12 @@ class ZarrDataIO(DataIO):
         data, chunks, fill_value, compressors, filters, serializer, shards, self.__link_data = getargs(
             "data", "chunks", "fillvalue", "compressors", "filters", "serializer", "shards", "link_data", kwargs
         )
+        if getargs("compressor", kwargs) is not None:
+            raise TypeError(
+                "'compressor' is replaced by 'compressors', which takes zarr v3 codecs "
+                "(zarr.abc.codec.BytesBytesCodec) rather than numcodecs codecs, e.g. "
+                "compressors=zarr.codecs.BloscCodec(cname='zstd', clevel=1)."
+            )
         # NOTE: dtype and shape of the DataIO base class are not yet supported by ZarrDataIO.
         #       These parameters are used to create empty data to allocate the data but
         #       leave the I/O to fill the data to the user.

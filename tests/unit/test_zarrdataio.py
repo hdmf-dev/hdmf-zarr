@@ -13,6 +13,7 @@ import shutil
 import unittest
 import zarr
 
+import numcodecs
 import numpy as np
 
 try:
@@ -290,6 +291,19 @@ class TestZarrDataIO(TestCase):
         z = zarr.zeros(shape=(10000, 10000), chunks=(1000, 1000), dtype="int32")
         io = ZarrDataIO(z, link_data=True)
         assert io.get_io_params().get("link_data")
+
+
+class TestZarrDataIODeprecatedCompressor(TestCase):
+    """The deprecated 'compressor' argument is rejected rather than silently ignored."""
+
+    def test_compressor_raises(self):
+        with self.assertRaises(TypeError):
+            ZarrDataIO(data=np.arange(10), compressor=numcodecs.Blosc(cname="zstd", clevel=1))
+
+    def test_compressor_false_raises(self):
+        """``compressor=False`` disabled compression, and False is a value the guard must still reject."""
+        with self.assertRaises(TypeError):
+            ZarrDataIO(data=np.arange(10), compressor=False)
 
 
 class TestZarrDataIOSharding(TestCase):
