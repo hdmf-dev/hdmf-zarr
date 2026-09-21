@@ -76,6 +76,7 @@ _deprecation_warning_pandas_pyarrow_re = r"\nPyarrow will become a required depe
 _deprecation_warning_datetime = r"datetime.datetime.utcfromtimestamp() *"
 
 _zarr_consolidated_warning_re = r"Consolidated metadata is currently not part in the Zarr format 3 specification.*"
+_zarr_v2_fallback_read_warning_re = r"Read .* via zarr v2 store fallback.*"
 _hdmf_dtype_conversion_warning_re = r"Spec '.*': Value with data type .* is being converted to data type .*"
 
 
@@ -160,6 +161,13 @@ def run_gallery_tests():
                     category=DeprecationWarning,
                 )
                 warnings.filterwarnings("ignore", message=_zarr_consolidated_warning_re, category=UserWarning)
+                warnings.filterwarnings(
+                    # this warning is triggered when reading zarr v2 arrays that zarr v3 cannot parse,
+                    # e.g., in the S3 streaming tutorial
+                    "ignore",
+                    message=_zarr_v2_fallback_read_warning_re,
+                    category=UserWarning,
+                )
                 warnings.filterwarnings("ignore", message=_hdmf_dtype_conversion_warning_re, category=UserWarning)
                 _import_from_file(script_abs)
         except Exception:

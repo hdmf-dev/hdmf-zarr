@@ -62,8 +62,9 @@ try:
         print(f"Session Description: {nwbfile.session_description}")
         print(f"Identifier: {nwbfile.identifier}")
         print(f"Subject ID: {nwbfile.subject.subject_id if nwbfile.subject else 'N/A'}")
-except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+except (ImportError, OSError) as e:
+    # fsspec is not installed or the network is unavailable
+    print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
 # .. note::
@@ -170,8 +171,9 @@ except Exception as e:
 try:
     nwbfile = io_class.read_nwb(s3_url)
     print(f"Session Start Time: {nwbfile.session_start_time}")
-except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+except (ImportError, OSError) as e:
+    # fsspec is not installed or the network is unavailable
+    print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
 # .. note::

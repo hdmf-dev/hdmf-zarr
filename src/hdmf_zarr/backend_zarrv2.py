@@ -694,10 +694,6 @@ class ZarrV2IO(ZarrIO):
                     try:
                         # Returns a DatasetBuilder with the data already decoded.
                         builder = self._read_v2_dataset(store, group_prefix, entry)
-                        warnings.warn(
-                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store fallback (zarr v3 error: {e})"
-                        )
-                        yield entry, builder
                     except UnsafePickleCodecError:
                         raise
                     except Exception as e2:
@@ -707,6 +703,11 @@ class ZarrV2IO(ZarrIO):
                             f"{zarr_obj.name.rstrip('/')}/{entry}",
                             f"zarr v3 could not parse it ({e}) and v2 store fallback also failed ({e2})",
                         )
+                    else:
+                        warnings.warn(
+                            f"Read '{entry}' in '{zarr_obj.name}' via zarr v2 store fallback (zarr v3 error: {e})"
+                        )
+                        yield entry, builder
                 else:
                     # No .zarray: nothing to fall back to, so skip this entry.
                     self._record_skipped_entry(
