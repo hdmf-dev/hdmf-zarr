@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.14 (September 18, 2026)
+## 0.14.0 (September 21, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
 
@@ -38,7 +38,6 @@ Addressed the following bugs that are independent of the migration to Zarr V3:
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.
 
 ### Related Pull Requests
-
 - [#325](https://github.com/hdmf-dev/hdmf-zarr/pull/325) : Migrate hdmf-zarr from zarr-python v2 to v3
 - [#336](https://github.com/hdmf-dev/hdmf-zarr/pull/336) : Adopt unified Zarr v3 convention for hdmf-zarr/Zindi interop
 - [#363](https://github.com/hdmf-dev/hdmf-zarr/pull/363) : Fix Zarr-to-HDF5 export deadlock
