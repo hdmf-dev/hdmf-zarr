@@ -5,18 +5,17 @@ from .backend import ZarrIO, SUPPORTED_ZARR_STORES
 
 from hdmf.utils import docval, popargs, get_docval
 from hdmf.backends.io import HDMFIO
-from hdmf.build import BuildManager, TypeMap
+from hdmf.build import BuildManager
 from pynwb import get_manager, get_type_map
 
 
-def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces, storage_options):
+def _build_nwb_manager(io_cls, path, mode, manager, load_namespaces, storage_options):
     """Resolve the NWB BuildManager from IO constructor arguments.
 
     :param io_cls: IO class used to load cached namespaces.
     :param path: Source Zarr path or store.
     :param mode: Requested IO mode; write modes do not load namespaces.
-    :param manager: Explicit manager, when supplied instead of extensions.
-    :param extensions: Namespace extension path(s) or TypeMap.
+    :param manager: Explicit manager. When given, it is returned as is.
     :param load_namespaces: Whether to load cached namespaces from *path*.
     :param storage_options: Options used to open a remote source store.
 
@@ -24,7 +23,7 @@ def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces,
     :class:`NWBZarrIO` and :class:`NWBZarrV2IO`.
     """
     io_modes_that_create_file = ["w", "w-", "x"]
-    if mode in io_modes_that_create_file or manager is not None or extensions is not None:
+    if mode in io_modes_that_create_file or manager is not None:
         load_namespaces = False
 
     if load_namespaces:
@@ -32,10 +31,6 @@ def _build_nwb_manager(io_cls, path, mode, manager, extensions, load_namespaces,
         io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
         return BuildManager(tm)
 
-    if manager is not None and extensions is not None:
-        raise ValueError("'manager' and 'extensions' cannot be specified together")
-    if extensions is not None:
-        return get_manager(extensions=extensions)
     if manager is None:
         return get_manager()
     return manager
@@ -67,18 +62,12 @@ class NWBZarrIO(ZarrIO):
             "doc": "whether or not to load cached namespaces from given path - not applicable in write mode",
             "default": True,
         },
-        {
-            "name": "extensions",
-            "type": (str, TypeMap, list),
-            "doc": "a path to a namespace, a TypeMap, or a list consisting paths  to namespaces and TypeMaps",
-            "default": None,
-        },
     )
     def __init__(self, **kwargs):
-        path, mode, manager, extensions, load_namespaces, storage_options = popargs(
-            "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", kwargs
+        path, mode, manager, load_namespaces, storage_options = popargs(
+            "path", "mode", "manager", "load_namespaces", "storage_options", kwargs
         )
-        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
+        manager = _build_nwb_manager(type(self), path, mode, manager, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options)
 
     @docval(
