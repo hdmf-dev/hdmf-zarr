@@ -7,7 +7,6 @@ how to navigate zarr v2 stores with zarr-python v3.
 
 from pathlib import Path
 
-from hdmf.build import TypeMap
 from hdmf.utils import docval, popargs, get_docval
 
 from .backend import SUPPORTED_ZARR_STORES
@@ -31,18 +30,12 @@ class NWBZarrV2IO(ZarrV2IO):
             "doc": "whether or not to load cached namespaces from given path",
             "default": True,
         },
-        {
-            "name": "extensions",
-            "type": (str, TypeMap, list),
-            "doc": "a path to a namespace, a TypeMap, or a list consisting paths  to namespaces and TypeMaps",
-            "default": None,
-        },
     )
     def __init__(self, **kwargs):
-        path, mode, manager, extensions, load_namespaces, storage_options, allow_pickle = popargs(
-            "path", "mode", "manager", "extensions", "load_namespaces", "storage_options", "allow_pickle", kwargs
+        path, mode, manager, load_namespaces, storage_options, allow_pickle = popargs(
+            "path", "mode", "manager", "load_namespaces", "storage_options", "allow_pickle", kwargs
         )
-        manager = _build_nwb_manager(type(self), path, mode, manager, extensions, load_namespaces, storage_options)
+        manager = _build_nwb_manager(type(self), path, mode, manager, load_namespaces, storage_options)
         super().__init__(path, manager=manager, mode=mode, storage_options=storage_options, allow_pickle=allow_pickle)
 
     @docval(
