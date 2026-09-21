@@ -33,6 +33,7 @@ Addressed the following bugs that are independent of the migration to Zarr V3:
 * Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 * Fixed bug where writing a scalar dataset with a compound dtype, such as `ElectrodeGroup.position`, raised `IndexError`. @rly [#277](https://github.com/hdmf-dev/hdmf-zarr/issues/277)
 * Reading or writing a scalar dataset with a compound dtype that has a reference field raises `NotImplementedError`. This combination is not supported. @rly [#391](https://github.com/hdmf-dev/hdmf-zarr/pull/391)
+* Fixed the S3 streaming tutorial catching every exception from its read, which let the gallery tests pass without reading the file. It now skips the read only when fsspec is not installed or the network is unavailable. @rly [#400](https://github.com/hdmf-dev/hdmf-zarr/pull/400)
 
 ### Contributors
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.
@@ -54,6 +55,7 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 - [#393](https://github.com/hdmf-dev/hdmf-zarr/pull/393) : Report a Zarr v2 file in every mode, and improve `allow_pickle` discoverability and the error for the renamed `compressor` argument
 - [#396](https://github.com/hdmf-dev/hdmf-zarr/pull/396) : Name the dataset when a value is not valid UTF-8, and correct the `dtype` spec values and compound data types in the docs
 - [#397](https://github.com/hdmf-dev/hdmf-zarr/pull/397) : Write a text dataset in one assignment instead of one per element
+- [#400](https://github.com/hdmf-dev/hdmf-zarr/pull/400) : Remove code for zarr<3.3 and fix issues found along the way
 
 
 ## 0.13.0 (June 22, 2026)
