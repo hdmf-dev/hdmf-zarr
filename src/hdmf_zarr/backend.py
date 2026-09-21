@@ -113,12 +113,23 @@ def _decode_for_text_dataset(value, name, parent_name):
     try:
         return value.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise ValueError(
-            f"Cannot write the dataset '{name}' in '{parent_name}': the value {value!r} is not "
-            "valid UTF-8. Zarr v3 has no byte-string data type, so ascii and bytes datasets are "
-            "stored as UTF-8 text. If you have data that needs byte strings, please report it at "
-            "https://github.com/hdmf-dev/hdmf-zarr/issues so the format can account for it."
-        ) from exc
+        raise _invalid_utf8_error(value, name, parent_name) from exc
+
+
+def _invalid_utf8_error(value, name, parent_name):
+    """
+    Return the error for *value*, which has no representation in the text dataset *name*.
+
+    :param value: The value that is not valid UTF-8
+    :param name: Name of the dataset holding the value
+    :param parent_name: Name of the group holding the dataset
+    """
+    return ValueError(
+        f"Cannot write the dataset '{name}' in '{parent_name}': the value {value!r} is not "
+        "valid UTF-8. Zarr v3 has no byte-string data type, so ascii and bytes datasets are "
+        "stored as UTF-8 text. If you have data that needs byte strings, please report it at "
+        "https://github.com/hdmf-dev/hdmf-zarr/issues so the format can account for it."
+    )
 
 
 SUPPORTED_ZARR_STORES = (
@@ -1832,11 +1843,12 @@ class ZarrIO(HDMFIO):
 
         # Write the data to file
         if dtype == str:  # noqa: E721
-            for c in np.ndindex(data_shape):
-                o = data
-                for i in c:
-                    o = o[i]
-                dset[c] = _decode_for_text_dataset(o, name, parent.name)
+            try:
+                # StringDType decodes bytes as UTF-8, so one array covers str and bytes alike
+                dset[...] = np.array(data, dtype=zarr_dtype)
+            except UnicodeDecodeError as exc:
+                # exc.object is the value that could not be decoded
+                raise _invalid_utf8_error(exc.object, name, parent.name) from exc
             return dset
         # standard write
         else:

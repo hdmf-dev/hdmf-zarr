@@ -54,6 +54,7 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 - [#382](https://github.com/hdmf-dev/hdmf-zarr/pull/382) : Fill CHANGELOG gaps and close doc and test gaps from the v3 migration review
 - [#393](https://github.com/hdmf-dev/hdmf-zarr/pull/393) : Report a Zarr v2 file in every mode, and improve `allow_pickle` discoverability and the error for the renamed `compressor` argument
 - [#396](https://github.com/hdmf-dev/hdmf-zarr/pull/396) : Name the dataset when a value is not valid UTF-8, and correct the `dtype` spec values and compound data types in the docs
+- [#397](https://github.com/hdmf-dev/hdmf-zarr/pull/397) : Write a text dataset in one assignment instead of one per element
 
 
 ## 0.13.0 (June 22, 2026)
