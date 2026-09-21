@@ -18,6 +18,7 @@ import numpy as np
 import zarr
 from zarr import Group, Array
 from zarr.abc.codec import BytesBytesCodec, ArrayArrayCodec, ArrayBytesCodec
+from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Blosc as ZarrBlosc, Zstd as ZarrZstd, Zlib as ZarrZlib
 from zarr.storage import LocalStore
 
 from hdmf.data_utils import DataIO, GenericDataChunkIterator, DataChunkIterator, AbstractDataChunkIterator
@@ -787,9 +788,6 @@ class ZarrDataIO(DataIO):
         Uses zarr.codecs.numcodecs wrappers for codecs not natively available in zarr v3.
         """
         # Based on https://github.com/fsspec/kerchunk/blob/617d9ce06b9d02375ec0e5584541fcfa9e99014a/kerchunk/hdf.py#L181
-        import warnings as _warnings
-        from zarr.codecs.numcodecs import Shuffle as ZarrShuffle, Blosc as ZarrBlosc, Zstd as ZarrZstd, Zlib as ZarrZlib
-
         codecs = []
         # Check for unsupported filters
         if h5dataset.scaleoffset:
@@ -799,36 +797,32 @@ class ZarrDataIO(DataIO):
         # Add the shuffle filter if possible
         if h5dataset.shuffle and h5dataset.dtype.kind != "O":
             # cannot use shuffle if we materialised objects
-            with _warnings.catch_warnings():
-                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
-                codecs.append(ZarrShuffle(elementsize=h5dataset.dtype.itemsize))
+            codecs.append(ZarrShuffle(elementsize=h5dataset.dtype.itemsize))
         # iterate through all the filters and add them to the list
         for filter_id, properties in h5dataset._filters.items():
             filter_id_str = str(filter_id)
-            with _warnings.catch_warnings():
-                _warnings.filterwarnings("ignore", message="Numcodecs codecs are not in the Zarr")
-                if filter_id_str == "32001":
-                    blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
-                    _1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor = properties
-                    pars = dict(
-                        blocksize=total_bytes,
-                        clevel=clevel,
-                        shuffle=shuffle,
-                        cname=blosc_compressors[compressor],
-                    )
-                    codecs.append(ZarrBlosc(**pars))
-                elif filter_id_str == "32015":
-                    codecs.append(ZarrZstd(level=properties[0]))
-                elif filter_id_str == "gzip":
-                    codecs.append(ZarrZlib(level=properties))
-                elif filter_id_str == "32004":
-                    warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
-                elif filter_id_str == "32008":
-                    warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
-                elif filter_id_str == "shuffle":  # already handled above
-                    pass
-                else:
-                    warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
+            if filter_id_str == "32001":
+                blosc_compressors = ("blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd")
+                _1, _2, bytes_per_num, total_bytes, clevel, shuffle, compressor = properties
+                pars = dict(
+                    blocksize=total_bytes,
+                    clevel=clevel,
+                    shuffle=shuffle,
+                    cname=blosc_compressors[compressor],
+                )
+                codecs.append(ZarrBlosc(**pars))
+            elif filter_id_str == "32015":
+                codecs.append(ZarrZstd(level=properties[0]))
+            elif filter_id_str == "gzip":
+                codecs.append(ZarrZlib(level=properties))
+            elif filter_id_str == "32004":
+                warn(f"{h5dataset.name} HDF5 lz4 compression ignored in Zarr")
+            elif filter_id_str == "32008":
+                warn(f"{h5dataset.name} HDF5 bitshuffle compression ignored in Zarr")
+            elif filter_id_str == "shuffle":  # already handled above
+                pass
+            else:
+                warn(f"{h5dataset.name} HDF5 filter id {filter_id} with properties {properties} ignored in Zarr.")
         return codecs
 
     @staticmethod

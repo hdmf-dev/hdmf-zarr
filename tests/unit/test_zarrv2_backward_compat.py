@@ -871,6 +871,16 @@ class TestV2ConversionRefusesToDropEntries(unittest.TestCase):
                 io.read()
                 self.assertEqual(io.skipped_entries, [])
 
+    def test_fallback_read_warning_as_error_propagates(self):
+        """An entry the fallback read is not recorded as skipped when its warning is raised as an error."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            warnings.filterwarnings("error", message="Read .* via zarr v2 store fallback", category=UserWarning)
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                with self.assertRaisesRegex(UserWarning, "via zarr v2 store fallback"):
+                    io.read_builder()
+                self.assertEqual(io.skipped_entries, [])
+
 
 if __name__ == "__main__":
     unittest.main()

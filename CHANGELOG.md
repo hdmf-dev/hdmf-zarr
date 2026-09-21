@@ -20,7 +20,7 @@ The core functionality has been overhauled to transition to Zarr V3, including s
 * **Removed the `synchronizer` argument:** `ZarrIO` and `NWBZarrIO` no longer accept a `synchronizer` argument, and the `ZarrIO.synchronizer` property is removed. zarr-python v3 does not provide the synchronizer mechanism this wrapped. Passing `synchronizer=...` raises `TypeError`.
 * **Removed the `object_codec_class` argument:** `ZarrIO` and `NWBZarrIO` no longer accept an `object_codec_class` argument, and the `ZarrIO.object_codec_class` property is removed. References, cached specs, and compound datasets are serialized as JSON in `StringDType` arrays, so there is no object codec to select. Passing `object_codec_class=...` raises `TypeError`.
 * **Removed the `extensions` argument (breaking):** `NWBZarrIO` and `NWBZarrV2IO` no longer accept an `extensions` argument, matching the removal of the same argument from `NWBHDF5IO` in PyNWB 4.0.0. Load the cached namespaces from the file (the default, `load_namespaces=True`) or pass a prebuilt `manager` instead. Passing `extensions=...` raises `TypeError`. @rly [#399](https://github.com/hdmf-dev/hdmf-zarr/pull/399)
-* **Supported store classes:** `SUPPORTED_ZARR_STORES` covers `LocalStore`, `FsspecStore` when fsspec is installed, and any other zarr v3 `Store` subclass. `DirectoryStore`, `NestedDirectoryStore`, and `TempStore` do not exist in zarr-python v3, so code that constructs one needs to use `LocalStore` instead.
+* **Supported store classes:** `SUPPORTED_ZARR_STORES` covers `LocalStore`, `FsspecStore`, and any other zarr v3 `Store` subclass. Reading a remote store requires fsspec, which `pip install hdmf-zarr[full]` installs. `DirectoryStore`, `NestedDirectoryStore`, and `TempStore` do not exist in zarr-python v3, so code that constructs one needs to use `LocalStore` instead.
 * **Remote write:** Passing `storage_options` is supported only with `mode="r"`. Writing an NWB Zarr file directly to a remote store is not currently supported and raises `ValueError`.
 
 ### Added
@@ -34,6 +34,7 @@ Addressed the following bugs that are independent of the migration to Zarr V3:
 * Fixed bug where a compound dtype field declared with the spec type `uint` (or `short`) was written as `float64`. @ehennestad [#365](https://github.com/hdmf-dev/hdmf-zarr/pull/365)
 * Fixed bug where writing a scalar dataset with a compound dtype, such as `ElectrodeGroup.position`, raised `IndexError`. @rly [#277](https://github.com/hdmf-dev/hdmf-zarr/issues/277)
 * Reading or writing a scalar dataset with a compound dtype that has a reference field raises `NotImplementedError`. This combination is not supported. @rly [#391](https://github.com/hdmf-dev/hdmf-zarr/pull/391)
+* Fixed the S3 streaming tutorial catching every exception from its read, which let the gallery tests pass without reading the file. It now skips the read only when fsspec is not installed or the network is unavailable. @rly [#400](https://github.com/hdmf-dev/hdmf-zarr/pull/400)
 
 ### Contributors
 This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayorquin, @ehennestad, @rly, and @oruebel.
@@ -56,6 +57,7 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 - [#396](https://github.com/hdmf-dev/hdmf-zarr/pull/396) : Name the dataset when a value is not valid UTF-8, and correct the `dtype` spec values and compound data types in the docs
 - [#397](https://github.com/hdmf-dev/hdmf-zarr/pull/397) : Write a text dataset in one assignment instead of one per element
 - [#399](https://github.com/hdmf-dev/hdmf-zarr/pull/399) : Remove the `extensions` argument from `NWBZarrIO` and `NWBZarrV2IO`
+- [#400](https://github.com/hdmf-dev/hdmf-zarr/pull/400) : Remove code for zarr<3.3 and fix issues found along the way
 
 
 ## 0.13.0 (June 22, 2026)
