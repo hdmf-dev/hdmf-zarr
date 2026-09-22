@@ -1,6 +1,6 @@
 # HDMF-ZARR Changelog
 
-## 0.14.0 (September 21, 2026)
+## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
 
