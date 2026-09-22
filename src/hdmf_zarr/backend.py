@@ -30,7 +30,7 @@ from .utils import (
     ZarrIODataChunkIteratorQueue,
     get_store_path,
 )
-from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset, is_reference_dtype
 
 # HDMF imports
 from hdmf.backends.io import HDMFIO
@@ -39,7 +39,7 @@ from hdmf.backends.utils import NamespaceToBuilderHelper, WriteStatusTracker
 from hdmf.utils import docval, getargs, popargs, get_docval, get_data_shape, generate_array_html_repr
 from hdmf.build import Builder, GroupBuilder, DatasetBuilder, LinkBuilder, BuildManager, ReferenceBuilder, TypeMap
 from hdmf.data_utils import AbstractDataChunkIterator
-from hdmf.spec import RefSpec, DtypeSpec, NamespaceCatalog
+from hdmf.spec import NamespaceCatalog
 from hdmf.query import HDMFDataset
 from hdmf.container import Container
 
@@ -60,6 +60,15 @@ Reserved attribute storing the path to the Group where the schema for the file a
 DEFAULT_SPEC_LOC_DIR = "specifications"
 """
 Default name of the group where specifications should be cached
+"""
+
+REFERENCE_DTYPE_ATTR_VALUE = "object_reference"
+"""
+Value of the ``_DTYPE`` attribute that marks a dataset of object references in the Zarr v3 storage
+convention (see :ref:`sec-zarr-storage-references`). This is an on-disk name only. When a file is read,
+it is translated to ``DatasetBuilder.OBJECT_REF_TYPE``, the reference dtype that hdmf and the rest of
+hdmf-zarr use. Reference fields of a compound dataset are listed in ``_REFERENCE_FIELDS`` and receive
+the same translation.
 """
 
 COMPOUND_DTYPE_MIN_STRING_LENGTH = 512
@@ -963,16 +972,6 @@ class ZarrIO(HDMFIO):
         parent_path = "/" + os.path.dirname(zarr_object.path).replace("\\", "/")
         return parent_path
 
-    def _is_ref(self, dtype):
-        if isinstance(dtype, DtypeSpec):
-            return self._is_ref(dtype.dtype)
-        elif isinstance(dtype, RefSpec):
-            return True
-        elif isinstance(dtype, np.dtype):
-            return False
-        else:
-            return dtype in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference")
-
     def resolve_ref(self, zarr_ref):
         """
         Get the full path to the object linked to by the zarr reference
@@ -1413,7 +1412,6 @@ class ZarrIO(HDMFIO):
             if len(data) > 0 and isinstance(data[0], Container):
                 ref_data = [self._create_ref(data[i], ref_link_source=self.path) for i in range(len(data))]
                 shape = (len(data),)
-                type_str = "object_reference"
                 # Store references as plain path strings
                 json_refs = [r["path"] for r in ref_data]
                 dset = parent.require_array(
@@ -1422,7 +1420,7 @@ class ZarrIO(HDMFIO):
                     dtype=np.dtypes.StringDType(),
                     **options["io_settings"],
                 )
-                dset.attrs["_DTYPE"] = type_str
+                dset.attrs["_DTYPE"] = REFERENCE_DTYPE_ATTR_VALUE
                 for i, jr in enumerate(json_refs):
                     dset[i] = jr
                 self._written_builders.set_written(builder)  # record that the builder has been written
@@ -1438,18 +1436,8 @@ class ZarrIO(HDMFIO):
                 self._written_builders.set_written(builder)  # record that the builder has been written
         # Write a compound dataset
         elif isinstance(options["dtype"], list):
-            refs = list()
-            type_str = list()
-            for i, dts in enumerate(options["dtype"]):
-                if self._is_ref(dts["dtype"]):
-                    refs.append(i)
-                    type_str.append({"name": dts["name"], "dtype": "object_reference"})
-                else:
-                    i = [
-                        dts,
-                    ]
-                    t = self.__resolve_dtype_helper__(i)
-                    type_str.append(self.__serial_dtype__(t)[0])
+            refs = [i for i, dts in enumerate(options["dtype"]) if is_reference_dtype(dts["dtype"])]
+            ref_field_names = [options["dtype"][i]["name"] for i in refs]
 
             if len(refs) > 0:
                 if get_data_shape(data) == ():
@@ -1493,7 +1481,7 @@ class ZarrIO(HDMFIO):
                 str_fields = {}  # field_name -> list of string values
                 for field in options["dtype"]:
                     field_name = field["name"]
-                    is_ref_field = field["dtype"] in ("object", "object_reference") or isinstance(field["dtype"], dict)
+                    is_ref_field = field_name in ref_field_names or isinstance(field["dtype"], dict)
                     is_str_field = (
                         field["dtype"] is str
                         or field["dtype"] in ("str", "text", "utf", "utf8", "utf-8", "isodatetime")
@@ -1542,11 +1530,7 @@ class ZarrIO(HDMFIO):
                 )
                 _check_compound_string_widths(dset, dtype_v3)
                 # Mark which fields contain references
-                ref_field_names = [
-                    dts["name"] for dts in type_str if isinstance(dts, dict) and dts.get("dtype") == "object_reference"
-                ]
-                if ref_field_names:
-                    dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
+                dset.attrs["_REFERENCE_FIELDS"] = ref_field_names
                 dset[...] = new_arr
             elif get_data_shape(data) == ():
                 dset = self.__scalar_fill__(parent, name, data, options)
@@ -1554,16 +1538,14 @@ class ZarrIO(HDMFIO):
                 # write a compound datatype
                 dset = self.__list_fill__(parent, name, data, options)
         # Write a dataset of references
-        elif self._is_ref(options["dtype"]):
+        elif is_reference_dtype(options["dtype"]):
             # Note: ref_link_source is set to self.path because we do not do external references
             # We only support external links.
             if isinstance(data, ReferenceBuilder):
                 shape = ()
-                type_str = "object_reference"
                 refs = self._create_ref(data, ref_link_source=self.path)
             else:
                 shape = (len(data),)
-                type_str = "object_reference"
                 refs = [self._create_ref(item, ref_link_source=self.path) for item in data]
 
             # Store references as plain path strings
@@ -1574,7 +1556,7 @@ class ZarrIO(HDMFIO):
                 **options["io_settings"],
             )
             self._written_builders.set_written(builder)  # record that the builder has been written
-            dset.attrs["_DTYPE"] = type_str
+            dset.attrs["_DTYPE"] = REFERENCE_DTYPE_ATTR_VALUE
             if self._is_collection(refs) and not isinstance(refs, dict):
                 for i, r in enumerate(refs):
                     dset[i] = r["path"]
@@ -1633,7 +1615,6 @@ class ZarrIO(HDMFIO):
         "ref": ZarrReference,
         "reference": ZarrReference,
         "object": ZarrReference,
-        "object_reference": ZarrReference,
     }
 
     @classmethod
@@ -2107,7 +2088,7 @@ class ZarrIO(HDMFIO):
             compound_dtype = []
             for field_name in zarr_obj.dtype.names:
                 if ref_fields and field_name in ref_fields:
-                    compound_dtype.append({"name": field_name, "dtype": "object_reference"})
+                    compound_dtype.append({"name": field_name, "dtype": DatasetBuilder.OBJECT_REF_TYPE})
                 else:
                     field_dt = self.__serial_dtype__(zarr_obj.dtype[field_name])
                     compound_dtype.append({"name": field_name, "dtype": field_dt})
@@ -2115,8 +2096,7 @@ class ZarrIO(HDMFIO):
         if compound_dtype is not None:
             zarr_dtype = compound_dtype
         elif dtype_attr is not None:
-            # Map "object_reference" to hdmf's "object" for compatibility
-            zarr_dtype = "object" if dtype_attr == "object_reference" else dtype_attr
+            zarr_dtype = DatasetBuilder.OBJECT_REF_TYPE if dtype_attr == REFERENCE_DTYPE_ATTR_VALUE else dtype_attr
         elif "zarr_dtype" in zarr_obj.attrs:
             # Zarr v2 convention (hdmf-zarr < 0.14) stored everything in zarr_dtype.
             # Read-only support via ZarrV2IO.
@@ -2151,7 +2131,7 @@ class ZarrIO(HDMFIO):
 
         # Read scalar dataset, which is stored as a zero-dimensional array
         if zarr_obj.ndim == 0:
-            if self._is_ref(dtype):
+            if is_reference_dtype(dtype):
                 target_name, target_zarr_obj = self.resolve_ref(zarr_obj[()])
                 if isinstance(target_zarr_obj, Group):
                     target_builder = self.__read_group(target_zarr_obj, target_name)
@@ -2159,7 +2139,7 @@ class ZarrIO(HDMFIO):
                     target_builder = self.__read_dataset(target_zarr_obj, target_name)
                 data = ReferenceBuilder(target_builder)
             elif isinstance(dtype, list):
-                if any(dts["dtype"] in ("object", "object_reference") for dts in dtype):
+                if any(is_reference_dtype(dts["dtype"]) for dts in dtype):
                     raise NotImplementedError(
                         "Zero-dimensional compound dataset with a reference field is not supported: "
                         + str(name)
@@ -2175,15 +2155,11 @@ class ZarrIO(HDMFIO):
             data = zarr_obj[()]
         elif isinstance(dtype, list):
             # Check compound dataset where one of the subsets contains references
-            has_reference = False
-            for i, dts in enumerate(dtype):
-                if dts["dtype"] in ("object", "object_reference"):
-                    has_reference = True
-                    break
+            has_reference = any(is_reference_dtype(dts["dtype"]) for dts in dtype)
             retrieved_dtypes = [dtype_dict["dtype"] for dtype_dict in dtype]
             if has_reference:
                 data = BuilderZarrTableDataset(zarr_obj, self, retrieved_dtypes)
-        elif self._is_ref(dtype):
+        elif is_reference_dtype(dtype):
             # Array of references
             data = BuilderZarrReferenceDataset(data, self)
 

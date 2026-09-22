@@ -14,7 +14,30 @@ from zarr import Array
 from hdmf.build import DatasetBuilder
 from hdmf.data_utils import append_data
 from hdmf.query import HDMFDataset, ReferenceResolver, ContainerResolver, BuilderResolver
+from hdmf.spec import DtypeSpec, RefSpec
 from hdmf.utils import docval, popargs, get_docval
+
+
+def is_reference_dtype(dtype):
+    """
+    Return whether a dtype describes object references.
+
+    ``dtype`` is a dtype as hdmf represents it in memory: a :py:class:`~hdmf.spec.spec.RefSpec`, a
+    :py:class:`~hdmf.spec.spec.DtypeSpec` (a compound field), ``DatasetBuilder.OBJECT_REF_TYPE``, or any other
+    dtype (e.g., a numpy dtype) that is not a reference.
+
+    Note: The on-disk ``_DTYPE`` value :py:const:`~hdmf_zarr.backend.REFERENCE_DTYPE_ATTR_VALUE` is not accepted.
+    ``ZarrIO`` translates it to ``DatasetBuilder.OBJECT_REF_TYPE`` when a file is read, so it never appears as
+    an in-memory dtype.
+    """
+    if isinstance(dtype, DtypeSpec):
+        return is_reference_dtype(dtype.dtype)
+    elif isinstance(dtype, RefSpec):
+        return True
+    elif isinstance(dtype, np.dtype):
+        return False
+    else:
+        return dtype == DatasetBuilder.OBJECT_REF_TYPE
 
 
 class ZarrDataset(HDMFDataset):
@@ -155,7 +178,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
         super().__init__(**kwargs)
         self.__refgetters = dict()
         for i, t in enumerate(types):
-            if t in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference"):
+            if is_reference_dtype(t):
                 self.__refgetters[i] = self._get_ref
             elif t is str:
                 self.__refgetters[i] = self._get_utf
@@ -168,7 +191,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             elif np.issubdtype(sub, np.str_):
                 # In zarr v3, string fields in compound dtypes use fixed-length Unicode
                 # Check if this field holds references (plain path strings)
-                tmp.append("object" if types[i] in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference") else "utf")
+                tmp.append("object" if is_reference_dtype(types[i]) else "utf")
             elif sub.metadata:
                 if "vlen" in sub.metadata:
                     t = sub.metadata["vlen"]
@@ -187,9 +210,7 @@ class AbstractZarrTableDataset(DatasetOfReferences):
             [
                 (
                     name,
-                    object
-                    if types[index] in (DatasetBuilder.OBJECT_REF_TYPE, "object_reference")
-                    else self.dataset.dtype[index],
+                    object if is_reference_dtype(types[index]) else self.dataset.dtype[index],
                 )
                 for index, name in enumerate(self.dataset.dtype.names)
             ]
