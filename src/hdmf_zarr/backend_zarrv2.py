@@ -21,7 +21,7 @@ from hdmf.utils import docval, get_docval, popargs
 
 from .backend import ZarrIO, SPEC_LOC_ATTR
 from .utils import ZarrSpecReader, get_store_path
-from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset
+from .zarr_utils import BuilderZarrReferenceDataset, BuilderZarrTableDataset, is_reference_dtype
 
 _V2_READ_MODES = ("r", "r-")
 
@@ -770,10 +770,10 @@ class ZarrV2IO(ZarrIO):
             elif isinstance(data, (list, tuple)) and len(data) > 0:
                 data = data[0]
 
-        if isinstance(zarr_dtype, str) and self._is_ref(zarr_dtype):
+        if isinstance(zarr_dtype, str) and is_reference_dtype(zarr_dtype):
             data = BuilderZarrReferenceDataset(data, self)
         elif isinstance(zarr_dtype, list):
-            if any(dts.get("dtype") == "object" for dts in zarr_dtype):
+            if any(is_reference_dtype(dts.get("dtype")) for dts in zarr_dtype):
                 data = BuilderZarrTableDataset(data, self, [d["dtype"] for d in zarr_dtype])
         elif isinstance(data, np.ndarray) and data.dtype.kind in ("U", "S"):
             data = list(data)
