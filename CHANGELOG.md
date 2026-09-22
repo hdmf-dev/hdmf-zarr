@@ -59,6 +59,7 @@ This release was made possible by the efforts of @bendichter, @alejoe91, @h-mayo
 - [#399](https://github.com/hdmf-dev/hdmf-zarr/pull/399) : Remove the `extensions` argument from `NWBZarrIO` and `NWBZarrV2IO`
 - [#400](https://github.com/hdmf-dev/hdmf-zarr/pull/400) : Remove code for zarr<3.3 and fix issues found along the way
 - [#402](https://github.com/hdmf-dev/hdmf-zarr/pull/402) : Require zarr>=3.4.0
+- [#404](https://github.com/hdmf-dev/hdmf-zarr/pull/404) : Prepare for release of HDMF-Zarr 0.14.0
 
 
 ## 0.13.0 (June 22, 2026)
