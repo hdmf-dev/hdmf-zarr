@@ -1,6 +1,13 @@
 name: HDMF Dev Branch Compatibility
 
-on: [pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+  schedule:
+    - cron: '0 5 * * *'  # once per day at midnight ET
+  workflow_dispatch:
 
 jobs:
   check_compatibility:
