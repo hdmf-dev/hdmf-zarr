@@ -5,8 +5,8 @@ Integrating New Zarr Data Stores
 ================================
 
 :py:class:`~hdmf_zarr.backend.ZarrIO` by default uses the Zarr
-:zarr-docs:`DirectoryStore <api/storage.html#zarr.storage.DirectoryStore>` via
-the :py:meth:`zarr.convenience.open` method. :py:class:`~hdmf_zarr.backend.ZarrIO` further
+:zarr-docs:`LocalStore <api/zarr/storage/index.html#zarr.storage.LocalStore>` via
+the :py:func:`zarr.open` function. :py:class:`~hdmf_zarr.backend.ZarrIO` further
 supports all stores listed in :py:class:`~hdmf_zarr.backend.SUPPORTED_ZARR_STORES`.
 Users can specify a particular store using the ``path`` parameter when creating a new
 :py:class:`~hdmf_zarr.backend.ZarrIO` instance. This document discusses key steps towards
@@ -140,4 +140,3 @@ another target and then compare that the data between the two files is consisten
     * ``MixinTestZarrToZarr.WRITE_PATHS`` and ``MixinTestZarrToZarr.EXPORT_PATHS``
 
 2. **Update tests and ZarrIO as necessary** Run the test suite and fix any identified issues.
-

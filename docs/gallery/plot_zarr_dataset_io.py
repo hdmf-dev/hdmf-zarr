@@ -41,13 +41,13 @@ test_table = DynamicTable(
 # To define custom settings for write (e.g., for chunking and compression) we simply
 # wrap our data array using  :py:class:`~hdmf_zarr.utils.ZarrDataIO`.
 
-from numcodecs import Blosc
+from zarr.codecs import BloscCodec
 
 data_with_data_io = ZarrDataIO(
     data=data * 3,
     chunks=(10, 10),
     fillvalue=0,
-    compressor=Blosc(cname='zstd', clevel=1, shuffle=Blosc.SHUFFLE)
+    compressors=BloscCodec(cname='zstd', clevel=1, shuffle='shuffle')
 )
 
 ###############################################################################
@@ -62,7 +62,7 @@ test_table.add_column(
 # Next we add a column where we explicitly disable compression
 data_without_compression = ZarrDataIO(
     data=data*5,
-    compressor=False)
+    compressors=False)
 test_table.add_column(
     name='test_data_nocompression',
     description='Some 2D test data',
@@ -103,10 +103,11 @@ intable.to_dataframe()
 # Check dataset settings used.
 #
 for c in intable.columns:
-    print("Name=%s, Chunks=% s, Compressor=%s" %
+    compressors = c.data.compressors if hasattr(c.data, 'compressors') else []
+    print("Name=%s, Chunks=%s, Compressors=%s" %
           (c.name,
            str(c.data.chunks),
-           str(c.data.compressor)))
+           str(compressors)))
 
 ###############################################################################
 #

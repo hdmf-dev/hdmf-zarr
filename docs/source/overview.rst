@@ -21,7 +21,7 @@ Supported features
 - Links
 - Object references
 - Writing/loading namespaces/specifications
-- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator` 
+- Iterative data write using :py:class:`~hdmf.data_utils.AbstractDataChunkIterator`
 - Parallel write with :py:class:`~hdmf.data_utils.GenericDataChunkIterator` (since v0.4)
 - Lazy load of datasets
 - Lazy load of datasets containing object references (since v0.4)
@@ -30,7 +30,9 @@ Known Limitations
 -----------------
 
 - The Zarr backend is currently experimental and may still change.
-- Attributes are stored as JSON documents in Zarr (using the DirectoryStore). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
-- Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's directory-based stores :py:class:`~zarr.storage.DirectoryStore`, :py:class:`~zarr.storage.NestedDirectoryStore`, and :py:class:`~zarr.storage.TempStore`. Other `Zarr stores <https://zarr.readthedocs.io/en/v2.18.4/api/storage.html>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_.
-- Exporting of HDF5 files with external links is not yet fully implemented/tested. (see `hdmf-zarr issue #49 <https://github.com/hdmf-dev/hdmf-zarr/issues/49>`_.
+- **Zarr v2 read-only:** Zarr v2 folders can only be read in read-only mode with the :py:class:`~hdmf_zarr.backend_zarrv2.ZarrV2IO` and corresponding :py:class:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO` classes. Writing of new Zarr v2 files is not supported, i.e., new files can only be written in Zarr v3 via :py:class:`~hdmf_zarr.backend.ZarrIO` and :py:class:`~hdmf_zarr.nwb.NWBZarrIO`. Zarr v2 folders can be converted to v3 using the :py:meth:`~hdmf_zarr.nwb_zarrv2.NWBZarrV2IO.convert_to_v3` function. Most Zarr v2 NWB files hold at least one pickle-encoded dataset, because hdmf-zarr 0.13 and earlier encode object datasets (an electrodes table's object-reference columns, for instance) with the pickle codec by default. Decoding pickle executes arbitrary code, so reading and converting both refuse it until you pass ``allow_pickle=True`` for a source you trust, e.g. ``NWBZarrV2IO.convert_to_v3(source_path, dest_path, allow_pickle=True)``. (since v0.14)
+- Attributes are stored as JSON documents in Zarr (using the :py:class:`~zarr.storage.LocalStore`). As such, all attributes must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types to JSON serializable types as much as possible.
+- Currently the :py:class:`~hdmf_zarr.backend.ZarrIO` backend supports Zarr's :py:class:`~zarr.storage.LocalStore` for local storage and :py:class:`~zarr.storage.FsspecStore` for remote read-only access. Other `Zarr stores <https://zarr.readthedocs.io/en/stable/user-guide/storage/>`_ could be added but will require proper treatment of links and references for those backends as links are not supported in Zarr (see `zarr-python issues #389 <https://github.com/zarr-developers/zarr-python/issues/389>`_).
+- **Compound dtypes with strings:** Compound data types are stored in zarr v3's ``struct`` data type, with string and reference fields as fixed-length Unicode strings (``fixed_length_utf32``). Both are registered `Zarr extension data types <https://github.com/zarr-developers/zarr-extensions/tree/main/data-types>`_, so a zarr implementation that does not support them may not read these datasets.
+- Exporting of HDF5 files with external links is not yet fully implemented/tested (see `hdmf-zarr issue #49 <https://github.com/hdmf-dev/hdmf-zarr/issues/49>`_).
 - Special characters (e.g., ``:``, ``<``, ``>``, ``"``, ``/``, ``\``, ``|``, ``?``, or ``*``) may not be supported by all file systems (e.g., on Windows) and as such should not be used as part of the names of Datasets or Groups as Zarr needs to create folders on the filesystem for these objects.

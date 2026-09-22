@@ -147,11 +147,11 @@ with NWBZarrIO(path=absolute_path, mode="r") as io:
 ###############################################################################
 # Consolidating Metadata
 # ----------------------
-# When writing to Zarr, the metadata within the file will be consolidated into a single
-# file within the root group, `.zmetadata`. Users who do not wish to consolidate the
-# metadata can set the boolean parameter `consolidate_metadata` to `False` within `write`.
+# When writing to Zarr, the metadata within the file will be consolidated into the
+# ``zarr.json`` file of the root group. Users who do not wish to consolidate the
+# metadata can set the boolean parameter ``consolidate_metadata`` to ``False`` within ``write``.
 # Even when the metadata is consolidated, the metadata natively within the file can be altered.
-# Any alterations within would require the user to call `zarr.convenience.consolidate_metadata()`
+# Any alterations within would require the user to call :py:func:`zarr.consolidate_metadata`
 # to sync the file with the changes. Please refer to the Zarr documentation for more details:
-# https://zarr.readthedocs.io/en/v2.18.4/tutorial.html#storage-alternatives
+# https://zarr.readthedocs.io/en/stable/user-guide/consolidated_metadata.html
 zarr.consolidate_metadata(path)

@@ -150,6 +150,8 @@ _version.py
 .ruff_cache
 zarr_test*.zarr
 *.nwb.zarr
+# the checked-in zarr v2 backward-compatibility fixture is tracked despite the rule above
+!tests/unit/helpers/*.nwb.zarr
 
 # uv
 uv.lock

@@ -1,10 +1,12 @@
 import unittest
+from unittest.mock import patch
 from hdmf_zarr import NWBZarrIO
 import os
 import shutil
 from datetime import datetime
 from dateutil.tz import tzlocal
 import numpy as np
+import zarr
 
 try:
     from pynwb import NWBFile
@@ -48,14 +50,34 @@ class TestNWBZarrIO(unittest.TestCase):
     def test_read_nwb(self):
         """
         Test reading a local file with NWBZarrIO.read_nwb.
-
-        NOTE: See TestFSSpecStreaming.test_fsspec_streaming_via_read_nwb for corresponding tests
-              for reading a remote file with NWBZarrIO.read_nwb
         """
         self.write_test_file()
         nwbfile = NWBZarrIO.read_nwb(path=self.filepath)
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))
+
+    def test_read_nwb_s3_uses_anonymous_storage_options(self):
+        """
+        An s3:// path is opened anonymously, so that public DANDI assets are readable
+        without credentials.
+        """
+        with (
+            patch("hdmf_zarr.nwb.NWBZarrIO.__init__", return_value=None) as mock_init,
+            patch("hdmf_zarr.nwb.NWBZarrIO.read", return_value="nwbfile"),
+        ):
+            NWBZarrIO.read_nwb(path="s3://bucket/file.nwb.zarr")
+        self.assertEqual(mock_init.call_args.kwargs["storage_options"], dict(anon=True))
+
+    def test_read_nwb_local_path_passes_no_storage_options(self):
+        """
+        A local path is opened without storage options, so no fsspec store is constructed.
+        """
+        with (
+            patch("hdmf_zarr.nwb.NWBZarrIO.__init__", return_value=None) as mock_init,
+            patch("hdmf_zarr.nwb.NWBZarrIO.read", return_value="nwbfile"),
+        ):
+            NWBZarrIO.read_nwb(path="local.nwb.zarr")
+        self.assertIsNone(mock_init.call_args.kwargs["storage_options"])
 
 
 @unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")
@@ -165,3 +187,70 @@ class TestNWBZarrIOCompoundDtype(unittest.TestCase):
             shutil.rmtree(export_path)
         if os.path.exists(double_export_path):
             shutil.rmtree(double_export_path)
+
+
+@unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")
+class TestNWBZarrIOCompoundReferenceExport(unittest.TestCase):
+    """Export of a file with a compound reference column (e.g., epochs.timeseries) using the
+    default ``link_data=True`` path, which routes the descriptor produced by ``__read_dataset``
+    straight into ``write_dataset`` without going through the BuildManager."""
+
+    def setUp(self):
+        self.filepath = "test_compound_ref_export.zarr"
+        self.export_path = "test_compound_ref_export_exported.zarr"
+
+    def tearDown(self):
+        for path in (self.filepath, self.export_path):
+            if os.path.exists(path):
+                shutil.rmtree(path)
+
+    def write_test_file(self):
+        from pynwb import TimeSeries
+
+        nwbfile = NWBFile(
+            session_description="compound reference export",
+            identifier="EXAMPLE_ID",
+            session_start_time=datetime(2024, 1, 1, tzinfo=tzlocal()),
+        )
+        ts = TimeSeries(name="ts", data=np.arange(10.0), unit="v", rate=1.0)
+        nwbfile.add_acquisition(ts)
+        nwbfile.add_epoch(0.0, 1.0, timeseries=[ts])
+        nwbfile.add_epoch(1.0, 2.0, timeseries=[ts])
+        with NWBZarrIO(self.filepath, mode="w") as io:
+            io.write(nwbfile)
+
+    def test_export_with_link_data(self):
+        self.write_test_file()
+
+        with NWBZarrIO(self.filepath, mode="r") as read_io:
+            with NWBZarrIO(self.export_path, mode="w") as export_io:
+                export_io.export(src_io=read_io)
+
+        # The on-disk form: a structured dtype whose reference field holds plain target paths.
+        exported = zarr.open_group(self.export_path, mode="r")["intervals/epochs/timeseries"]
+        self.assertEqual(exported.dtype.names, ("idx_start", "count", "timeseries"))
+        self.assertEqual(exported.attrs["_REFERENCE_FIELDS"], ["timeseries"])
+        self.assertEqual(exported.shape, (2,))
+        rows = exported[:]
+        for row in range(2):
+            self.assertEqual(int(rows[row]["idx_start"]), row)
+            self.assertEqual(int(rows[row]["count"]), 1)
+            self.assertEqual(str(rows[row]["timeseries"]), "/acquisition/ts")
+
+        # The exported file reads back and each stored path resolves to the TimeSeries it names.
+        with NWBZarrIO(self.export_path, mode="r") as io:
+            exported_nwbfile = io.read()
+            ts = exported_nwbfile.acquisition["ts"]
+            for row in range(2):
+                entry = exported_nwbfile.epochs["timeseries"][row][0]
+                self.assertEqual(entry.idx_start, row)
+                self.assertEqual(entry.count, 1)
+                self.assertIs(entry.timeseries, ts)
+
+    def test_validate_file_with_compound_reference_column(self):
+        from pynwb import validate
+
+        self.write_test_file()
+        with NWBZarrIO(self.filepath, mode="r") as io:
+            errors = validate(io=io)
+        self.assertEqual(errors, [])
