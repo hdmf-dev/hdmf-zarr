@@ -8,7 +8,7 @@ The ``hdmf-zarr`` library implements a Zarr backend for HDMF as well as convenie
 
 ``ZarrIO`` and ``NWBZarrIO`` read and write the Zarr v3 format. Legacy Zarr v2 files are read with ``ZarrV2IO`` and ``NWBZarrV2IO``, which also provide helpers to convert those files to Zarr v3.
 
-**Status:** The Zarr backend is **under development** and may still change. See the `overiew page <https://hdmf-zarr.readthedocs.io/en/stable/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr.
+**Status:** The Zarr backend is **under development** and may still change. See the `overview page <https://hdmf-zarr.readthedocs.io/en/stable/overview.html>`_ for an overview of the available features and known limitations of hdmf-zarr.
 
 
 Documentation Status
