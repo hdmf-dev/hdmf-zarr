@@ -62,8 +62,10 @@ try:
         print(f"Session Description: {nwbfile.session_description}")
         print(f"Identifier: {nwbfile.identifier}")
         print(f"Subject ID: {nwbfile.subject.subject_id if nwbfile.subject else 'N/A'}")
-except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+except (ImportError, OSError) as e:
+    # fsspec is not installed or the network is unavailable
+    # `pip install hdmf-zarr[full]` installs zarr with fsspec
+    print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
 # .. note::
@@ -150,8 +152,9 @@ except Exception as e:
 #         path = "myfile.nwb.zarr"
 #         zarr.consolidate_metadata(path)
 #
-#     This ensures that the ``.zmetadata`` file reflects the current state of the
-#     Zarr store. This step is critical before uploading modified files to S3.
+#     This ensures that the consolidated metadata in the root ``zarr.json`` file
+#     reflects the current state of the Zarr store. This step is critical before
+#     uploading modified files to S3.
 #
 #     For more details on consolidated metadata, see the
 #     `Zarr documentation <https://zarr.readthedocs.io/en/stable/user-guide/consolidated_metadata.html>`_ and the
@@ -170,8 +173,10 @@ except Exception as e:
 try:
     nwbfile = io_class.read_nwb(s3_url)
     print(f"Session Start Time: {nwbfile.session_start_time}")
-except Exception as e:
-    print(f"Note: Could not access S3 file (network access may be required): {e}")
+except (ImportError, OSError) as e:
+    # fsspec is not installed or the network is unavailable
+    # `pip install hdmf-zarr[full]` installs zarr with fsspec
+    print(f"Note: Could not access S3 file: {e}")
 
 ###############################################################################
 # .. note::

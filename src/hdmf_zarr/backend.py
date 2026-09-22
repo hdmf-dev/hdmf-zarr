@@ -1,6 +1,7 @@
 """Module with the Zarr-based I/O-backend for HDMF"""
 
 # Python imports
+import importlib.util
 import itertools
 import json
 import os
@@ -17,14 +18,7 @@ from zarr import Group, Array
 from zarr.abc.store import Store as _ZarrStoreABC
 from zarr.abc.codec import Codec as ZarrV3Codec
 from zarr.registry import get_codec_class
-from zarr.storage import LocalStore
-
-try:
-    from zarr.storage import FsspecStore
-
-    FSSPECSTORE_AVAILABLE = True
-except ImportError:
-    FSSPECSTORE_AVAILABLE = False
+from zarr.storage import FsspecStore, LocalStore
 
 # HDMF-ZARR imports
 from .utils import (
@@ -141,9 +135,7 @@ def _invalid_utf8_error(value, name, parent_name):
     )
 
 
-SUPPORTED_ZARR_STORES = (
-    (LocalStore, _ZarrStoreABC) if not FSSPECSTORE_AVAILABLE else (LocalStore, FsspecStore, _ZarrStoreABC)
-)
+SUPPORTED_ZARR_STORES = (LocalStore, FsspecStore, _ZarrStoreABC)
 """
 Tuple listing all Zarr storage backends supported by ZarrIO
 """
@@ -361,9 +353,7 @@ class ZarrIO(HDMFIO):
 
     def is_remote(self):
         """Return True if the file is remote, False otherwise"""
-        if FSSPECSTORE_AVAILABLE and isinstance(self.__file.store, FsspecStore):
-            return True
-        return False
+        return isinstance(self.__file.store, FsspecStore)
 
     @classmethod
     @docval(
@@ -768,13 +758,15 @@ class ZarrIO(HDMFIO):
 
     @staticmethod
     def _resolve_store(store, storage_options=None):
-        """Resolve a store path to a Zarr store, using FsspecStore for remote paths."""
+        """Resolve a store path to a Zarr store, using FsspecStore for remote paths.
+
+        :raises ImportError: If the store is remote and fsspec is not installed. zarr creates
+            an FsspecStore for a protocol URL, and FsspecStore imports fsspec only when it is used.
+        """
+        is_remote_url = isinstance(store, str) and "://" in store and not store.startswith("file://")
+        if (storage_options is not None or is_remote_url) and importlib.util.find_spec("fsspec") is None:
+            raise ImportError("fsspec is required to read remote files. Install it with `pip install hdmf-zarr[full]`.")
         if storage_options is not None:
-            if not FSSPECSTORE_AVAILABLE:
-                raise ImportError(
-                    "FsspecStore is required for remote storage but is not available. "
-                    "Install fsspec to use remote storage options."
-                )
             return FsspecStore.from_url(str(store), storage_options=storage_options)
         return store
 

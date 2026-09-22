@@ -31,6 +31,7 @@ from hdmf.build import GroupBuilder, DatasetBuilder, ReferenceBuilder
 from hdmf.backends.hdf5.h5tools import HDF5IO
 import os
 import shutil
+import sys
 import tempfile
 import warnings
 import pathlib
@@ -565,6 +566,16 @@ class TestPathNormalization(TestCase):
                 path,
                 f"protocol URL {path!r} was corrupted",
             )
+
+
+class TestRemoteStoreWithoutFsspec(TestCase):
+    """Opening a remote store without fsspec installed raises an ImportError that says how to install it."""
+
+    def test_open_remote_url_without_fsspec(self):
+        for storage_options in (None, {"anon": True}):
+            with self.subTest(storage_options=storage_options), patch.dict(sys.modules, {"fsspec": None}):
+                with self.assertRaisesRegex(ImportError, r"pip install hdmf-zarr\[full\]"):
+                    ZarrIO("https://host/f.zarr", mode="r", storage_options=storage_options)
 
 
 class TestCopyArray(TestCase):

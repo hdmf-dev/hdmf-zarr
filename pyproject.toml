@@ -30,7 +30,7 @@ classifiers = [
 ]
 dependencies = [
     "hdmf>=6.2.0",  # 6.2.0 reads a zarr array into memory before the HDF5 write, which avoids a deadlock when exporting to HDF5
-    "zarr>=3.3.0",
+    "zarr>=3.4.0",  # 3.3.0 rejects numpy integer chunk sizes, e.g., ZarrDataIO(chunks=(np.int64(10),))
     "numpy>=2.0.0",
     "numcodecs>=0.14.0",
     "pynwb>=4.2.0",  # pynwb 3.x requires hdmf<5

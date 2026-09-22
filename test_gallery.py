@@ -75,15 +75,8 @@ _deprecation_warning_pandas_pyarrow_re = r"\nPyarrow will become a required depe
 
 _deprecation_warning_datetime = r"datetime.datetime.utcfromtimestamp() *"
 
-_deprecation_warning_zarr_store = r"The NestedDirectoryStore is deprecated *"
-_deprecation_warning_numpy = (
-    "__array__ implementation doesn't accept a copy keyword, so passing copy=False failed. "
-    "__array__ must implement 'dtype' and 'copy' keyword arguments."
-)
-
-_zarr_numcodecs_warning_re = r"Numcodecs codecs are not in the Zarr version 3 specification.*"
 _zarr_consolidated_warning_re = r"Consolidated metadata is currently not part in the Zarr format 3 specification.*"
-_zarr_unstable_dtype_warning_re = r"The data type .* does not have a Zarr V3 specification.*"
+_zarr_v2_fallback_read_warning_re = r"Read .* via zarr v2 store fallback.*"
 _hdmf_dtype_conversion_warning_re = r"Spec '.*': Value with data type .* is being converted to data type .*"
 
 
@@ -167,11 +160,14 @@ def run_gallery_tests():
                     message=_deprecation_warning_datetime,
                     category=DeprecationWarning,
                 )
-                warnings.filterwarnings("ignore", message=_deprecation_warning_zarr_store, category=FutureWarning)
-                warnings.filterwarnings("ignore", message=_deprecation_warning_numpy, category=DeprecationWarning)
-                warnings.filterwarnings("ignore", message=_zarr_numcodecs_warning_re, category=UserWarning)
                 warnings.filterwarnings("ignore", message=_zarr_consolidated_warning_re, category=UserWarning)
-                warnings.filterwarnings("ignore", message=_zarr_unstable_dtype_warning_re, category=FutureWarning)
+                warnings.filterwarnings(
+                    # this warning is triggered when reading zarr v2 arrays that zarr v3 cannot parse,
+                    # e.g., in the S3 streaming tutorial
+                    "ignore",
+                    message=_zarr_v2_fallback_read_warning_re,
+                    category=UserWarning,
+                )
                 warnings.filterwarnings("ignore", message=_hdmf_dtype_conversion_warning_re, category=UserWarning)
                 _import_from_file(script_abs)
         except Exception:

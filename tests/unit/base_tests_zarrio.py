@@ -5,25 +5,16 @@ The actual tests are then instantiated with various different backends in the
 test_zarrio.py module."""
 
 from abc import ABCMeta, abstractmethod
-import unittest
 import os
 import numpy as np
 import shutil
 import warnings
 
-# Try to import Zarr and disable tests if Zarr is not available
 import zarr
+from zarr.codecs import BloscCodec, TransposeCodec
 from hdmf_zarr.backend import ZarrIO
 from hdmf_zarr.utils import ZarrDataIO, ZarrReference
 from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanager
-
-# Try to import zarr codecs and disable compression tests if not available
-try:
-    from zarr.codecs import BloscCodec, TransposeCodec
-
-    DISABLE_ZARR_COMPRESSION_TESTS = False
-except ImportError:
-    DISABLE_ZARR_COMPRESSION_TESTS = True
 
 from hdmf.spec.namespace import NamespaceCatalog
 from hdmf.build import GroupBuilder, DatasetBuilder, LinkBuilder, ReferenceBuilder, OrphanContainerBuildError
@@ -879,7 +870,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(dset.fill_value, -1)
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress(self):
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         a = ZarrDataIO(np.arange(30).reshape(5, 2, 3), compressors=compressor)
@@ -891,7 +881,6 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertEqual(len(dset.compressors), 1)
         tempIO.close()
 
-    @unittest.skipIf(DISABLE_ZARR_COMPRESSION_TESTS, "Skip test due to zarr codecs not available")
     def test_write_dataset_list_compress_and_filter(self):
         compressor = BloscCodec(cname="zstd", clevel=3, shuffle="bitshuffle")
         filters = [TransposeCodec(order=(2, 1, 0))]
