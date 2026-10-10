@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Changes
+* **Attributes that are `NaN` or infinite are now stored as valid JSON:** `ZarrIO` follows the [Non-Finite Attributes Zarr convention](https://github.com/catalystneuro/zarr-non-finite-attributes). A number that is not finite is written as the string `"NaN"`, `"Infinity"`, or `"-Infinity"`, a string with the same characters is escaped with the prefix `_str_`, and the Group or Dataset registers the convention in `zarr_conventions`. Files written this way can be opened by Zarr implementations that use a strict JSON parser, such as zarrita.js and Icechunk. Files written by hdmf-zarr 0.14.0, which hold the bare tokens `NaN` and `Infinity`, are still read. hdmf-zarr 0.14.0 reads the new encoding as strings, so a file that has such an attribute needs this release or later to be read. @bendichter [#408](https://github.com/hdmf-dev/hdmf-zarr/pull/408)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
