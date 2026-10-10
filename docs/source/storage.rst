@@ -125,12 +125,52 @@ Attributes
     Attributes are stored as JSON documents in Zarr (using the LocalStore). As such, all attributes
     must be JSON serializable. The :py:class:`~hdmf_zarr.backend.ZarrIO` backend attempts to cast types
     (e.g., numpy arrays) to JSON serializable types as much as possible, but not all possible types may
-    be supported. Float ``NaN``, ``Infinity``, and ``-Infinity`` values are written as the bare tokens
-    ``NaN``, ``Infinity``, and ``-Infinity``, following zarr-python. These tokens are a zarr-python
-    extension to JSON rather than part of the JSON standard, so a store containing them is readable by
-    Python's :py:mod:`json` module and rejected by strict JSON parsers. Writing them this way keeps a
-    float distinct from a string holding the same text, and keeps hdmf-zarr consistent with any other
-    tool reading the store through zarr-python.
+    be supported.
+
+.. _sec-zarr-storage-attributes-non-finite:
+
+Attributes that are not finite numbers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+JSON has no representation for ``NaN``, ``Infinity``, or ``-Infinity``. :py:class:`~hdmf_zarr.backend.ZarrIO`
+stores such attributes following the `Non-Finite Attributes Zarr convention
+<https://github.com/catalystneuro/zarr-non-finite-attributes>`_:
+
+* A number that is not finite is written as the string ``"NaN"``, ``"Infinity"``, or ``"-Infinity"``. These
+  are the forms that the Zarr v3 specification defines for fill values.
+* A string that has the same characters as one of these is written with the prefix ``_str_``, and the prefix is
+  removed when the attribute is read. A string attribute ``NaN`` is therefore stored as ``"_str_NaN"``, which
+  keeps a float distinct from a string holding the same text.
+* A Group or Dataset whose attributes are stored this way registers the convention in its ``zarr_conventions``
+  attribute. Only a Group or Dataset that registers the convention is decoded when it is read.
+
+A Group or Dataset that has no such number among its attributes does not register the convention, and its
+attributes are stored as they are. For example, a Dataset with a ``resolution`` of ``NaN`` and a ``comments``
+attribute holding the text ``NaN`` is stored as:
+
+.. code-block:: json
+
+    {
+        "attributes": {
+            "resolution": "NaN",
+            "comments": "_str_NaN",
+            "zarr_conventions": [
+                {
+                    "uuid": "2adc9aac-d676-4e93-8feb-903b6ae9e08a",
+                    "schema_url": "https://raw.githubusercontent.com/catalystneuro/zarr-non-finite-attributes/refs/tags/v1/schema.json",
+                    "spec_url": "https://github.com/catalystneuro/zarr-non-finite-attributes/blob/v1/README.md",
+                    "name": "non-finite-attributes",
+                    "description": "Non-finite numbers in attributes are written as strings"
+                }
+            ]
+        }
+    }
+
+.. note::
+
+    hdmf-zarr 0.14.0 wrote these numbers as the bare tokens ``NaN``, ``Infinity``, and ``-Infinity``, following
+    zarr-python. The tokens are not part of the JSON standard, so strict JSON parsers, which most Zarr
+    implementations outside Python use, reject a store that contains them. Such files are still read.
 
 .. _sec-zarr-storage-attributes-reserved:
 
@@ -149,6 +189,9 @@ added on any Group or Dataset in the file.
     ``_DTYPE``                    Attribute on Datasets used to specify the data type. Set to
                                   ``"object_reference"`` for reference datasets. See :ref:`sec-zarr-storage-references`.
     ``_REFERENCE_FIELDS``         Attribute on compound Datasets listing field names that contain object references.
+    ``zarr_conventions``          Attribute naming the Zarr conventions a Group or Dataset follows. ZarrIO adds and
+                                  removes the entry for the Non-Finite Attributes convention and keeps any other
+                                  entries. See :ref:`sec-zarr-storage-attributes-non-finite`.
     ============================  ======================================================================================
 
 .. note::
