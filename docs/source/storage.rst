@@ -172,6 +172,25 @@ attribute holding the text ``NaN`` is stored as:
     zarr-python. The tokens are not part of the JSON standard, so strict JSON parsers, which most Zarr
     implementations outside Python use, reject a store that contains them. Such files are still read.
 
+.. _sec-zarr-storage-attributes-bytes:
+
+Attributes that are bytes
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+JSON has no representation for bytes. A byte string attribute that is valid UTF-8, such as an ``ascii``
+attribute, is written as text. One that is not, such as text in another encoding, is stored following the
+`Bytes Attributes Zarr convention <https://github.com/catalystneuro/zarr-bytes-attributes>`_, a companion to
+the Non-Finite Attributes convention:
+
+* Bytes are written as the string ``"base64:"`` followed by the bytes in base64.
+* A string that begins with ``base64:`` is written with the prefix ``_str_``, and the prefix is removed when
+  the attribute is read.
+* A Group or Dataset whose attributes are stored this way registers the convention in its ``zarr_conventions``
+  attribute. Only a Group or Dataset that registers the convention is decoded when it is read.
+
+A Group or Dataset can register both conventions, which are decoded in either order. For example, a Dataset
+with an ``operator`` attribute holding ``Müller`` encoded in Latin-1 stores it as ``"base64:TfxsbGVy"``.
+
 .. _sec-zarr-storage-attributes-reserved:
 
 Reserved attributes
