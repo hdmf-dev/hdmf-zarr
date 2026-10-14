@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Bug Fixes
+* Fixed resolving a link to another store (e.g., `source: "../other.nwb.zarr"`) when reading from a remote store, which previously resolved inside the current store. Remote link sources must now be relative paths that stay within the current bucket/container (or host for HTTP); other sources raise a `ValueError`. @cboulay [#411](https://github.com/hdmf-dev/hdmf-zarr/issues/411)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
