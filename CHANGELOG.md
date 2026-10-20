@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Fixed
+- Fixed `ZarrV2IO` not reading pickled datasets with `allow_pickle=True` on numcodecs 0.15.2, 0.16.6 and 0.17.1. @h-mayorquin [#414](https://github.com/hdmf-dev/hdmf-zarr/pull/414)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
