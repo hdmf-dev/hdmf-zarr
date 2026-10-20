@@ -4,6 +4,7 @@
 
 ### Fixed
 - Fixed `ZarrV2IO` not reading pickled datasets with `allow_pickle=True` on numcodecs 0.15.2, 0.16.6 and 0.17.1. @h-mayorquin [#414](https://github.com/hdmf-dev/hdmf-zarr/pull/414)
+- Fixed `ZarrV2IO` failing with "Found bad link" on a ragged column that zarr v3 cannot parse, such as the pickled `timeseries` column of a trials table. @h-mayorquin [#415](https://github.com/hdmf-dev/hdmf-zarr/pull/415)
 
 ## 0.14.0 (September 22, 2026)
 
