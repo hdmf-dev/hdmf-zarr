@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Bug fixes
+* Fixed reading pickled object datasets (e.g. the electrodes table's `group` column) from Zarr v2 files with `allow_pickle=True` on `numcodecs>=0.17`, which refuses `Pickle.decode` by default. Previously these datasets were silently skipped. @alejoe91
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
