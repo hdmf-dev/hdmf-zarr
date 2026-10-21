@@ -3,7 +3,7 @@
 ## Upcoming
 
 ### Bug fixes
-* Fixed reading pickled object datasets (e.g. the electrodes table's `group` column) from Zarr v2 files with `allow_pickle=True` on `numcodecs>=0.17`, which refuses `Pickle.decode` by default. Previously these datasets were silently skipped. @alejoe91
+* Fixed reading pickled object datasets (e.g. the electrodes table's `group` column) from Zarr v2 files with `allow_pickle=True` on `numcodecs>=0.17`, which refuses `Pickle.decode` by default. Previously these datasets were silently skipped. @alejoe91 [#416](https://github.com/hdmf-dev/hdmf-zarr/pull/416)
 
 ## 0.14.0 (September 22, 2026)
 
