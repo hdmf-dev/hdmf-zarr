@@ -76,10 +76,35 @@ def _enforce_opened_array_pickle_policy(array, allow_pickle):
         _raise_unsafe_pickle(array.name)
 
 
+def _trusted_pickle_codec(codec_config):
+    """Build a pickle codec that decodes regardless of numcodecs' process-wide pickle gate.
+
+    numcodecs 0.17 refuses ``Pickle.decode`` unless ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE``
+    is set. The caller already trusted this file with ``allow_pickle=True``, so decode here instead of
+    flipping that global, which would also trust every other reader in the process.
+    """
+    import pickle
+
+    from numcodecs import Pickle
+    from numcodecs.compat import ensure_contiguous_ndarray
+
+    class _TrustedPickle(Pickle):
+        def decode(self, buf, out=None):
+            dec = pickle.loads(ensure_contiguous_ndarray(buf))
+            if out is not None:
+                np.copyto(out, dec)
+                return out
+            return dec
+
+    return _TrustedPickle(**{k: v for k, v in codec_config.items() if k != "id"})
+
+
 def _v2_codec(codec_config, allow_pickle, dataset_key=None):
     """Build a declared v2 codec after enforcing the pickle trust policy, naming *dataset_key* in the error."""
-    if _is_pickle_codec(codec_config) and not allow_pickle:
-        _raise_unsafe_pickle(dataset_key)
+    if _is_pickle_codec(codec_config):
+        if not allow_pickle:
+            _raise_unsafe_pickle(dataset_key)
+        return _trusted_pickle_codec(codec_config)
     import numcodecs
 
     return numcodecs.get_codec(codec_config)
