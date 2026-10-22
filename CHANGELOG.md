@@ -3,7 +3,7 @@
 ## Upcoming
 
 ### Added
-* Read attributes written with the [Non-Finite Attributes](https://github.com/catalystneuro/zarr-non-finite-attributes) Zarr convention. On a group or array that registers it, the strings `"NaN"`, `"Infinity"` and `"-Infinity"` are read as floats, and strings escaped with `_str_` as strings. Other attributes, and bare `NaN` tokens, are read as before. @bendichter [#PR](https://github.com/hdmf-dev/hdmf-zarr/pull/PR)
+* Read attributes written with the [Non-Finite Attributes](https://github.com/catalystneuro/zarr-non-finite-attributes) Zarr convention. On a group or array that registers it, the strings `"NaN"`, `"Infinity"` and `"-Infinity"` are read as floats, and strings escaped with `_str_` as strings. Other attributes, and bare `NaN` tokens, are read as before. @bendichter [#419](https://github.com/hdmf-dev/hdmf-zarr/pull/419)
 
 ### Fixed
 - Fixed `ZarrV2IO` not reading pickled datasets with `allow_pickle=True` on numcodecs 0.15.2, 0.16.6 and 0.17.1. @h-mayorquin [#414](https://github.com/hdmf-dev/hdmf-zarr/pull/414)
