@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Added
+* Read attributes written with the [Non-Finite Attributes](https://github.com/catalystneuro/zarr-non-finite-attributes) Zarr convention. On a group or array that registers it, the strings `"NaN"`, `"Infinity"` and `"-Infinity"` are read as floats, and strings escaped with `_str_` as strings. Other attributes, and bare `NaN` tokens, are read as before. @bendichter [#PR](https://github.com/hdmf-dev/hdmf-zarr/pull/PR)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.

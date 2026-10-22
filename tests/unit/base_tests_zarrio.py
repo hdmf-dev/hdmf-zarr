@@ -737,6 +737,57 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         self.assertTrue(np.isnan(attrs["list_nan"][1]))
         tempIO.close()
 
+    def test_read_non_finite_attributes_convention(self):
+        """Attributes encoded with the Non-Finite Attributes convention are decoded on nodes that register it.
+
+        Strings "NaN", "Infinity" and "-Infinity" become floats, and a string escaped with "_str_" is read as
+        the string. The same strings on a node that doesn't register the convention stay strings, and bare
+        NaN tokens are read as floats either way.
+        """
+        from hdmf_zarr.non_finite_attributes import NON_FINITE_ATTRIBUTES_UUID
+
+        registration = {"uuid": NON_FINITE_ATTRIBUTES_UUID, "name": "non-finite-attributes"}
+        other = {"uuid": "d89b30cf-ed8c-43d5-9a16-b492f0cd8786", "name": "ref"}
+        encoded = {
+            "nan": "NaN",
+            "inf": "Infinity",
+            "ninf": "-Infinity",
+            "text_nan": "_str_NaN",
+            "text_escaped": "_str__str_NaN",
+            "text_other": "_str_hello",
+            "nested": [1.0, "NaN", {"rate": "Infinity"}],
+            "bare_nan": float("nan"),
+            "zarr_conventions": [registration, other],
+        }
+        tempIO = ZarrIO(self.store_path, mode="w")
+        tempIO.open()
+        tempIO._file.attrs.update(encoded)
+        unregistered = tempIO._file.create_group("unregistered")
+        unregistered.attrs.update({"text_nan": "NaN", "bare_nan": float("nan")})
+        tempIO.close()
+
+        tempIO = ZarrIO(self.store_path, mode="r")
+        tempIO.open()
+        builder = tempIO.read_builder()
+        attrs = builder.attributes
+        self.assertTrue(np.isnan(attrs["nan"]))
+        self.assertEqual(attrs["inf"], float("inf"))
+        self.assertEqual(attrs["ninf"], float("-inf"))
+        self.assertEqual(attrs["text_nan"], "NaN")
+        self.assertEqual(attrs["text_escaped"], "_str_NaN")
+        self.assertEqual(attrs["text_other"], "_str_hello")
+        self.assertEqual(attrs["nested"][0], 1.0)
+        self.assertTrue(np.isnan(attrs["nested"][1]))
+        self.assertEqual(attrs["nested"][2], {"rate": float("inf")})
+        self.assertTrue(np.isnan(attrs["bare_nan"]))
+        # Only the decoded convention's registration is removed
+        self.assertEqual(attrs["zarr_conventions"], [other])
+
+        unregistered = builder.groups["unregistered"].attributes
+        self.assertEqual(unregistered["text_nan"], "NaN")
+        self.assertTrue(np.isnan(unregistered["bare_nan"]))
+        tempIO.close()
+
     def test_write_attributes_write_unsupported_scalar_type(self):
         with self.assertRaises(TypeError):
             self.__write_attribute_test_helper("strattr", np.int32)
