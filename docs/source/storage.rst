@@ -132,6 +132,13 @@ Attributes
     float distinct from a string holding the same text, and keeps hdmf-zarr consistent with any other
     tool reading the store through zarr-python.
 
+    When reading, :py:class:`~hdmf_zarr.backend.ZarrIO` also decodes attributes written with the
+    `Non-Finite Attributes <https://github.com/catalystneuro/zarr-non-finite-attributes>`_ Zarr convention,
+    which other tools use to write these values as valid JSON. On a group or array that registers the
+    convention in ``zarr_conventions``, the strings ``"NaN"``, ``"Infinity"`` and ``"-Infinity"`` are read as
+    floats, and a string escaped with the prefix ``_str_`` is read as the string without one prefix. Attributes
+    of other groups and arrays are read as before, so a string ``"NaN"`` there stays a string.
+
 .. _sec-zarr-storage-attributes-reserved:
 
 Reserved attributes
