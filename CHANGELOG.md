@@ -3,8 +3,7 @@
 ## Upcoming
 
 ### Fixed
-* Read cached specs stored as an array of one string instead of a scalar string. Some HDF5 NWB files cache their specs this way, and a Zarr store made from such a file without rewriting it, e.g., by virtualizing it, keeps the shape. `ZarrSpecReader` now unpacks these, as `H5SpecReader` in HDMF does. @bendichter [#PR](https://github.com/hdmf-dev/hdmf-zarr/pull/PR)
-
+* Read cached specs stored as an array of one string instead of a scalar string. Some HDF5 NWB files cache their specs this way, and a Zarr store made from such a file without rewriting it, e.g., by virtualizing it, keeps the shape. `ZarrSpecReader` now unpacks these, as `H5SpecReader` in HDMF does. @bendichter [#418](https://github.com/hdmf-dev/hdmf-zarr/pull/418)
 - Fixed `ZarrV2IO` not reading pickled datasets with `allow_pickle=True` on numcodecs 0.15.2, 0.16.6 and 0.17.1. @h-mayorquin [#414](https://github.com/hdmf-dev/hdmf-zarr/pull/414)
 
 ## 0.14.0 (September 22, 2026)
