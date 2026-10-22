@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Fixed
+* Read cached specs stored as an array of one string instead of a scalar string. Some HDF5 NWB files cache their specs this way, and a Zarr store made from such a file without rewriting it, e.g., by virtualizing it, keeps the shape. `ZarrSpecReader` now unpacks these, as `H5SpecReader` in HDMF does. @bendichter [#PR](https://github.com/hdmf-dev/hdmf-zarr/pull/PR)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.
