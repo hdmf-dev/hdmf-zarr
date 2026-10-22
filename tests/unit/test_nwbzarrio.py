@@ -56,6 +56,32 @@ class TestNWBZarrIO(unittest.TestCase):
         self.assertEqual(len(nwbfile.devices), 1)
         self.assertTupleEqual(nwbfile.experimenter, ("Dr. Bilbo Baggins",))
 
+    def test_read_cached_spec_stored_as_array_of_one(self):
+        """
+        Test reading cached specs stored as an array of one string instead of a scalar string.
+
+        Some HDF5 NWB files cache their specs this way, and a Zarr store made from such a file
+        without rewriting it, e.g., by virtualizing it, keeps the shape.
+        """
+        self.write_test_file()
+        root = zarr.open_group(self.filepath, mode="r+", zarr_format=3, use_consolidated=False)
+        specs = root[root.attrs[".specloc"]]
+        n_replaced = 0
+        for namespace in specs.group_keys():
+            for version in specs[namespace].group_keys():
+                group = specs[namespace][version]
+                for name in list(group.array_keys()):
+                    value = str(group[name][()])
+                    del group[name]
+                    group.create_array(name, shape=(1,), dtype=str)[0] = value
+                    n_replaced += 1
+        self.assertGreater(n_replaced, 0)
+        zarr.consolidate_metadata(self.filepath, zarr_format=3)
+
+        with NWBZarrIO(path=self.filepath, mode="r") as io:
+            nwbfile = io.read()
+            self.assertEqual(len(nwbfile.devices), 1)
+
     def test_read_nwb_s3_uses_anonymous_storage_options(self):
         """
         An s3:// path is opened anonymously, so that public DANDI assets are readable
