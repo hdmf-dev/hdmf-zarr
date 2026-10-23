@@ -20,6 +20,12 @@ class NWBZarrV2IO(ZarrV2IO):
     Use this class when reading NWB files written by older hdmf-zarr versions.
     Pickle-encoded datasets require ``allow_pickle=True`` and must only be read
     from trusted files.
+
+    numcodecs 0.17.1 and later also refuse to unpickle unless the process opts in, so reading a
+    trusted pickle-encoded file needs both ``allow_pickle=True`` and
+    ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True`` (or the environment variable
+    ``NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE=1`` set before numcodecs is imported). Without the
+    second, reading raises :exc:`~hdmf_zarr.backend_zarrv2.UnsafePickleCodecError` saying so.
     """
 
     @docval(

@@ -46,6 +46,32 @@ _V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
 
 
+_MISSING = object()
+_PREVIOUS_PICKLE_SETTING = _MISSING
+
+
+def setUpModule():
+    """Opt in to numcodecs pickle decoding for this module, whose v2 fixtures are trusted.
+
+    numcodecs 0.17.1 and later refuse to unpickle unless the process sets
+    ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE``, and ``allow_pickle=True`` does not set it.
+    """
+    global _PREVIOUS_PICKLE_SETTING
+    import numcodecs.pickles
+
+    _PREVIOUS_PICKLE_SETTING = getattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE", _MISSING)
+    numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True
+
+
+def tearDownModule():
+    import numcodecs.pickles
+
+    if _PREVIOUS_PICKLE_SETTING is _MISSING:
+        del numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+    else:
+        numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = _PREVIOUS_PICKLE_SETTING
+
+
 class TestZarrV2FileDetection(unittest.TestCase):
     """Tests for local and protocol URL detection of v2 Zarr stores."""
 
@@ -796,6 +822,41 @@ class TestPickleGateOnOpenedArrays(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestNumcodecsPickleOptIn(unittest.TestCase):
+    """Reading pickle needs both allow_pickle=True and numcodecs' own opt-in (numcodecs >= 0.17.1)."""
+
+    def setUp(self):
+        if not _HAS_V2_FILE:
+            self.skipTest("v2 NWB test file not available")
+        import numcodecs.pickles
+
+        self.pickles = numcodecs.pickles
+        self.original = numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+
+    def tearDown(self):
+        self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = self.original
+
+    def _read(self, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", **kwargs) as io:
+                return type(io.read().electrodes["group"][0]).__name__
+
+    def test_allow_pickle_without_numcodecs_opt_in(self):
+        self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = False
+        with self.assertRaisesRegex(UnsafePickleCodecError, "electrodes/group.*ALLOW_UNSAFE_PICKLE_DECODE"):
+            self._read(allow_pickle=True)
+
+    def test_both_opt_ins(self):
+        self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True
+        self.assertEqual(self._read(allow_pickle=True), "ElectrodeGroup")
+
+    def test_numcodecs_opt_in_without_allow_pickle(self):
+        self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True
+        with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+            self._read()
+
+
 class TestV2CachedNamespaces(unittest.TestCase):
     """The fixture carries its cached schema, and the reader reads it."""
 

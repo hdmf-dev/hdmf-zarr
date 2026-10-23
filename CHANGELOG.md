@@ -1,5 +1,10 @@
 # HDMF-ZARR Changelog
 
+## Upcoming
+
+### Fixed
+* Under numcodecs 0.17.1 and later, which refuse to unpickle unless the process opts in, reading a pickle-encoded Zarr v2 file with `allow_pickle=True` raises `UnsafePickleCodecError` explaining that `numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE` (or `NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE=1`) must also be set, instead of failing with a `ConstructError`. The v2 tests opt in, since their fixtures are trusted. @bendichter [#422](https://github.com/hdmf-dev/hdmf-zarr/pull/422)
+
 ## 0.14.0 (September 22, 2026)
 
 This release marks a major transition for `hdmf-zarr`, updating the core storage format from Zarr v2 to the new Zarr v3 standard. As part of this transition, `hdmf-zarr` has adopted the unified Zarr v3 storage convention developed in collaboration with Zindi and LINDI.

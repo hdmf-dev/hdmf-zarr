@@ -10,6 +10,21 @@ class TestFSSpecStreaming(unittest.TestCase):
     these tests instantiate :class:`NWBZarrV2IO` directly"""
 
     def setUp(self):
+        # These public files are trusted. numcodecs 0.17.1 and later refuse to unpickle unless the
+        # process opts in, and allow_pickle=True does not do that, so opt in for each test.
+        import numcodecs.pickles
+
+        missing = object()
+        previous = getattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE", missing)
+        numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True
+
+        def restore():
+            if previous is missing:
+                del numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+            else:
+                numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = previous
+
+        self.addCleanup(restore)
         # PLACEHOLDER test file from Allen Institute for Neural Dynamics
         # TODO: store a small test file and use it to speed up testing
         self.s3_aind_path = (
