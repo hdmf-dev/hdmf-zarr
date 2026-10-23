@@ -796,6 +796,57 @@ class TestPickleGateOnOpenedArrays(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_V2_FILE, "zarr v2 test file not available")
+class TestNumcodecsPickleOptIn(unittest.TestCase):
+    """allow_pickle=True decodes pickle even though numcodecs >= 0.17.1 refuses it by default.
+
+    numcodecs 0.17.1 only unpickles when ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE`` is set.
+    allow_pickle=True turns it on while the trusted file's pickled chunks are decoded and restores it.
+    """
+
+    def setUp(self):
+        if not _HAS_V2_FILE:
+            self.skipTest("v2 NWB test file not available")
+        import numcodecs.pickles
+
+        self.pickles = numcodecs.pickles
+        self.missing = object()
+        self.original = getattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE", self.missing)
+        numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = False
+
+    def tearDown(self):
+        if self.original is self.missing:
+            del self.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+        else:
+            self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = self.original
+
+    def test_allow_pickle_reads_and_restores_the_setting(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                nwbfile = io.read()
+                group = nwbfile.electrodes["group"][0]
+        self.assertEqual(type(group).__name__, "ElectrodeGroup")
+        self.assertIs(self.pickles.ALLOW_UNSAFE_PICKLE_DECODE, False)
+
+    def test_without_allow_pickle_still_refused(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(UnsafePickleCodecError, "allow_pickle=True"):
+                with NWBZarrV2IO(_V2_FILE, mode="r") as io:
+                    io.read()
+        self.assertIs(self.pickles.ALLOW_UNSAFE_PICKLE_DECODE, False)
+
+    def test_numcodecs_without_the_setting(self):
+        # numcodecs < 0.17.1 has no such setting and always unpickles; it is left without one
+        del self.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with NWBZarrV2IO(_V2_FILE, mode="r", allow_pickle=True) as io:
+                io.read()
+        self.assertFalse(hasattr(self.pickles, "ALLOW_UNSAFE_PICKLE_DECODE"))
+        self.pickles.ALLOW_UNSAFE_PICKLE_DECODE = False  # for tearDown
+
+
 class TestV2CachedNamespaces(unittest.TestCase):
     """The fixture carries its cached schema, and the reader reads it."""
 
