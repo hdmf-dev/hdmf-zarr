@@ -3,7 +3,7 @@
 ## Upcoming
 
 ### Fixed
-* Read pickle-encoded Zarr v2 files with `allow_pickle=True` under numcodecs 0.17.1 and later, which refuse to unpickle unless the process opts in with `numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE`. `ZarrV2IO` now turns that setting on only while a trusted file's pickled datasets are decoded, and restores it afterwards. @bendichter [#PR](https://github.com/hdmf-dev/hdmf-zarr/pull/PR)
+* Read pickle-encoded Zarr v2 files with `allow_pickle=True` under numcodecs 0.17.1 and later, which refuse to unpickle unless the process opts in with `numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE`. `ZarrV2IO` now turns that setting on only while a trusted file's pickled datasets are decoded, and restores it afterwards. @bendichter [#421](https://github.com/hdmf-dev/hdmf-zarr/pull/421)
 
 ## 0.14.0 (September 22, 2026)
 
