@@ -76,6 +76,26 @@ def _enforce_opened_array_pickle_policy(array, allow_pickle):
         _raise_unsafe_pickle(array.name)
 
 
+def _require_numcodecs_pickle_opt_in(dataset_key):
+    """Raise :exc:`UnsafePickleCodecError` if numcodecs won't unpickle, naming *dataset_key*.
+
+    numcodecs 0.17.1 refuses to unpickle unless the process sets
+    ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE``, deliberately process-wide so that array
+    metadata cannot enable it. ``allow_pickle=True`` does not change that setting, so a trusted
+    file needs both. Earlier numcodecs versions have no such setting and always unpickle.
+    """
+    import numcodecs.pickles
+
+    if getattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE", True):
+        return
+    raise UnsafePickleCodecError(
+        f"'{dataset_key}' in this Zarr v2 file is pickle-encoded. allow_pickle=True is set, but "
+        "numcodecs 0.17.1 and later also refuse to unpickle unless the process opts in. If this "
+        "file is trusted, set numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True, or set the "
+        "environment variable NUMCODECS_ALLOW_UNSAFE_PICKLE_DECODE=1 before importing numcodecs."
+    )
+
+
 def _v2_codec(codec_config, allow_pickle, dataset_key=None):
     """Build a declared v2 codec after enforcing the pickle trust policy, naming *dataset_key* in the error."""
     if _is_pickle_codec(codec_config) and not allow_pickle:
@@ -550,6 +570,9 @@ class ZarrV2IO(ZarrIO):
 
         filters_config = zarray_meta.get("filters") or []
         filters = [_v2_codec(filter_config, allow_pickle, dataset_key) for filter_config in filters_config]
+        # _v2_codec has refused pickle unless allow_pickle is set; numcodecs needs its own opt-in too
+        if any(_is_pickle_codec(c) for c in [compressor_config, *filters_config] if c):
+            _require_numcodecs_pickle_opt_in(dataset_key)
 
         # A compound holding an object field is pickled whole, exactly like a plain object array,
         # so it comes back from the codec as an ndarray instead of a buffer to reinterpret.
