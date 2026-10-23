@@ -9,7 +9,9 @@ supported — files written by this codebase are always zarr v3.
 
 import json
 import os
+import threading
 import warnings
+from contextlib import contextmanager
 
 import numpy as np
 import zarr
@@ -74,6 +76,37 @@ def _enforce_opened_array_pickle_policy(array, allow_pickle):
     """Raise unless the codecs zarr opened *array* with are safe to decode under the pickle trust policy."""
     if not allow_pickle and _opened_array_declares_pickle(array):
         _raise_unsafe_pickle(array.name)
+
+
+_PICKLE_DECODE_LOCK = threading.Lock()
+
+
+@contextmanager
+def _numcodecs_pickle_decoding(enabled):
+    """Let numcodecs decode pickle while a trusted v2 dataset is decoded, if *enabled*.
+
+    numcodecs 0.17.1 refuses to unpickle unless the process sets
+    ``numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE``, so that array metadata alone cannot
+    enable it. ``allow_pickle=True`` is the caller's decision that the file is trusted, so the
+    setting is turned on only while that file's pickled chunks are decoded, and then restored.
+    The setting is process-wide, so while it is on, other threads may also unpickle.
+    """
+    if not enabled:
+        yield
+        return
+    import numcodecs.pickles
+
+    with _PICKLE_DECODE_LOCK:
+        missing = object()
+        previous = getattr(numcodecs.pickles, "ALLOW_UNSAFE_PICKLE_DECODE", missing)
+        numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = True
+        try:
+            yield
+        finally:
+            if previous is missing:  # numcodecs < 0.17.1 has no such setting and always unpickles
+                del numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE
+            else:
+                numcodecs.pickles.ALLOW_UNSAFE_PICKLE_DECODE = previous
 
 
 def _v2_codec(codec_config, allow_pickle, dataset_key=None):
@@ -550,6 +583,8 @@ class ZarrV2IO(ZarrIO):
 
         filters_config = zarray_meta.get("filters") or []
         filters = [_v2_codec(filter_config, allow_pickle, dataset_key) for filter_config in filters_config]
+        # _v2_codec has refused pickle unless allow_pickle is set, so a pickle codec here is trusted
+        trusted_pickle = any(_is_pickle_codec(c) for c in [compressor_config, *filters_config] if c)
 
         # A compound holding an object field is pickled whole, exactly like a plain object array,
         # so it comes back from the codec as an ndarray instead of a buffer to reinterpret.
@@ -576,7 +611,8 @@ class ZarrV2IO(ZarrIO):
             chunk_name = dimension_separator.join("0" for _ in range(ndim))
             raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
             if raw is not None:
-                data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+                with _numcodecs_pickle_decoding(trusted_pickle):
+                    data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
                 if chunks != shape:
                     data = data[tuple(slice(0, s) for s in shape)]
                 return data
@@ -588,7 +624,8 @@ class ZarrV2IO(ZarrIO):
             raw = _read_store_bytes(store, f"{dataset_key}/{chunk_name}")
             if raw is None:
                 continue
-            chunk_data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
+            with _numcodecs_pickle_decoding(trusted_pickle):
+                chunk_data = ZarrV2IO._decode_v2_chunk(raw, compressor, filters, dtype, chunks, order, is_object)
             slices = tuple(slice(i * c, min((i + 1) * c, s)) for i, c, s in zip(idx, chunks, shape))
             chunk_slices = tuple(slice(0, sl.stop - sl.start) for sl in slices)
             result[slices] = chunk_data[chunk_slices]
