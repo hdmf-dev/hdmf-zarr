@@ -53,7 +53,7 @@ jobs:
         # Publishes to PyPI via OIDC trusted publishing. The hdmf-zarr project on PyPI must have a trusted
         # publisher configured for the hdmf-dev/hdmf-zarr repository, the deploy_release.yml workflow, and the
         # pypi environment.
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           skip-existing: true
 
