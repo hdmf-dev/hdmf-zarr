@@ -22,6 +22,7 @@ the generation script), run the script in a temporary venv with zarr v2::
 
 import json
 import os
+import pickle
 import shutil
 import tempfile
 import unittest
@@ -30,6 +31,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+import zarr
 from zarr.storage import LocalStore
 
 from pynwb import get_manager
@@ -270,6 +272,69 @@ class TestV2ObjectChunkDecoding(unittest.TestCase):
                             dataset_key="array",
                             zarray_meta=unsafe_metadata,
                         )
+
+
+class TestV2ReferenceToUndecodableArray(unittest.TestCase):
+    """A reference to an array that zarr v3 cannot parse resolves through the v2 store fallback."""
+
+    def test_ragged_column_stored_with_pickle(self):
+        """The index of a ragged column refers to the column, so reading the index resolves that reference.
+
+        hdmf-zarr 0.13 pickled object columns, such as the `timeseries` column of a trials table, and zarr v3
+        cannot parse a pickled array.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            table = zarr.open_group(tmpdir, mode="w", zarr_format=2)
+            table.attrs.update(
+                colnames=["col"],
+                description="a table",
+                namespace="hdmf-common",
+                neurodata_type="DynamicTable",
+                object_id="table",
+            )
+            ids = table.create_array("id", data=np.array([0, 1]))
+            ids.attrs.update(
+                namespace="hdmf-common", neurodata_type="ElementIdentifiers", object_id="id", zarr_dtype="int64"
+            )
+            index = table.create_array("col_index", data=np.array([2, 3], dtype="u1"))
+            index.attrs.update(
+                description="index of col",
+                namespace="hdmf-common",
+                neurodata_type="VectorIndex",
+                object_id="col_index",
+                target={"zarr_dtype": "object", "value": {"source": ".", "path": "/col"}},
+                zarr_dtype="uint8",
+            )
+            # zarr v3 cannot write the pickle codec, so the column is written by hand
+            column = os.path.join(tmpdir, "col")
+            os.makedirs(column)
+            metadata = {
+                "zarr_format": 2,
+                "shape": [3],
+                "chunks": [3],
+                "dtype": "|O",
+                "compressor": None,
+                "filters": [{"id": "pickle", "protocol": 5}],
+                "fill_value": 0,
+                "order": "C",
+            }
+            attrs = {
+                "description": "a ragged column",
+                "namespace": "hdmf-common",
+                "neurodata_type": "VectorData",
+                "object_id": "col",
+                "zarr_dtype": "str",
+            }
+            for name, content in ((".zarray", metadata), (".zattrs", attrs)):
+                with open(os.path.join(column, name), "w") as f:
+                    json.dump(content, f)
+            with open(os.path.join(column, "0"), "wb") as f:
+                f.write(pickle.dumps(np.array(["a", "b", "c"], dtype=object)))
+
+            with ZarrV2IO(tmpdir, mode="r", manager=get_manager(), allow_pickle=True) as io:
+                table = io.read()
+                self.assertEqual(table["col"][0], ["a", "b"])
+                self.assertEqual(table["col"][1], ["c"])
 
 
 @unittest.skipIf(not _HAS_V2_FILE, "v2 test file not generated — run generate_nwb_zarrv2.py first")

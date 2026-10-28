@@ -10,6 +10,7 @@ supported — files written by this codebase are always zarr v3.
 import json
 import os
 import pickle
+import posixpath
 import warnings
 
 import numpy as np
@@ -302,6 +303,7 @@ class ZarrV2IO(ZarrIO):
             )
         kwargs["mode"] = mode
         self.__skipped_entries = []
+        self.__v2_builders = dict()
         super().__init__(**kwargs)
 
     @property
@@ -633,6 +635,19 @@ class ZarrV2IO(ZarrIO):
             _enforce_opened_array_pickle_policy(target_zarr_obj, self.allow_pickle)
         return target_name, target_zarr_obj
 
+    def _open_ref_target(self, root, object_path):
+        """Open a reference target, decoding it with :meth:`_read_v2_dataset` when zarr v3 cannot parse it.
+
+        This is the fallback :meth:`_iter_children` uses, so a reference to an array such as a pickled
+        column of references resolves to the same builder the group read produces.
+        """
+        dataset_key = posixpath.join(root.path, object_path.lstrip("/"))
+        zarray_bytes = _read_store_bytes(root.store, f"{dataset_key}/.zarray")
+        if zarray_bytes is not None and not self._v2_array_metadata_supported_by_zarr(json.loads(zarray_bytes)):
+            group_path, name = posixpath.split(dataset_key)
+            return self._read_v2_dataset(root.store, group_path, name)
+        return super()._open_ref_target(root, object_path)
+
     # ----- group iteration with v2 chunk fallback -----
 
     def _iter_children(self, zarr_obj):
@@ -760,6 +775,11 @@ class ZarrV2IO(ZarrIO):
         :rtype: DatasetBuilder
         """
         dataset_key = f"{group_path}/{name}" if group_path else name
+        # The same array can be reached from its group and from a reference to it, such as the
+        # target of a VectorIndex, and both must get the same builder.
+        built_key = os.path.join(get_store_path(store), dataset_key)
+        if built_key in self.__v2_builders:
+            return self.__v2_builders[built_key]
 
         zarray_bytes = _read_store_bytes(store, f"{dataset_key}/.zarray")
         if zarray_bytes is None:
@@ -813,6 +833,7 @@ class ZarrV2IO(ZarrIO):
         else:
             builder.location = "/"
         self._written_builders.set_written(builder)
+        self.__v2_builders[built_key] = builder
         return builder
 
     # ----- write/export are unsupported -----

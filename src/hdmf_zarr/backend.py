@@ -1007,7 +1007,7 @@ class ZarrIO(HDMFIO):
             target_zarr_obj = self.__file
             if object_path is not None:
                 try:
-                    target_zarr_obj = target_zarr_obj[object_path]
+                    target_zarr_obj = self._open_ref_target(target_zarr_obj, object_path)
                 except Exception:
                     raise ValueError("Found bad link to object %s in file %s" % (object_path, self.source))
             return target_name, target_zarr_obj
@@ -1044,11 +1044,18 @@ class ZarrIO(HDMFIO):
         )
         if object_path is not None:
             try:
-                target_zarr_obj = target_zarr_obj[object_path]
+                target_zarr_obj = self._open_ref_target(target_zarr_obj, object_path)
             except Exception:
                 raise ValueError("Found bad link to object %s in file %s" % (object_path, source_file))
         # Return the create path
         return target_name, target_zarr_obj
+
+    def _open_ref_target(self, root, object_path):
+        """Open the target *object_path* of a reference inside the group *root*.
+
+        Hook for subclasses that cannot open every target through zarr, such as :class:`ZarrV2IO`.
+        """
+        return root[object_path]
 
     def _create_ref(self, ref_object, ref_link_source=None):
         """
@@ -2074,6 +2081,9 @@ class ZarrIO(HDMFIO):
                 parent.set_link(link_builder)
 
     def __read_dataset(self, zarr_obj, name):
+        if isinstance(zarr_obj, DatasetBuilder):
+            # A reference target that ZarrV2IO decoded itself because zarr cannot open it
+            return zarr_obj
         ret = self.__get_built(zarr_obj)
         if ret is not None:
             return ret
