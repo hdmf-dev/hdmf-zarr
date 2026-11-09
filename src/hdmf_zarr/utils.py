@@ -540,6 +540,11 @@ class ZarrSpecReader(SpecReader):
     def _read(self, path):
         """Read a JSON-encoded spec from the scalar string array at *path*."""
         s = self._read_spec_string(path)
+        # HDF5 NWB files sometimes cache a spec as an array of one string, which is kept
+        # when such a file is read as Zarr without being rewritten (e.g., virtualized).
+        # H5SpecReader unpacks these too.
+        if isinstance(s, np.ndarray) and s.shape == (1,):
+            s = s[0]
         # In zarr v3, string arrays may return numpy StringDType scalars
         # Ensure we have a plain Python string for json.loads
         s = str(s) if not isinstance(s, str) else s
