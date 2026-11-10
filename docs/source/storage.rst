@@ -134,7 +134,7 @@ Attributes that are not finite numbers
 
 JSON has no representation for ``NaN``, ``Infinity``, or ``-Infinity``. :py:class:`~hdmf_zarr.backend.ZarrIO`
 stores such attributes following the `Non-Finite Attributes Zarr convention
-<https://github.com/catalystneuro/zarr-non-finite-attributes>`_:
+<https://github.com/hdmf-dev/zarr-non-finite-attributes>`_:
 
 * A number that is not finite is written as the string ``"NaN"``, ``"Infinity"``, or ``"-Infinity"``. These
   are the forms that the Zarr v3 specification defines for fill values.
@@ -157,8 +157,8 @@ attribute holding the text ``NaN`` is stored as:
             "zarr_conventions": [
                 {
                     "uuid": "2adc9aac-d676-4e93-8feb-903b6ae9e08a",
-                    "schema_url": "https://raw.githubusercontent.com/catalystneuro/zarr-non-finite-attributes/refs/tags/v1/schema.json",
-                    "spec_url": "https://github.com/catalystneuro/zarr-non-finite-attributes/blob/v1/README.md",
+                    "schema_url": "https://raw.githubusercontent.com/hdmf-dev/zarr-non-finite-attributes/refs/tags/v1/schema.json",
+                    "spec_url": "https://github.com/hdmf-dev/zarr-non-finite-attributes/blob/v1/README.md",
                     "name": "non-finite-attributes",
                     "description": "Non-finite numbers in attributes are written as strings"
                 }
@@ -179,7 +179,7 @@ Attributes that are bytes
 
 JSON has no representation for bytes. A byte string attribute that is valid UTF-8, such as an ``ascii``
 attribute, is written as text. One that is not, such as text in another encoding, is stored following the
-`Bytes Attributes Zarr convention <https://github.com/catalystneuro/zarr-bytes-attributes>`_, a companion to
+`Bytes Attributes Zarr convention <https://github.com/hdmf-dev/zarr-bytes-attributes>`_, a companion to
 the Non-Finite Attributes convention:
 
 * Bytes are written as the string ``"base64:"`` followed by the bytes in base64.

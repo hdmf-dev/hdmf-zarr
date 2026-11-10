@@ -2,7 +2,7 @@
 
 JSON has no representation for bytes. ZarrIO writes a byte string attribute that is valid UTF-8 as
 text, as before. One that is not, such as text in another encoding, is stored following the Bytes
-Attributes Zarr convention (https://github.com/catalystneuro/zarr-bytes-attributes):
+Attributes Zarr convention (https://github.com/hdmf-dev/zarr-bytes-attributes):
 
 - Bytes are written as the string ``"base64:"`` followed by the bytes in standard base64 with
   padding.
@@ -28,8 +28,8 @@ BYTES_ATTRIBUTES_UUID = "2de6770a-9c00-4432-9e84-dd9e1dfed441"
 
 BYTES_ATTRIBUTES_CONVENTION = {
     "uuid": BYTES_ATTRIBUTES_UUID,
-    "schema_url": "https://raw.githubusercontent.com/catalystneuro/zarr-bytes-attributes/refs/tags/v1/schema.json",
-    "spec_url": "https://github.com/catalystneuro/zarr-bytes-attributes/blob/v1/README.md",
+    "schema_url": "https://raw.githubusercontent.com/hdmf-dev/zarr-bytes-attributes/refs/tags/v1/schema.json",
+    "spec_url": "https://github.com/hdmf-dev/zarr-bytes-attributes/blob/v1/README.md",
     "name": "bytes-attributes",
     "description": "Bytes in attributes are written as base64 strings",
 }
