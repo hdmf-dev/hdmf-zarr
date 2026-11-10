@@ -269,6 +269,58 @@ For example in NWB, the attribute ``ElectricalSeries.electrodes.table`` would be
     }
 
 
+.. _sec-zarr-storage-links-references-convention:
+
+Proposed: Links and Object References convention
+------------------------------------------------
+
+.. note::
+
+    This section is a proposal under discussion in
+    `hdmf-zarr#410 <https://github.com/hdmf-dev/hdmf-zarr/issues/410>`_. Nothing in it is implemented yet.
+    :py:class:`~hdmf_zarr.backend.ZarrIO` reads and writes only the layout described above.
+
+The draft `Links and Object References <https://github.com/hdmf-dev/zarr-links-references>`_ Zarr convention
+stores the same information as the reserved attributes above, in a form other Zarr tools share. It builds on the
+`ref <https://github.com/R-CF/zarr_convention_ref>`_ convention. VirtualiZarr 2.8.0 writes it when it virtualizes
+HDF5 links and object references, so reading it would let :py:class:`~hdmf_zarr.backend.ZarrIO` open virtual
+copies of HDF5 files.
+
+.. list-table:: The hdmf-zarr 0.14 layout and the convention
+    :header-rows: 1
+    :widths: 20 40 40
+
+    * -
+      - hdmf-zarr 0.14
+      - Convention
+    * - Link, on a Group
+      - ``"_LINKS": [{"name": "device", "source": ".", "path": "/general/devices/probe"}]``
+      - ``"links_references": {"links": {"device": {"ref": {"node": "../../devices/probe"}}}}``
+    * - Reference Dataset
+      - ``"_DTYPE": "object_reference"``, with absolute paths as elements
+      - ``"links_references": {"references": true}``, with paths relative to the Dataset as elements
+    * - Reference fields of a compound Dataset
+      - ``"_REFERENCE_FIELDS": ["timeseries"]``
+      - ``"links_references": {"references": ["timeseries"]}``
+    * - Reference in an attribute
+      - ``{"_REFERENCE": {"source": ".", "path": "/general/devices/probe"}}``
+      - ``{"ref": {"node": "../../devices/probe"}}``
+
+The main differences are:
+
+* Paths are relative to the Group or Dataset that holds them, as the ``ref`` convention requires. A file can then
+  be opened from a subpath, or placed inside a larger store.
+* A target in another store has a ``uri`` in place of ``source``.
+* A Group or Dataset that uses the convention registers it in its ``zarr_conventions`` attribute.
+
+The proposal has three steps, and we could stop after any of them:
+
+1. Read both layouts. Nothing changes for existing files or for older readers.
+2. Write the convention behind an option of :py:class:`~hdmf_zarr.backend.ZarrIO`.
+3. Write the convention by default. Files written this way could not be read by hdmf-zarr 0.14, so this step
+   would need a version bump and a migration note.
+
+
 .. _sec-zarr-storage-dtypes:
 
 dtype mappings
