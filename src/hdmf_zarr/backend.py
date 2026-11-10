@@ -21,7 +21,7 @@ from zarr.registry import get_codec_class
 from zarr.storage import FsspecStore, LocalStore
 
 # HDMF-ZARR imports
-from . import non_finite_attributes
+from . import bytes_attributes, non_finite_attributes
 from .utils import (
     HDMFZarrArray,
     ZarrDataIO,
@@ -896,7 +896,16 @@ class ZarrIO(HDMFIO):
             non_finite_attributes.has_non_finite(value) for value in attributes.values()
         )
 
+        # JSON cannot hold bytes either. A node with a byte string attribute that is not valid UTF-8, or
+        # that already registers the Bytes Attributes convention, has all of its attributes encoded with it.
+        # Byte strings that are valid UTF-8 are written as text, as before.
+        encode_bytes = bytes_attributes.is_registered(obj.attrs) or any(
+            bytes_attributes.has_bytes(value) for value in attributes.values()
+        )
+
         def encoded(value):
+            if encode_bytes:
+                value = bytes_attributes.encode(bytes_attributes.text_or_bytes(value))
             return non_finite_attributes.encode(value) if encode_non_finite else value
 
         for key, value in attributes.items():
@@ -958,9 +967,11 @@ class ZarrIO(HDMFIO):
         conventions = attributes.get(non_finite_attributes.CONVENTIONS_ATTR)
         if conventions is None:
             conventions = obj.attrs.get(non_finite_attributes.CONVENTIONS_ATTR, [])
-        conventions = non_finite_attributes.without_registration(conventions)
+        conventions = bytes_attributes.without_registration(non_finite_attributes.without_registration(conventions))
         if encode_non_finite:
             conventions.append(dict(non_finite_attributes.NON_FINITE_ATTRIBUTES_CONVENTION))
+        if encode_bytes:
+            conventions.append(dict(bytes_attributes.BYTES_ATTRIBUTES_CONVENTION))
         if conventions:
             obj.attrs[non_finite_attributes.CONVENTIONS_ATTR] = conventions
 
@@ -2196,17 +2207,22 @@ class ZarrIO(HDMFIO):
     def __read_attrs(self, zarr_obj):
         ret = dict()
         decode_non_finite = non_finite_attributes.is_registered(zarr_obj.attrs)
+        decode_bytes = bytes_attributes.is_registered(zarr_obj.attrs)
         for k in zarr_obj.attrs.keys():
             if k == non_finite_attributes.CONVENTIONS_ATTR:
-                # The registration of the Non-Finite Attributes convention describes how the
-                # attributes are stored and is written again as needed. Other conventions are kept.
-                others = non_finite_attributes.without_registration(zarr_obj.attrs[k])
+                # The registrations of the Non-Finite Attributes and Bytes Attributes conventions describe
+                # how the attributes are stored and are written again as needed. Other conventions are kept.
+                others = bytes_attributes.without_registration(
+                    non_finite_attributes.without_registration(zarr_obj.attrs[k])
+                )
                 if others:
                     ret[k] = others
             elif k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
                 if decode_non_finite:
                     v = non_finite_attributes.decode(v)
+                if decode_bytes:
+                    v = bytes_attributes.decode(v)
                 # New convention: references wrapped with _REFERENCE key
                 if isinstance(v, dict) and "_REFERENCE" in v:
                     ref_data = v["_REFERENCE"]
