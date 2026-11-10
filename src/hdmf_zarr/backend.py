@@ -21,6 +21,7 @@ from zarr.registry import get_codec_class
 from zarr.storage import FsspecStore, LocalStore
 
 # HDMF-ZARR imports
+from . import non_finite_attributes
 from .utils import (
     HDMFZarrArray,
     ZarrDataIO,
@@ -2174,9 +2175,18 @@ class ZarrIO(HDMFIO):
 
     def __read_attrs(self, zarr_obj):
         ret = dict()
+        decode_non_finite = non_finite_attributes.is_registered(zarr_obj.attrs)
         for k in zarr_obj.attrs.keys():
-            if k not in self.__reserve_attribute:
+            if k == non_finite_attributes.CONVENTIONS_ATTR:
+                # The registration of the Non-Finite Attributes convention describes how the
+                # attributes are stored, not the data. Other conventions are kept.
+                others = non_finite_attributes.without_registration(zarr_obj.attrs[k])
+                if others:
+                    ret[k] = others
+            elif k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
+                if decode_non_finite:
+                    v = non_finite_attributes.decode(v)
                 # New convention: references wrapped with _REFERENCE key
                 if isinstance(v, dict) and "_REFERENCE" in v:
                     ref_data = v["_REFERENCE"]
