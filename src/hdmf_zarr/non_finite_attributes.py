@@ -1,7 +1,7 @@
 """Decoding of attributes that are not finite numbers.
 
 JSON has no representation for NaN or the infinities. The Non-Finite Attributes Zarr convention
-(https://github.com/catalystneuro/zarr-non-finite-attributes) stores them as valid JSON, and ZarrIO
+(https://github.com/hdmf-dev/zarr-non-finite-attributes) stores them as valid JSON, and ZarrIO
 reads attributes stored that way:
 
 - A number that is not finite is written as the string ``"NaN"``, ``"Infinity"``, or ``"-Infinity"``,
