@@ -21,6 +21,7 @@ from zarr.registry import get_codec_class
 from zarr.storage import FsspecStore, LocalStore
 
 # HDMF-ZARR imports
+from . import non_finite_attributes
 from .utils import (
     HDMFZarrArray,
     ZarrDataIO,
@@ -44,7 +45,6 @@ from hdmf.query import HDMFDataset
 from hdmf.container import Container
 
 from pathlib import Path
-
 
 # Module variables
 ROOT_NAME = "root"
@@ -890,7 +890,18 @@ class ZarrIO(HDMFIO):
         """Set (i.e., write) the attributes on a given Zarr Group or Array."""
         obj, attributes = getargs("obj", "attributes", kwargs)
 
+        # JSON cannot hold NaN or the infinities. A node that has such an attribute, or that already
+        # registers the Non-Finite Attributes convention, has all of its attributes encoded with it.
+        encode_non_finite = non_finite_attributes.is_registered(obj.attrs) or any(
+            non_finite_attributes.has_non_finite(value) for value in attributes.values()
+        )
+
+        def encoded(value):
+            return non_finite_attributes.encode(value) if encode_non_finite else value
+
         for key, value in attributes.items():
+            if key == non_finite_attributes.CONVENTIONS_ATTR:
+                continue  # merged with the registration below
             # Case 1: list, set, tuple type attributes
             if isinstance(value, (set, list, tuple)) or (isinstance(value, np.ndarray) and np.ndim(value) != 0):
                 # Convert to tuple for writing (e.g., numpy arrays are not JSON serializable)
@@ -900,7 +911,7 @@ class ZarrIO(HDMFIO):
                     tmp = tuple(value)
                 # Attempt write of the attribute
                 try:
-                    obj.attrs[key] = tmp
+                    obj.attrs[key] = encoded(tmp)
                 # Numpy scalars and bytes are not JSON serializable. Try to convert to a serializable type instead
                 except TypeError as e:
                     try:
@@ -915,19 +926,19 @@ class ZarrIO(HDMFIO):
                                 for i in value
                             ]
                         )
-                        obj.attrs[key] = tmp
+                        obj.attrs[key] = encoded(tmp)
                     except:  # noqa: E722
                         raise TypeError(str(e) + " type=" + str(type(value)) + "  data=" + str(value)) from e
             # Case 2: References
             elif isinstance(value, (Builder, ReferenceBuilder)):
                 refs = self._create_ref(value, ref_link_source=self.path)
                 tmp = {"_REFERENCE": dict(refs)}
-                obj.attrs[key] = tmp
+                obj.attrs[key] = encoded(tmp)
             # Case 3: Scalar attributes
             else:
                 # Attempt to write the attribute
                 try:
-                    obj.attrs[key] = value
+                    obj.attrs[key] = encoded(value)
                 # Numpy scalars and bytes are not JSON serializable. Try to convert to a serializable type instead
                 except TypeError as e:
                     try:
@@ -938,10 +949,20 @@ class ZarrIO(HDMFIO):
                             if (isinstance(val, np.generic) and not isinstance(val, np.bytes_))
                             else val.decode("utf-8") if isinstance(val, (bytes, np.bytes_)) else val
                         )
-                        obj.attrs[key] = val
+                        obj.attrs[key] = encoded(val)
                     except:  # noqa: E722
                         msg = str(e) + "key=" + key + " type=" + str(type(value)) + "  data=" + str(value)
                         raise TypeError(msg) from e
+
+        # Register the convention, keeping any other conventions the node or the builder names
+        conventions = attributes.get(non_finite_attributes.CONVENTIONS_ATTR)
+        if conventions is None:
+            conventions = obj.attrs.get(non_finite_attributes.CONVENTIONS_ATTR, [])
+        conventions = non_finite_attributes.without_registration(conventions)
+        if encode_non_finite:
+            conventions.append(dict(non_finite_attributes.NON_FINITE_ATTRIBUTES_CONVENTION))
+        if conventions:
+            obj.attrs[non_finite_attributes.CONVENTIONS_ATTR] = conventions
 
     def __get_path(self, builder):
         """Get the path to the builder.
@@ -2174,9 +2195,18 @@ class ZarrIO(HDMFIO):
 
     def __read_attrs(self, zarr_obj):
         ret = dict()
+        decode_non_finite = non_finite_attributes.is_registered(zarr_obj.attrs)
         for k in zarr_obj.attrs.keys():
-            if k not in self.__reserve_attribute:
+            if k == non_finite_attributes.CONVENTIONS_ATTR:
+                # The registration of the Non-Finite Attributes convention describes how the
+                # attributes are stored and is written again as needed. Other conventions are kept.
+                others = non_finite_attributes.without_registration(zarr_obj.attrs[k])
+                if others:
+                    ret[k] = others
+            elif k not in self.__reserve_attribute:
                 v = zarr_obj.attrs[k]
+                if decode_non_finite:
+                    v = non_finite_attributes.decode(v)
                 # New convention: references wrapped with _REFERENCE key
                 if isinstance(v, dict) and "_REFERENCE" in v:
                     ref_data = v["_REFERENCE"]
