@@ -1,6 +1,9 @@
 import unittest
+import json
+import tempfile
 from unittest.mock import patch
 from hdmf_zarr import NWBZarrIO
+from hdmf.build import BuildManager
 import os
 import shutil
 from datetime import datetime
@@ -9,7 +12,8 @@ import numpy as np
 import zarr
 
 try:
-    from pynwb import NWBFile
+    from pynwb import NWBFile, TimeSeries, get_type_map
+    from pynwb.spec import NWBNamespaceBuilder, NWBGroupSpec
     from pynwb.ophys import PlaneSegmentation
     from pynwb.testing.mock.file import mock_NWBFile
     from pynwb.testing.mock.ophys import mock_ImagingPlane
@@ -78,6 +82,83 @@ class TestNWBZarrIO(unittest.TestCase):
         ):
             NWBZarrIO.read_nwb(path="local.nwb.zarr")
         self.assertIsNone(mock_init.call_args.kwargs["storage_options"])
+
+    def _check_read_without_consolidated_metadata(self, mode):
+        original = np.arange(10.0)
+        appended = original + 100
+        nwbfile = NWBFile("stale consolidated metadata", "test", datetime.now(tzlocal()))
+        nwbfile.add_acquisition(TimeSeries(name="original", data=original, unit="a.u.", rate=1.0))
+        with NWBZarrIO(self.filepath, mode="w") as io:
+            io.write(nwbfile)
+
+        metadata_path = os.path.join(self.filepath, "zarr.json")
+        with open(metadata_path, encoding="utf-8") as f:
+            consolidated = json.load(f)["consolidated_metadata"]
+
+        # Append a type whose namespace is absent from the consolidated snapshot.
+        with tempfile.TemporaryDirectory() as namespace_dir:
+            namespace = "test-unconsolidated"
+            builder = NWBNamespaceBuilder("fresh namespace", namespace, version="0.1.0")
+            builder.include_namespace("core")
+            builder.add_spec(
+                "extension.yaml",
+                NWBGroupSpec(
+                    "appended series", neurodata_type_def="AppendedTimeSeries", neurodata_type_inc="TimeSeries"
+                ),
+            )
+            builder.export("namespace.yaml", outdir=namespace_dir)
+            type_map = get_type_map()
+            type_map.load_namespaces(os.path.join(namespace_dir, "namespace.yaml"))
+            series_class = type_map.get_dt_container_cls("AppendedTimeSeries", namespace)
+            with NWBZarrIO(self.filepath, mode="a", manager=BuildManager(type_map)) as io:
+                nwbfile = io.read()
+                nwbfile.add_acquisition(series_class(name="appended", data=appended, unit="a.u.", rate=1.0))
+                io.write(nwbfile, consolidate_metadata=False)
+
+        # Keep an explicitly stale snapshot even if the writer invalidates its cache.
+        with open(metadata_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+        metadata["consolidated_metadata"] = consolidated
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            json.dump(metadata, f)
+
+        self.assertNotIn(namespace, get_type_map().namespace_catalog.namespaces)
+        # The default read mode intentionally uses the existing consolidated view.
+        with NWBZarrIO(self.filepath, mode="r") as io:
+            nwbfile = io.read()
+            self.assertCountEqual(nwbfile.acquisition, ["original"])
+            np.testing.assert_array_equal(nwbfile.acquisition["original"].data[:], original)
+
+        with NWBZarrIO(self.filepath, mode=mode) as io:
+            nwbfile = io.read()
+            self.assertCountEqual(nwbfile.acquisition, ["original", "appended"])
+            self.assertEqual(nwbfile.acquisition["appended"].namespace, namespace)
+            np.testing.assert_array_equal(nwbfile.acquisition["original"].data[:], original)
+            np.testing.assert_array_equal(nwbfile.acquisition["appended"].data[:], appended)
+        self.assertNotIn(namespace, get_type_map().namespace_catalog.namespaces)
+
+    def test_read_without_consolidated_metadata(self):
+        self._check_read_without_consolidated_metadata("r-")
+
+    def test_read_write_without_consolidated_metadata(self):
+        self._check_read_without_consolidated_metadata("r+")
+
+    def test_append_without_consolidated_metadata(self):
+        self._check_read_without_consolidated_metadata("a")
+
+    def test_default_namespace_hook_keeps_one_argument(self):
+        calls = []
+
+        class LegacyNamespaceHookIO(NWBZarrIO):
+            @classmethod
+            def _open_for_namespaces(cls, store):
+                calls.append(store)
+                return super()._open_for_namespaces(store)
+
+        self.write_test_file()
+        with LegacyNamespaceHookIO(self.filepath, mode="r") as io:
+            self.assertEqual(len(io.read().devices), 1)
+        self.assertEqual(len(calls), 1)
 
 
 @unittest.skipIf(not PYNWB_AVAILABLE, "PyNWB not installed")

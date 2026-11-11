@@ -381,13 +381,24 @@ class ZarrIO(HDMFIO):
             "default": None,
         },
         {"name": "namespaces", "type": list, "doc": "the namespaces to load", "default": None},
+        {
+            "name": "use_consolidated",
+            "type": bool,
+            "doc": (
+                "whether to prefer consolidated metadata when opening path; False forces an unconsolidated read. "
+                "Ignored when file is provided"
+            ),
+            "default": True,
+        },
         returns=(
             "dict mapping the names of the loaded namespaces to a dict mapping included namespace names and "
             "the included data types"
         ),
         rtype=dict,
     )
-    def load_namespaces(cls, namespace_catalog, path, file, storage_options, namespaces=None) -> dict:
+    def load_namespaces(
+        cls, namespace_catalog, path, file, storage_options, namespaces=None, use_consolidated=True
+    ) -> dict:
         """
         Load cached namespaces from a file.
         """
@@ -397,7 +408,10 @@ class ZarrIO(HDMFIO):
         if path is not None:
             store = cls._resolve_store(path, storage_options)
             try:
-                f = cls._open_for_namespaces(store)
+                open_namespaces = (
+                    cls._open_for_namespaces if use_consolidated else cls._open_for_namespaces_unconsolidated
+                )
+                f = open_namespaces(store)
                 return cls._load_namespaces(namespace_catalog, namespaces, f)
             except Exception as e:
                 # Opening a Zarr v2 file with the Zarr v3 backend, or reading its cached
@@ -415,6 +429,11 @@ class ZarrIO(HDMFIO):
         Subclasses may override to add backend-specific fallbacks.
         """
         return zarr.open(store, mode="r")
+
+    @classmethod
+    def _open_for_namespaces_unconsolidated(cls, store):
+        """Hook: open *store* for namespace loading without consolidated metadata."""
+        return zarr.open(store, mode="r", use_consolidated=False)
 
     @docval(
         {
@@ -773,7 +792,7 @@ class ZarrIO(HDMFIO):
     def _open_file(self, store, mode, storage_options=None):
         """Open a zarr file without consolidated metadata."""
         store = self._resolve_store(store, storage_options)
-        return zarr.open(store=store, mode=mode)
+        return zarr.open(store=store, mode=mode, use_consolidated=False)
 
     def _open_file_consolidated(self, store, mode, storage_options=None):
         """
