@@ -328,14 +328,17 @@ class ZarrV2IO(ZarrIO):
     @docval(*get_docval(ZarrIO.load_namespaces))
     def load_namespaces(cls, **kwargs):
         """Load cached namespaces, refusing any cached spec that declares the pickle codec."""
-        namespace_catalog, path, file, storage_options, namespaces = popargs(
-            "namespace_catalog", "path", "file", "storage_options", "namespaces", kwargs
+        namespace_catalog, path, file, storage_options, namespaces, use_consolidated = popargs(
+            "namespace_catalog", "path", "file", "storage_options", "namespaces", "use_consolidated", kwargs
         )
         if path is not None and file is not None:
             raise ValueError("Only one of 'path' and 'file' must be provided.")
         if path is not None:
             store = cls._resolve_store(path, storage_options)
-            f = cls._open_for_namespaces(store)
+            open_namespaces = (
+                cls._open_for_namespaces if use_consolidated else cls._open_for_namespaces_unconsolidated
+            )
+            f = open_namespaces(store)
         else:
             f = file
         return cls._load_namespaces(namespace_catalog, namespaces, f)
@@ -353,16 +356,6 @@ class ZarrV2IO(ZarrIO):
                 return True
             except Exception:
                 return False
-
-    def _open_file(self, store, mode, storage_options=None):
-        store = self._resolve_store(store, storage_options)
-        try:
-            return zarr.open(store=store, mode=mode)
-        except Exception:
-            # zarr v3 fails to parse some v2 constructs (e.g. an object-dtype array
-            # with an int fill_value in the consolidated block). The failing type is
-            # not a stable API, so retry the more permissive non-consolidated open.
-            return zarr.open(store=store, mode=mode, use_consolidated=False)
 
     def _open_file_consolidated(self, store, mode, storage_options=None):
         if mode == "r-":
