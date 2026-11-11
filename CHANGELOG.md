@@ -3,7 +3,7 @@
 ## Upcoming
 
 ### Fixed
-- Fixed `r-`, `r+`, and `a` using stale consolidated metadata instead of current store contents and cached namespaces, including legacy `ZarrV2IO` reads in `r-` mode. Namespace loaders now accept `use_consolidated=False` to force the same fresh view. @dhairyajangir
+- Fixed `r-`, `r+`, and `a` using stale consolidated metadata instead of current store contents and cached namespaces, including legacy `ZarrV2IO` reads in `r-` mode. Namespace loaders now accept `use_consolidated=False` to force the same fresh view. @dhairyajangir [#426](https://github.com/hdmf-dev/hdmf-zarr/pull/426)
 - Fixed `ZarrV2IO` not reading pickled datasets with `allow_pickle=True` on numcodecs 0.15.2, 0.16.6 and 0.17.1. @h-mayorquin [#414](https://github.com/hdmf-dev/hdmf-zarr/pull/414)
 
 ## 0.14.0 (September 22, 2026)
