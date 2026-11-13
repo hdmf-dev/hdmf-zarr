@@ -148,6 +148,28 @@ def _unwrap_ref(val):
     return val
 
 
+def _resolve_remote_source(root, source):
+    """Resolve the relative *source* of a link against the remote store URL *root*.
+
+    *source* comes from the file being read, and the target is opened with the reader's
+    ``storage_options``, so only relative sources that stay within the scheme and first
+    path segment of *root* (the bucket/container, or the host for HTTP) are allowed.
+    A query string on *root* (e.g., a signed URL) is re-attached to the target.
+    """
+    root, sep, query = root.partition("?")
+    root = root.rstrip("/")
+    if source in ("", "."):
+        return root + sep + query
+    if "://" in source or source.startswith("/"):
+        raise ValueError(f"A link to another store must be a relative path: {source!r}")
+    scheme, _, rest = root.partition("://")
+    target = posixpath.normpath(posixpath.join(rest, source))
+    top = rest.split("/")[0]
+    if target.startswith("..") or target.split("/")[0] != top:
+        raise ValueError(f"A link may not leave {top!r}: {source!r}")
+    return f"{scheme}://{target}" + sep + query
+
+
 class ZarrIO(HDMFIO):
     #: Whether this backend reads Zarr v2 files. False for the Zarr v3 ``ZarrIO``;
     #: ``ZarrV2IO`` sets it to True so the v2 read-error hint is not raised against itself.
@@ -1032,10 +1054,7 @@ class ZarrIO(HDMFIO):
             else:
                 source_file = self._resolve_ref_source(source_file)
         else:
-            # get rid of extra "/" and "./" in the path root and source_file
-            root_path = str(self.path).rstrip("/")
-            source_path = str(source_file).lstrip(".")
-            source_file = root_path + source_path
+            source_file = _resolve_remote_source(str(self.path), source_file)
 
         target_zarr_obj = self._open_file_consolidated(
             store=source_file,

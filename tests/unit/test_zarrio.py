@@ -23,7 +23,7 @@ from tests.unit.helpers.utils import Baz, BazData, BazBucket, get_baz_buildmanag
 
 import zarr
 import numpy as np
-from hdmf_zarr.backend import ZarrIO, ROOT_NAME
+from hdmf_zarr.backend import ZarrIO, ROOT_NAME, _resolve_remote_source
 from hdmf_zarr.utils import HDMFZarrArray, get_store_path
 from .helpers.utils import BuildDatasetShapeMixin, BarData, BarDataHolder
 from hdmf.spec import DatasetSpec
@@ -251,6 +251,40 @@ class TestResolveRef(ZarrStoreTestCase):
             read_io.open()
             with self.assertRaisesRegex(ValueError, "Found bad link to object /does_not_exist"):
                 read_io.resolve_ref({"source": ".", "path": "/does_not_exist"})
+
+
+class TestResolveRemoteSource(TestCase):
+    """Tests for ``_resolve_remote_source``, which resolves link sources on remote stores (#411)."""
+
+    def test_sibling_store(self):
+        self.assertEqual(
+            _resolve_remote_source("http://127.0.0.1:8767/b.nwb.zarr/", "../a.nwb.zarr"),
+            "http://127.0.0.1:8767/a.nwb.zarr",
+        )
+        self.assertEqual(
+            _resolve_remote_source("s3://bucket/dir/b.nwb.zarr", "../a.nwb.zarr"), "s3://bucket/dir/a.nwb.zarr"
+        )
+
+    def test_same_store(self):
+        self.assertEqual(_resolve_remote_source("s3://bucket/b.zarr/", "."), "s3://bucket/b.zarr")
+        self.assertEqual(_resolve_remote_source("s3://bucket/b.zarr", "./sub"), "s3://bucket/b.zarr/sub")
+
+    def test_query_string_reattached(self):
+        self.assertEqual(
+            _resolve_remote_source("https://host/b.zarr?sig=abc", "../a.zarr"), "https://host/a.zarr?sig=abc"
+        )
+
+    def test_rejects_absolute_source(self):
+        for source in ("s3://other-bucket/a.zarr", "https://evil.example/a.zarr", "/etc/passwd"):
+            with self.assertRaisesRegex(ValueError, "must be a relative path"):
+                _resolve_remote_source("s3://bucket/b.zarr", source)
+
+    def test_rejects_leaving_bucket_or_host(self):
+        for source in ("../../other-bucket/a.zarr", "../../../a.zarr"):
+            with self.assertRaisesRegex(ValueError, "may not leave 'bucket'"):
+                _resolve_remote_source("s3://bucket/b.zarr", source)
+        with self.assertRaisesRegex(ValueError, "may not leave 'host'"):
+            _resolve_remote_source("https://host/b.zarr", "../../evil.example/a.zarr")
 
 
 class TestOverwriteExistingFile(ZarrStoreTestCase):
