@@ -9,6 +9,7 @@ supported — files written by this codebase are always zarr v3.
 
 import json
 import os
+import pickle
 import warnings
 
 import numpy as np
@@ -76,10 +77,25 @@ def _enforce_opened_array_pickle_policy(array, allow_pickle):
         _raise_unsafe_pickle(array.name)
 
 
+class _TrustedPickle:
+    """Decode the pickle codec of a file the caller trusted with ``allow_pickle=True``.
+
+    numcodecs 0.15.2, 0.16.6 and 0.17.1 refuse to unpickle unless a process-wide flag is set,
+    so the pickle codec of a trusted file is decoded here instead of through numcodecs.
+    """
+
+    def decode(self, buf):
+        from numcodecs.compat import ensure_contiguous_ndarray
+
+        return pickle.loads(ensure_contiguous_ndarray(buf))
+
+
 def _v2_codec(codec_config, allow_pickle, dataset_key=None):
     """Build a declared v2 codec after enforcing the pickle trust policy, naming *dataset_key* in the error."""
-    if _is_pickle_codec(codec_config) and not allow_pickle:
-        _raise_unsafe_pickle(dataset_key)
+    if _is_pickle_codec(codec_config):
+        if not allow_pickle:
+            _raise_unsafe_pickle(dataset_key)
+        return _TrustedPickle()
     import numcodecs
 
     return numcodecs.get_codec(codec_config)
