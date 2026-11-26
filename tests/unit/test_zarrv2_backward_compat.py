@@ -46,6 +46,26 @@ _V2_EXPECTATIONS = os.path.join(_HELPERS, "nwb_zarrv2_expected.json")
 _HAS_V2_FILE = os.path.exists(_V2_FILE) and os.path.exists(_V2_EXPECTATIONS)
 
 
+class TestV2ConsolidatedMetadata(unittest.TestCase):
+    def test_read_without_consolidated_metadata(self):
+        import zarr
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "stale.zarr")
+            root = zarr.open_group(path, mode="w", zarr_format=2)
+            root.create_array("original", data=np.arange(3.0))
+            zarr.consolidate_metadata(root.store)
+            root = zarr.open_group(path, mode="a", use_consolidated=False)
+            root.create_array("appended", data=np.arange(3.0) + 100)
+
+            with ZarrV2IO(path, mode="r") as io:
+                self.assertCountEqual(io._file.array_keys(), ["original"])
+
+            with ZarrV2IO(path, mode="r-") as io:
+                self.assertCountEqual(io._file.array_keys(), ["original", "appended"])
+                np.testing.assert_array_equal(io._file["appended"][:], np.arange(3.0) + 100)
+
+
 class TestZarrV2FileDetection(unittest.TestCase):
     """Tests for local and protocol URL detection of v2 Zarr stores."""
 
@@ -294,6 +314,13 @@ class TestV2BackwardCompat(unittest.TestCase):
         with NWBZarrV2IO(_V2_FILE, mode="r") as io:
             with self.assertRaisesRegex(UnsafePickleCodecError, "electrodes/group.*allow_pickle=True"):
                 io.read()
+
+    def test_read_without_consolidated_metadata(self):
+        with NWBZarrV2IO(_V2_FILE, mode="r-", allow_pickle=True) as io:
+            nwbfile = io.read()
+            self.assertEqual(nwbfile.identifier, self.expected["identifier"])
+            series = nwbfile.acquisition[self.expected["ephys_name"]]
+            np.testing.assert_array_equal(series.data[:], self.expected["ephys_data"])
 
     # ---- scalar / string metadata ----
 

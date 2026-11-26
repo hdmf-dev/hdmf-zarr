@@ -28,7 +28,8 @@ def _build_nwb_manager(io_cls, path, mode, manager, load_namespaces, storage_opt
 
     if load_namespaces:
         tm = get_type_map()
-        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options)
+        namespace_options = {"use_consolidated": False} if mode in ("r-", "r+", "a") else {}
+        io_cls.load_namespaces(namespace_catalog=tm, path=path, storage_options=storage_options, **namespace_options)
         return BuildManager(tm)
 
     if manager is None:
