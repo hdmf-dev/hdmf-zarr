@@ -5,6 +5,7 @@ The actual tests are then instantiated with various different backends in the
 test_zarrio.py module."""
 
 from abc import ABCMeta, abstractmethod
+import json
 import os
 import numpy as np
 import shutil
@@ -719,7 +720,17 @@ class BaseTestZarrWriteUnit(BaseZarrWriterTestCase):
         tempIO = ZarrIO(self.store_path, mode="w")
         tempIO.open()
         tempIO.write_attributes(tempIO._file, values)
+        metadata = tempIO._file.store_path / "zarr.json"
         tempIO.close()
+
+        # The metadata is valid JSON, which has no NaN, Infinity, or -Infinity tokens
+        def refuse_constant(name):
+            raise ValueError(f"{name} is not valid JSON")
+
+        raw = zarr.core.sync.sync(metadata.get()).to_bytes().decode()
+        stored = json.loads(raw, parse_constant=refuse_constant)["attributes"]
+        self.assertEqual(stored["float_nan"], "NaN")
+        self.assertEqual(stored["text_nan"], "_str_NaN")
 
         tempIO = ZarrIO(self.store_path, mode="r")
         tempIO.open()
